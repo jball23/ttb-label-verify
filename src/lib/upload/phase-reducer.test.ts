@@ -12,7 +12,7 @@ function okResult(filename: string, index = 0): ResultLine {
     index,
     filename,
     durationMs: 100,
-    report: { overallStatus: 'compliant', fields: {} },
+    report: { overallStatus: 'compliant', crossCheck: { overallStatus: 'match', fields: {} }, fields: {} },
   };
 }
 

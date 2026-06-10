@@ -207,7 +207,7 @@ describe('POST /api/verify', () => {
     if (lines[0]?.status === 'ok') {
       expect(lines[0].report.overallStatus).toBe('compliant');
       expect(lines[0].report.crossCheck.overallStatus).toBe('match');
-      expect(lines[0].report.crossCheck.fields.brandName.status).toBe('match');
+      expect(lines[0].report.crossCheck.fields.brandName?.status).toBe('match');
     }
   });
 

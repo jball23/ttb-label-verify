@@ -13,7 +13,7 @@ describe('formatJSON', () => {
       index: 0,
       filename: 'a.jpg',
       durationMs: 1234,
-      report: { overallStatus: 'compliant', fields: {} },
+      report: { overallStatus: 'compliant', crossCheck: { overallStatus: 'match', fields: {} }, fields: {} },
     };
     const parsed = JSON.parse(formatJSON([result]));
     expect(parsed.results).toHaveLength(1);

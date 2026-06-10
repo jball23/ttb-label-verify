@@ -12,6 +12,8 @@ export interface RequestSpanMetadata {
   labelCount: number;
   promptVersion: string;
   model?: string;
+  applicationScenarioId?: string;
+  applicationProductType?: string;
 }
 
 export interface LabelSpanMetadata {

@@ -14,6 +14,12 @@ import {
 } from 'lucide-react';
 import { type ResultLine } from '@/lib/results/result-types';
 import { type FieldStatus } from '@/lib/validation/types';
+import {
+  type CrossCheckFieldId,
+  type CrossCheckFieldResult,
+  type CrossCheckStatus,
+  CROSS_CHECK_FIELDS,
+} from '@/lib/cross-check/types';
 import { RULES } from '@/lib/validation/engine';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -58,6 +64,11 @@ export default function ResultCard({ file, result, defaultOpen = false }: Props)
     }));
   }, [result]);
 
+  const crossCheckSummary = useMemo(() => {
+    if (!result || result.status !== 'ok') return null;
+    return result.report.crossCheck;
+  }, [result]);
+
   return (
     <>
       <div
@@ -78,7 +89,7 @@ export default function ResultCard({ file, result, defaultOpen = false }: Props)
               'cursor-pointer hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
           )}
         >
-          {/* Thumbnail — clickable separately to open inspector */}
+          {/* Thumbnail */}
           <div
             onClick={(e) => {
               if (!thumbUrl) return;
@@ -145,13 +156,18 @@ export default function ResultCard({ file, result, defaultOpen = false }: Props)
                   {(result.durationMs / 1000).toFixed(1)}s
                 </span>
               )}
-              {/* Six-dot field summary — at-a-glance scan */}
-              {fieldStatuses && (
+              {/* Cross-check + rule summary dots */}
+              {fieldStatuses && crossCheckSummary && (
                 <div
                   className="flex items-center gap-1"
                   role="img"
                   aria-label="Field check summary"
                 >
+                  <CrossCheckOverallDot
+                    status={crossCheckSummary.overallStatus}
+                    title="Cross-check (application vs. label)"
+                  />
+                  <span className="h-2 w-px bg-border" aria-hidden="true" />
                   {fieldStatuses.map((f) => (
                     <SummaryDot
                       key={f.id}
@@ -238,10 +254,28 @@ function SummaryDot({ status, title }: { status: FieldStatus | null; title: stri
   return <span className={cn('size-1.5 rounded-full', colorClass)} title={title} />;
 }
 
+function CrossCheckOverallDot({
+  status,
+  title,
+}: {
+  status: 'match' | 'mismatch';
+  title: string;
+}) {
+  const color =
+    status === 'match' ? 'bg-[var(--success)]' : 'bg-[var(--destructive)]';
+  return (
+    <span
+      className={cn('size-2 rounded-full ring-1 ring-border', color)}
+      title={title}
+      aria-label={title}
+    />
+  );
+}
+
 function PendingBody() {
   return (
     <div className="space-y-2.5">
-      {Array.from({ length: 6 }).map((_, i) => (
+      {Array.from({ length: 10 }).map((_, i) => (
         <div key={i} className="flex items-center gap-3">
           <Skeleton className="size-5 rounded-full" />
           <div className="flex-1 space-y-1.5">
@@ -264,27 +298,34 @@ function OkBody({ result }: { result: Extract<ResultLine, { status: 'ok' }> }) {
     (warningField && warningField.status !== 'pass') || otherFails.length > 0;
 
   return (
-    <div className="space-y-4">
-      {/* Two-column field layout on larger screens for density */}
-      <ul className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
-        {RULES.map((rule) => {
-          const field = result.report.fields[rule.id];
-          if (!field) return null;
-          return (
-            <li key={rule.id} className="flex items-start gap-3">
-              <StatusIcon status={field.status} />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium leading-tight text-foreground">
-                  {rule.label}
-                </p>
-                <p className="mt-0.5 truncate text-xs leading-tight text-muted-foreground">
-                  {field.extractedValue ?? <span className="italic">Not detected</span>}
-                </p>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+    <div className="space-y-5">
+      <CrossCheckSection crossCheck={result.report.crossCheck} />
+
+      <div>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          TTB label rules
+        </h3>
+        {/* Two-column field layout on larger screens for density */}
+        <ul className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
+          {RULES.map((rule) => {
+            const field = result.report.fields[rule.id];
+            if (!field) return null;
+            return (
+              <li key={rule.id} className="flex items-start gap-3">
+                <StatusIcon status={field.status} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-medium leading-tight text-foreground">
+                    {rule.label}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs leading-tight text-muted-foreground">
+                    {field.extractedValue ?? <span className="italic">Not detected</span>}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
 
       {hasDisclosures && (
         <div className="space-y-2 pt-1">
@@ -344,6 +385,105 @@ function OkBody({ result }: { result: Extract<ResultLine, { status: 'ok' }> }) {
   );
 }
 
+function CrossCheckSection({
+  crossCheck,
+}: {
+  crossCheck: Extract<ResultLine, { status: 'ok' }>['report']['crossCheck'];
+}) {
+  const visibleFields: CrossCheckFieldResult[] = CROSS_CHECK_FIELDS.map(
+    (id) => crossCheck.fields[id],
+  ).filter((f): f is CrossCheckFieldResult => !!f && f.status !== 'not_applicable');
+
+  if (visibleFields.length === 0) {
+    return null;
+  }
+
+  return (
+    <div>
+      <h3 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <CrossCheckOverallDot
+          status={crossCheck.overallStatus}
+          title={`Cross-check overall: ${crossCheck.overallStatus}`}
+        />
+        Application vs. label
+      </h3>
+      <ul className="space-y-2.5">
+        {visibleFields.map((field) => (
+          <CrossCheckRow key={field.id} field={field} />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function CrossCheckRow({ field }: { field: CrossCheckFieldResult }) {
+  return (
+    <li className="flex items-start gap-3">
+      <CrossCheckStatusIcon status={field.status} />
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-medium leading-tight text-foreground">
+          {field.label}
+        </p>
+        <div className="mt-1 grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
+          <p className="text-xs leading-tight text-muted-foreground">
+            <span className="font-medium text-foreground/70">Application:</span>{' '}
+            {field.applicationValue ?? <span className="italic">—</span>}
+          </p>
+          <p className="text-xs leading-tight text-muted-foreground">
+            <span className="font-medium text-foreground/70">Label:</span>{' '}
+            {field.labelValue ?? <span className="italic">Not on label</span>}
+          </p>
+        </div>
+        {field.reason && field.status !== 'match' && (
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+            {field.reason}
+          </p>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function CrossCheckStatusIcon({ status }: { status: CrossCheckStatus }) {
+  const base =
+    'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border';
+  if (status === 'match') {
+    return (
+      <span
+        className={cn(
+          base,
+          'border-[color-mix(in_srgb,var(--success)_30%,transparent)] bg-[color-mix(in_srgb,var(--success)_15%,transparent)] text-[var(--success)]',
+        )}
+        aria-label="Match"
+      >
+        <Check className="size-3" strokeWidth={3} />
+      </span>
+    );
+  }
+  if (status === 'mismatch' || status === 'not_on_label') {
+    return (
+      <span
+        className={cn(
+          base,
+          'border-[color-mix(in_srgb,var(--destructive)_30%,transparent)] bg-[color-mix(in_srgb,var(--destructive)_15%,transparent)] text-[var(--destructive)]',
+        )}
+        aria-label={status === 'mismatch' ? 'Mismatch' : 'Missing on label'}
+      >
+        <X className="size-3" strokeWidth={3} />
+      </span>
+    );
+  }
+  // not_applicable — should be filtered out, but render a neutral dot just in case
+  return (
+    <span
+      className={cn(base, 'border-border bg-muted text-muted-foreground')}
+      aria-label="Not applicable"
+    >
+      <HelpCircle className="size-3" strokeWidth={2.5} />
+    </span>
+  );
+}
+
 function StatusIcon({ status }: { status: string }) {
   const base =
     'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border';
@@ -385,3 +525,7 @@ function StatusIcon({ status }: { status: string }) {
     </span>
   );
 }
+
+// CrossCheckFieldId is referenced via the imported CROSS_CHECK_FIELDS array
+// already; this re-export keeps the type discoverable by IDE consumers.
+export type { CrossCheckFieldId };

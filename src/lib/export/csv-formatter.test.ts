@@ -22,6 +22,7 @@ describe('formatCSV', () => {
       durationMs: 1000,
       report: {
         overallStatus: 'compliant',
+        crossCheck: { overallStatus: 'match', fields: {} },
         fields: {
           brand: { status: 'pass', extractedValue: 'Wild Acre' },
           abv: { status: 'pass', extractedValue: '40% ALC/VOL' },
@@ -44,6 +45,7 @@ describe('formatCSV', () => {
       durationMs: 1,
       report: {
         overallStatus: 'compliant',
+        crossCheck: { overallStatus: 'match', fields: {} },
         fields: {
           producerOrigin: {
             status: 'pass',
@@ -63,6 +65,7 @@ describe('formatCSV', () => {
       durationMs: 1,
       report: {
         overallStatus: 'compliant',
+        crossCheck: { overallStatus: 'match', fields: {} },
         fields: {
           brand: { status: 'pass', extractedValue: 'Smith "Smithy" Co' },
         },
@@ -79,6 +82,7 @@ describe('formatCSV', () => {
       durationMs: 1,
       report: {
         overallStatus: 'needs_review',
+        crossCheck: { overallStatus: 'match', fields: {} },
         fields: {
           governmentWarning: {
             status: 'fail',
