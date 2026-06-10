@@ -2,8 +2,7 @@
 
 import { useState, useRef, useEffect, type MouseEvent } from 'react';
 import { Dialog } from '@/components/ui/dialog';
-import { ZoomIn, ZoomOut, RotateCw, MousePointer2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { MousePointer2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -73,48 +72,12 @@ export function ImageInspector({ open, onOpenChange, imageUrl, alt }: Props) {
     >
       <div className="flex max-h-[92svh] flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-3">
-          <div className="flex flex-col gap-0.5 min-w-0">
-            <h2 className="truncate text-sm font-semibold">{alt}</h2>
-            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <MousePointer2 className="size-3" />
-              Hover to zoom into the cursor · scroll wheel adjusts zoom
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="icon"
-              type="button"
-              onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 0.5))}
-              aria-label="Zoom out"
-              disabled={zoom <= MIN_ZOOM}
-            >
-              <ZoomOut className="size-3.5" />
-            </Button>
-            <span className="min-w-12 text-center text-xs font-medium tabular-nums">
-              {zoom.toFixed(1)}×
-            </span>
-            <Button
-              variant="outline"
-              size="icon"
-              type="button"
-              onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 0.5))}
-              aria-label="Zoom in"
-              disabled={zoom >= MAX_ZOOM}
-            >
-              <ZoomIn className="size-3.5" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              type="button"
-              onClick={() => setZoom(DEFAULT_ZOOM)}
-              aria-label="Reset zoom"
-            >
-              <RotateCw className="size-3.5" />
-            </Button>
-          </div>
+        <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-3 pr-14">
+          <h2 className="truncate text-sm font-semibold">{alt}</h2>
+          <p className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+            <MousePointer2 className="size-3" />
+            Hover to zoom · scroll to adjust
+          </p>
         </div>
 
         {/* Image viewport */}
@@ -145,6 +108,11 @@ export function ImageInspector({ open, onOpenChange, imageUrl, alt }: Props) {
           {!hovering && imageUrl && (
             <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-border bg-background/90 px-3 py-1 text-[11px] text-muted-foreground shadow-sm backdrop-blur-sm">
               Hover over the image to zoom
+            </div>
+          )}
+          {hovering && imageUrl && (
+            <div className="pointer-events-none absolute right-4 top-4 rounded-md border border-border bg-background/90 px-2 py-1 text-[11px] font-medium tabular-nums text-foreground shadow-sm backdrop-blur-sm">
+              {zoom.toFixed(1)}×
             </div>
           )}
         </div>
