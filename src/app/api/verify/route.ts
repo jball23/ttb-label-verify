@@ -1,28 +1,19 @@
 import { type NextRequest } from 'next/server';
 import crypto from 'node:crypto';
-import pLimit from 'p-limit';
 import { getExtractor } from '@/lib/extraction/factory';
 import { runVerification } from '@/lib/validation/engine';
 import { encodeNDJSON } from '@/lib/streaming/ndjson';
-import {
-  validateBatch,
-  MAX_BATCH_SIZE,
-  isAcceptedMimeType,
-} from '@/lib/upload/file-validation';
 import { withRequestSpan, withLabelSpan } from '@/lib/observability/spans';
 import { PROMPT_VERSION } from '@/lib/extraction/prompt';
 import { type ResultLine } from '@/lib/results/result-types';
 import { scrubError } from '@/lib/safety/scrub-error';
-import {
-  parseApplication,
-  InvalidApplicationError,
-} from '@/lib/application/loader';
-import { type Application } from '@/lib/application/types';
+import { synthesizeExpectations } from '@/lib/application/loader';
+import { renderPageOne, PdfRenderError } from '@/lib/pdf/render';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const CONCURRENCY = 8;
+const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB headroom for a multi-page COLA PDF
 
 export async function POST(req: NextRequest): Promise<Response> {
   let formData: FormData;
@@ -32,52 +23,29 @@ export async function POST(req: NextRequest): Promise<Response> {
     return errorResponse(400, `Malformed multipart body: ${(e as Error).message}`);
   }
 
-  // Application JSON is required. Read + validate before doing any file work
-  // so a bad application fails fast without consuming an extractor token.
-  const applicationField = formData.get('application');
-  if (applicationField == null) {
+  const pdfField = formData.get('pdf');
+  if (pdfField == null) {
     return errorResponse(
       400,
-      'Missing "application" field. POST a multipart form with the filled COLA application JSON in an "application" field alongside the label image.',
+      'Missing "pdf" field. POST a multipart form with the filled COLA application PDF in a "pdf" field.',
     );
   }
-  if (typeof applicationField !== 'string') {
-    return errorResponse(400, 'The "application" field must be a JSON string, not a file.');
+  if (!(pdfField instanceof File)) {
+    return errorResponse(400, 'The "pdf" field must be a file upload, not a string.');
   }
-  let application: Application;
-  try {
-    application = parseApplication(JSON.parse(applicationField));
-  } catch (e) {
-    if (e instanceof InvalidApplicationError) {
-      return errorResponse(400, e.message);
-    }
-    if (e instanceof SyntaxError) {
-      return errorResponse(400, `Could not parse application JSON: ${e.message}`);
-    }
-    return errorResponse(400, `Application validation failed: ${(e as Error).message}`);
-  }
-
-  const rawFiles: File[] = [];
-  for (const value of formData.values()) {
-    if (value instanceof File) rawFiles.push(value);
-  }
-
-  // The cross-check pipeline is single-label-per-application by design (the
-  // demo dataset is 1:1, and a single application typically belongs to one
-  // primary brand label). Reject multi-label submissions explicitly so the
-  // demo's contract is unambiguous.
-  if (rawFiles.length > 1) {
+  if (pdfField.type && pdfField.type !== 'application/pdf') {
     return errorResponse(
       400,
-      'Single-label submissions only when an application is attached. Submit one label image per application.',
+      `Expected application/pdf, got "${pdfField.type}". The verifier accepts a single filled COLA application PDF.`,
     );
   }
-
-  const validation = validateBatch(rawFiles);
-  if (!validation.ok) {
+  if (pdfField.size === 0) {
+    return errorResponse(400, 'PDF file is empty.');
+  }
+  if (pdfField.size > MAX_PDF_BYTES) {
     return errorResponse(
-      rawFiles.length > MAX_BATCH_SIZE ? 413 : 400,
-      validation.reason ?? 'Invalid batch.',
+      413,
+      `PDF exceeds ${MAX_PDF_BYTES / 1024 / 1024} MB limit.`,
     );
   }
 
@@ -88,7 +56,6 @@ export async function POST(req: NextRequest): Promise<Response> {
     return errorResponse(500, (e as Error).message);
   }
 
-  const limit = pLimit(CONCURRENCY);
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -97,71 +64,58 @@ export async function POST(req: NextRequest): Promise<Response> {
         controller.enqueue(encoder.encode(encodeNDJSON(line)));
       };
 
-      const baseIndex = validation.files.length;
-      validation.rejected.forEach((r, i) => {
-        enqueue({
-          status: 'error',
-          index: baseIndex + i,
-          filename: r.file.name,
-          durationMs: 0,
-          errorMessage: r.reason,
-        });
-      });
-
       const wrappedWork = withRequestSpan(
         'verify-request',
         {
-          labelCount: validation.files.length,
+          labelCount: 1,
           promptVersion: PROMPT_VERSION,
-          applicationScenarioId: application.scenarioId,
-          applicationProductType: application.form.productType,
         },
         async () => {
-          await Promise.all(
-            validation.files.map((file, index) =>
-              limit(async () => {
-                const start = Date.now();
-                try {
-                  const arrayBuffer = await file.arrayBuffer();
-                  const buffer = Buffer.from(arrayBuffer);
-                  const mimeType = isAcceptedMimeType(file.type)
-                    ? file.type
-                    : 'image/jpeg';
-                  const imageSha = crypto
-                    .createHash('sha256')
-                    .update(buffer)
-                    .digest('hex')
-                    .slice(0, 16);
+          const start = Date.now();
+          try {
+            const arrayBuffer = await pdfField.arrayBuffer();
+            const pdfBuffer = Buffer.from(arrayBuffer);
+            const pdfSha = crypto
+              .createHash('sha256')
+              .update(pdfBuffer)
+              .digest('hex')
+              .slice(0, 16);
 
-                  const extracted = await withLabelSpan(
-                    {
-                      filename: file.name,
-                      mimeType,
-                      byteSize: buffer.byteLength,
-                      imageSha256: imageSha,
-                    },
-                    () => extractor.extract(buffer, mimeType),
-                  );
-                  const report = runVerification(application, extracted);
-                  enqueue({
-                    status: 'ok',
-                    index,
-                    filename: file.name,
-                    durationMs: Date.now() - start,
-                    report,
-                  });
-                } catch (e) {
-                  enqueue({
-                    status: 'error',
-                    index,
-                    filename: file.name,
-                    durationMs: Date.now() - start,
-                    errorMessage: scrubError(humanizeExtractionError(e as Error)),
-                  });
-                }
-              }),
-            ),
-          );
+            const pngBuffer = await renderPageOne(pdfBuffer);
+
+            const extracted = await withLabelSpan(
+              {
+                filename: pdfField.name,
+                mimeType: 'image/png',
+                byteSize: pngBuffer.byteLength,
+                imageSha256: pdfSha,
+              },
+              () => extractor.extract(pngBuffer),
+            );
+
+            const application = synthesizeExpectations(extracted.application);
+            const report = runVerification(
+              application,
+              extracted.label,
+              extracted.provenance,
+            );
+
+            enqueue({
+              status: 'ok',
+              index: 0,
+              filename: pdfField.name,
+              durationMs: Date.now() - start,
+              report,
+            });
+          } catch (e) {
+            enqueue({
+              status: 'error',
+              index: 0,
+              filename: pdfField.name,
+              durationMs: Date.now() - start,
+              errorMessage: scrubError(humanizeError(e as Error)),
+            });
+          }
         },
       );
 
@@ -170,9 +124,9 @@ export async function POST(req: NextRequest): Promise<Response> {
           enqueue({
             status: 'error',
             index: -1,
-            filename: '__batch__',
+            filename: '__request__',
             durationMs: 0,
-            errorMessage: `Batch failed: ${(e as Error).message}`,
+            errorMessage: `Verify failed: ${(e as Error).message}`,
           });
         })
         .finally(() => {
@@ -198,12 +152,11 @@ function errorResponse(status: number, message: string): Response {
   });
 }
 
-/**
- * Map provider SDK errors to user-friendly messages so the UI doesn't read like
- * a stack trace. Falls through to the raw message (which is then scrub'd).
- */
-function humanizeExtractionError(error: Error): string {
+function humanizeError(error: Error): string {
   const raw = error.message;
+  if (error instanceof PdfRenderError) {
+    return `Could not render the PDF: ${raw}. Confirm it's a valid filled COLA application.`;
+  }
   if (/invalid.*header|invalid_api_key|incorrect api key|401|unauthorized/i.test(raw)) {
     return 'The AI provider rejected the request. Check the OPENAI_API_KEY in your environment.';
   }
@@ -211,7 +164,7 @@ function humanizeExtractionError(error: Error): string {
     return 'AI provider rate limit hit. Wait a few seconds and try again.';
   }
   if (/timeout|timed out/i.test(raw)) {
-    return 'The AI provider timed out reading this label. Try a smaller or clearer image.';
+    return 'The AI provider timed out reading this PDF. Try a smaller or clearer file.';
   }
   if (/safety|content_policy|content policy/i.test(raw)) {
     return 'The AI provider declined to process this image. It may have flagged the content.';

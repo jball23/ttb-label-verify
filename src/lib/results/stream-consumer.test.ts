@@ -27,7 +27,7 @@ const VALID_OK_LINE: ResultLine = {
   report: {
     overallStatus: 'compliant',
     crossCheck: { overallStatus: 'match', fields: {} },
-    fields: {},
+    fields: {}, provenance: {},
   },
 };
 

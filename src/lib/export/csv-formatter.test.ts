@@ -26,7 +26,7 @@ describe('formatCSV', () => {
         fields: {
           brand: { status: 'pass', extractedValue: 'Wild Acre' },
           abv: { status: 'pass', extractedValue: '40% ALC/VOL' },
-        },
+        }, provenance: {},
       },
     };
     const csv = formatCSV([result]);
@@ -51,7 +51,7 @@ describe('formatCSV', () => {
             status: 'pass',
             extractedValue: 'Wild Acre, Louisville KY',
           },
-        },
+        }, provenance: {},
       },
     };
     expect(formatCSV([result])).toContain('"Wild Acre, Louisville KY"');
@@ -68,7 +68,7 @@ describe('formatCSV', () => {
         crossCheck: { overallStatus: 'match', fields: {} },
         fields: {
           brand: { status: 'pass', extractedValue: 'Smith "Smithy" Co' },
-        },
+        }, provenance: {},
       },
     };
     expect(formatCSV([result])).toContain('"Smith ""Smithy"" Co"');
@@ -88,7 +88,7 @@ describe('formatCSV', () => {
             status: 'fail',
             reason: 'line one\nline two',
           },
-        },
+        }, provenance: {},
       },
     };
     expect(formatCSV([result])).toMatch(/"line one\nline two"/);

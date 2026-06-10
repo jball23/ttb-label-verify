@@ -1,7 +1,7 @@
 import { getEnv } from '../env';
 import { OpenAIExtractor } from './openai-extractor';
 import { AzureOpenAIExtractor } from './azure-openai-extractor';
-import { type LabelExtractor } from './types';
+import { type DocumentExtractor } from './types';
 
 /**
  * Returns the configured LabelExtractor for the running environment.
@@ -10,7 +10,7 @@ import { type LabelExtractor } from './types';
  * Verify routes and eval runners depend on this factory, not on the concrete
  * classes — the DIP boundary the rest of the codebase respects.
  */
-export function getExtractor(): LabelExtractor {
+export function getExtractor(): DocumentExtractor {
   const env = getEnv();
 
   if (env.LABEL_EXTRACTOR === 'openai') {

@@ -8,7 +8,7 @@ function ok(overall: 'compliant' | 'needs_review', index = 0): ResultLine {
     index,
     filename: 'a.jpg',
     durationMs: 100,
-    report: { overallStatus: overall, crossCheck: { overallStatus: 'match', fields: {} }, fields: {} },
+    report: { overallStatus: overall, crossCheck: { overallStatus: 'match', fields: {} }, fields: {}, provenance: {}, },
   };
 }
 

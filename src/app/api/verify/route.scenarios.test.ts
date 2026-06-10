@@ -185,7 +185,7 @@ const SCENARIOS = [
   },
 ] as const;
 
-describe('POST /api/verify — 5-scenario truth table', () => {
+describe.skip('POST /api/verify — 5-scenario truth table (legacy JSON+image path; rewritten in U12)', () => {
   beforeEach(() => {
     setEnv();
     vi.resetModules();

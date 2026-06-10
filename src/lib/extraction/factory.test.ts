@@ -64,7 +64,7 @@ describe('getExtractor', () => {
     });
     const { getExtractor } = await import('./factory');
     const extractor = getExtractor();
-    await expect(extractor.extract(Buffer.from('x'), 'image/png')).rejects.toThrow(
+    await expect(extractor.extract(Buffer.from('x'))).rejects.toThrow(
       /NotImplementedError|not implemented/,
     );
   });

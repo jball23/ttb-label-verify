@@ -1,4 +1,7 @@
-import { type ExtractedFields } from '../extraction/types';
+import {
+  type ExtractedFields,
+  type ProvenanceMap,
+} from '../extraction/types';
 import { type Application } from '../application/types';
 import { runCrossCheck } from '../cross-check/engine';
 import {
@@ -60,6 +63,7 @@ function runRulesInternal(extracted: ExtractedFields): {
 export function runVerification(
   application: Application,
   extracted: ExtractedFields,
+  provenance: ProvenanceMap = {},
 ): VerificationReport {
   const crossCheck: CrossCheckReport = runCrossCheck(application, extracted);
   const { fields, anyFail } = runRulesInternal(extracted);
@@ -69,6 +73,7 @@ export function runVerification(
     overallStatus: crossCheckMismatch || anyFail ? 'needs_review' : 'compliant',
     crossCheck,
     fields,
+    provenance,
   };
 }
 
@@ -84,6 +89,7 @@ export function runRules(extracted: ExtractedFields): VerificationReport {
     overallStatus: anyFail ? 'needs_review' : 'compliant',
     crossCheck: emptyCrossCheckReport(),
     fields,
+    provenance: {},
   };
 }
 

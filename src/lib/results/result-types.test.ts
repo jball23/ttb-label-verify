@@ -24,6 +24,13 @@ function validOkLine(overrides: Record<string, unknown> = {}): unknown {
       fields: {
         brand: { status: 'pass', extractedValue: 'Ridge Creek' },
       },
+      provenance: {
+        'application.brandName': {
+          page: 0,
+          bbox: { x: 0.1, y: 0.15, w: 0.2, h: 0.03 },
+          confidence: 'high',
+        },
+      },
     },
     ...overrides,
   };
@@ -86,5 +93,56 @@ describe('ResultLineSchema', () => {
     };
     const result = ResultLineSchema.safeParse(line);
     expect(result.success).toBe(false);
+  });
+
+  it('accepts an ok line with an empty provenance map', () => {
+    const line = validOkLine() as {
+      report: { provenance: Record<string, unknown> };
+    };
+    line.report.provenance = {};
+    expect(ResultLineSchema.safeParse(line).success).toBe(true);
+  });
+
+  it('rejects an ok line missing provenance entirely', () => {
+    const line = validOkLine();
+    delete (line as { report: { provenance?: unknown } }).report.provenance;
+    expect(ResultLineSchema.safeParse(line).success).toBe(false);
+  });
+
+  it('rejects a provenance entry with an out-of-range bbox', () => {
+    const line = validOkLine() as {
+      report: {
+        provenance: Record<
+          string,
+          { page: number; bbox: Record<string, number>; confidence: string }
+        >;
+      };
+    };
+    line.report.provenance['application.brandName']!.bbox.x = 1.5;
+    expect(ResultLineSchema.safeParse(line).success).toBe(false);
+  });
+
+  it('rejects a provenance entry under an unknown field path', () => {
+    const line = validOkLine() as {
+      report: { provenance: Record<string, unknown> };
+    };
+    line.report.provenance['application.bogus'] = {
+      page: 0,
+      bbox: { x: 0, y: 0, w: 0.1, h: 0.1 },
+      confidence: 'high',
+    };
+    expect(ResultLineSchema.safeParse(line).success).toBe(false);
+  });
+
+  it('does not require provenance on error lines', () => {
+    expect(
+      ResultLineSchema.safeParse({
+        status: 'error',
+        index: 0,
+        filename: 'x.pdf',
+        durationMs: 5,
+        errorMessage: 'oops',
+      }).success,
+    ).toBe(true);
   });
 });

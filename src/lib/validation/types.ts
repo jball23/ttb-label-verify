@@ -1,4 +1,4 @@
-import { type ExtractedFields } from '../extraction/types';
+import { type ExtractedFields, type ProvenanceMap } from '../extraction/types';
 import { type CrossCheckReport } from '../cross-check/types';
 
 export type FieldStatus = 'pass' | 'fail' | 'uncertain';
@@ -21,4 +21,5 @@ export interface VerificationReport {
   overallStatus: OverallStatus;
   crossCheck: CrossCheckReport;
   fields: Record<string, RuleResult>;
+  provenance: ProvenanceMap;
 }

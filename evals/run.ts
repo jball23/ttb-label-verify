@@ -11,6 +11,15 @@ import { governmentWarningMatch } from './evaluators/government-warning-match';
 import { getLangfuseClient } from '../src/lib/observability/langfuse';
 import { type ExtractedFields } from '../src/lib/extraction/types';
 
+// NOTE: this legacy eval was written against the label-only extractor. The
+// dual extractor (PDF input → application + label + provenance) expects a
+// rendered COLA page, not a raw label image. The eval still runs, but it
+// feeds raw label images into the new extractor and reads only the `.label`
+// half of the response — application + provenance will be empty/garbage on
+// these inputs. A PDF-based replacement evaluator should be added when there
+// is time; the new scenario integration test already exercises the pipeline
+// end-to-end against the 5 scenario PDFs.
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
@@ -26,15 +35,6 @@ interface CaseRun {
   errorMessage?: string;
 }
 
-function detectMimeType(imagePath: string): string {
-  const ext = path.extname(imagePath).toLowerCase();
-  if (ext === '.jpg' || ext === '.jpeg') return 'image/jpeg';
-  if (ext === '.png') return 'image/png';
-  if (ext === '.webp') return 'image/webp';
-  if (ext === '.pdf') return 'application/pdf';
-  throw new Error(`Unknown image extension: ${ext}`);
-}
-
 async function runCase(extractor: ReturnType<typeof getExtractor>, eval_case: ReturnType<typeof getDataset>[number]): Promise<CaseRun> {
   const absoluteImagePath = path.join(REPO_ROOT, eval_case.imagePath);
   if (!fs.existsSync(absoluteImagePath)) {
@@ -48,7 +48,6 @@ async function runCase(extractor: ReturnType<typeof getExtractor>, eval_case: Re
   }
 
   const image = fs.readFileSync(absoluteImagePath);
-  const mimeType = detectMimeType(absoluteImagePath);
   const imageSha = crypto.createHash('sha256').update(image).digest('hex').slice(0, 16);
 
   const langfuse = getLangfuseClient();
@@ -70,7 +69,8 @@ async function runCase(extractor: ReturnType<typeof getExtractor>, eval_case: Re
   let actual: ExtractedFields | null = null;
   let errorMessage: string | undefined;
   try {
-    actual = await extractor.extract(image, mimeType);
+    const document = await extractor.extract(image);
+    actual = document.label;
   } catch (e) {
     errorMessage = (e as Error).message;
   }

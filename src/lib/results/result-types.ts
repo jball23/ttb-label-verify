@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ProvenanceMapSchema } from '../extraction/types';
 
 /**
  * The contract for one NDJSON line streamed from /api/verify back to the client.
@@ -41,6 +42,7 @@ const VerificationReportSchema = z.object({
   overallStatus: z.enum(['compliant', 'needs_review']),
   crossCheck: CrossCheckReportSchema,
   fields: z.record(z.string(), RuleResultSchema),
+  provenance: ProvenanceMapSchema,
 });
 
 export const ResultLineSchema = z.discriminatedUnion('status', [

@@ -1,14 +1,5 @@
 import { z } from 'zod';
 
-/**
- * The structured shape we extract from a label image.
- *
- * Each field is nullable — the model must return `null` when a field is genuinely
- * absent from the label, never invent a plausible value. The Government Warning
- * carries sibling judgment fields for visual styling (bold, all-caps) that the
- * model is asked to evaluate honestly.
- */
-
 const ConfidenceSchema = z.enum(['high', 'medium', 'low']);
 export type Confidence = z.infer<typeof ConfidenceSchema>;
 
@@ -35,15 +26,101 @@ export const ExtractedFieldsSchema = z.object({
 });
 export type ExtractedFields = z.infer<typeof ExtractedFieldsSchema>;
 
-/**
- * The provider abstraction the verify route depends on. Implementations:
- *   - OpenAIExtractor (live in prototype)
- *   - AzureOpenAIExtractor (stub for documented production swap path)
- */
-export interface LabelExtractor {
+// Bare form-half of the COLA application that the extractor reads from the
+// rendered page. Fields are nullable because the model may not see every cell
+// clearly; downstream synthesis fills sensible defaults where appropriate.
+const ExtractedApplicantSchema = z.object({
+  name: z.string().nullable(),
+  addressLine1: z.string().nullable(),
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  postalCode: z.string().nullable(),
+});
+
+export const ExtractedApplicationFormSchema = z.object({
+  plantRegistryNumber: z.string().nullable(),
+  source: z.enum(['Domestic', 'Imported']).nullable(),
+  serialNumber: z.string().nullable(),
+  productType: z.enum(['WINE', 'DISTILLED SPIRITS', 'MALT BEVERAGES']).nullable(),
+  brandName: z.string().nullable(),
+  fancifulName: z.string().nullable(),
+  applicant: ExtractedApplicantSchema,
+  grapeVarietals: z.string().nullable(),
+  wineAppellation: z.string().nullable(),
+  applicationDate: z.string().nullable(),
+  applicantSignatureName: z.string().nullable(),
+});
+export type ExtractedApplicationForm = z.infer<typeof ExtractedApplicationFormSchema>;
+
+// All the field paths that can carry provenance. The model returns a bbox for
+// each path it populates; paths it leaves null are omitted from the map.
+export const FIELD_PATHS = [
+  'application.brandName',
+  'application.fancifulName',
+  'application.classType',
+  'application.applicant.name',
+  'application.applicant.address',
+  'application.applicant.city',
+  'application.applicant.state',
+  'application.grapeVarietals',
+  'application.wineAppellation',
+  'application.serialNumber',
+  'application.plantRegistryNumber',
+  'application.applicationDate',
+  'application.applicantSignatureName',
+  'label.brandName',
+  'label.abv',
+  'label.governmentWarning',
+  'label.netContents',
+  'label.classType',
+  'label.producer',
+  'label.countryOfOrigin',
+  'label.wineVarietal',
+  'label.wineAppellation',
+] as const;
+
+export const FieldPathSchema = z.enum(FIELD_PATHS);
+export type FieldPath = z.infer<typeof FieldPathSchema>;
+
+export const BoundingBoxSchema = z.object({
+  x: z.number().min(0).max(1),
+  y: z.number().min(0).max(1),
+  w: z.number().min(0).max(1),
+  h: z.number().min(0).max(1),
+});
+export type BoundingBox = z.infer<typeof BoundingBoxSchema>;
+
+export const FieldProvenanceSchema = z.object({
+  page: z.number().int().nonnegative(),
+  bbox: BoundingBoxSchema,
+  confidence: ConfidenceSchema,
+});
+export type FieldProvenance = z.infer<typeof FieldProvenanceSchema>;
+
+// Provenance arrives as a record keyed by FieldPath. Zod's `record` accepts a
+// key schema and value schema; paths not present in the response simply don't
+// appear in the record.
+export const ProvenanceMapSchema = z.record(FieldPathSchema, FieldProvenanceSchema);
+export type ProvenanceMap = z.infer<typeof ProvenanceMapSchema>;
+
+export const ExtractedDocumentSchema = z.object({
+  application: ExtractedApplicationFormSchema,
+  label: ExtractedFieldsSchema,
+  provenance: ProvenanceMapSchema,
+});
+export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
+
+// The provider abstraction the verify route depends on. The input is now a
+// rendered page-1 PNG buffer; the response carries both the application form
+// half and the label half plus their provenance.
+export interface DocumentExtractor {
   readonly providerName: string;
-  extract(image: Buffer, mimeType: string): Promise<ExtractedFields>;
+  extract(pngBuffer: Buffer): Promise<ExtractedDocument>;
 }
+
+// Kept as an alias so legacy imports that referenced LabelExtractor compile.
+// The interface is identical now that the contract returns ExtractedDocument.
+export type LabelExtractor = DocumentExtractor;
 
 export class NotImplementedError extends Error {
   constructor(message: string) {

@@ -1,9 +1,9 @@
 import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import {
-  ExtractedFieldsSchema,
-  type ExtractedFields,
-  type LabelExtractor,
+  ExtractedDocumentSchema,
+  type DocumentExtractor,
+  type ExtractedDocument,
 } from './types';
 import { SYSTEM_PROMPT, USER_PROMPT_INTRO } from './prompt';
 import { getObservedOpenAI } from '../observability/langfuse';
@@ -16,7 +16,7 @@ export interface OpenAIExtractorOptions {
 
 const DEFAULT_MODEL = 'gpt-4o-2024-11-20';
 
-export class OpenAIExtractor implements LabelExtractor {
+export class OpenAIExtractor implements DocumentExtractor {
   readonly providerName = 'openai';
   private readonly client: OpenAI;
   private readonly model: string;
@@ -26,12 +26,12 @@ export class OpenAIExtractor implements LabelExtractor {
     this.model = options.model ?? DEFAULT_MODEL;
   }
 
-  async extract(image: Buffer, mimeType: string): Promise<ExtractedFields> {
-    const dataUrl = `data:${mimeType};base64,${image.toString('base64')}`;
+  async extract(pngBuffer: Buffer): Promise<ExtractedDocument> {
+    const dataUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
 
     const response = await this.client.chat.completions.create({
       model: this.model,
-      response_format: zodResponseFormat(ExtractedFieldsSchema, 'extracted_fields'),
+      response_format: zodResponseFormat(ExtractedDocumentSchema, 'extracted_document'),
       // Deterministic settings — the same image+prompt should yield the same
       // extraction every run. temperature=0 + a fixed seed materially reduces
       // run-to-run drift in vision-LLM outputs.
@@ -65,6 +65,6 @@ export class OpenAIExtractor implements LabelExtractor {
       );
     }
 
-    return ExtractedFieldsSchema.parse(parsed);
+    return ExtractedDocumentSchema.parse(parsed);
   }
 }

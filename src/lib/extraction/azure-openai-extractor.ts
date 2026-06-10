@@ -1,6 +1,6 @@
 import {
-  type ExtractedFields,
-  type LabelExtractor,
+  type DocumentExtractor,
+  type ExtractedDocument,
   NotImplementedError,
 } from './types';
 
@@ -22,12 +22,12 @@ export interface AzureOpenAIExtractorOptions {
  * throw `NotImplementedError` here (Liskov-safe) rather than returning mock data,
  * so misconfiguration surfaces loudly rather than silently producing fake results.
  */
-export class AzureOpenAIExtractor implements LabelExtractor {
+export class AzureOpenAIExtractor implements DocumentExtractor {
   readonly providerName = 'azure-openai';
 
   constructor(private readonly options: AzureOpenAIExtractorOptions) {}
 
-  async extract(_image: Buffer, _mimeType: string): Promise<ExtractedFields> {
+  async extract(_pngBuffer: Buffer): Promise<ExtractedDocument> {
     throw new NotImplementedError(
       `AzureOpenAIExtractor is documented but not implemented in the prototype. ` +
         `Endpoint configured: ${this.options.endpoint}. ` +
