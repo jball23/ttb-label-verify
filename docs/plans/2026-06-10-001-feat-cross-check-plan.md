@@ -1,6 +1,6 @@
 ---
 title: "feat: Application + Label Cross-check"
-status: active
+status: completed
 created: 2026-06-10
 plan_type: feat
 origin: docs/brainstorms/2026-06-09-ttb-label-verify-requirements.md

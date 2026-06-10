@@ -225,7 +225,10 @@ describe('POST /api/verify — 5-scenario truth table', () => {
       expect(line.report.overallStatus).toBe(scenario.expectedVerdict);
 
       for (const fieldId of scenario.expectedCrossCheckMismatches) {
-        const result = line.report.crossCheck.fields[fieldId];
+        const result =
+          line.report.crossCheck.fields[
+            fieldId as keyof typeof line.report.crossCheck.fields
+          ];
         expect(result?.status, `${fieldId} should mismatch`).toBe('mismatch');
       }
       for (const ruleId of scenario.expectedRuleFails) {
