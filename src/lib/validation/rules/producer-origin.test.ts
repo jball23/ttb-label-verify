@@ -11,6 +11,8 @@ function fields(producer: string | null, countryOfOrigin: string | null): Extrac
     classType: null,
     producer,
     countryOfOrigin,
+    wineVarietal: null,
+    wineAppellation: null,
     extractionConfidence: 'high',
   };
 }

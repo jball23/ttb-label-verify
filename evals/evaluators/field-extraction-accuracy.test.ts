@@ -11,7 +11,8 @@ function base(overrides: Partial<ExtractedFields> = {}): ExtractedFields {
     classType: 'BOURBON',
     producer: 'Wild Acre Distillery',
     countryOfOrigin: 'USA',
-    extractionConfidence: 'high',
+    wineVarietal: null,
+    wineAppellation: null,    extractionConfidence: 'high',
     ...overrides,
   };
 }

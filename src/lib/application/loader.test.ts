@@ -9,9 +9,10 @@ const SCENARIOS = [
   '03-hawthorne-cabernet',
   '04-ironwood-ipa',
   '05-calypso-rum',
-];
+] as const;
+type Scenario = (typeof SCENARIOS)[number];
 
-function loadFixture(slug: string): unknown {
+function loadFixture(slug: Scenario): unknown {
   const file = path.join(
     process.cwd(),
     'public',

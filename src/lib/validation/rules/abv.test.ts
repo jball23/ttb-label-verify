@@ -11,7 +11,8 @@ function fields(abv: string | null): ExtractedFields {
     classType: null,
     producer: null,
     countryOfOrigin: null,
-    extractionConfidence: 'high',
+    wineVarietal: null,
+    wineAppellation: null,    extractionConfidence: 'high',
   };
 }
 

@@ -70,7 +70,8 @@ function fakeExtractedFields(): ExtractedFields {
     classType: 'BOURBON',
     producer: 'Test Co.',
     countryOfOrigin: 'USA',
-    extractionConfidence: 'high',
+    wineVarietal: null,
+    wineAppellation: null,    extractionConfidence: 'high',
   };
 }
 

@@ -1,4 +1,11 @@
 import { type ExtractedFields } from '../extraction/types';
+import { type Application } from '../application/types';
+import { runCrossCheck } from '../cross-check/engine';
+import {
+  type CrossCheckReport,
+  CROSS_CHECK_FIELDS,
+  CROSS_CHECK_FIELD_LABELS,
+} from '../cross-check/types';
 import { type Rule, type VerificationReport } from './types';
 import brandRule from './rules/brand';
 import abvRule from './rules/abv';
@@ -22,7 +29,14 @@ export const RULES: readonly Rule[] = [
   producerOriginRule,
 ];
 
-export function runRules(extracted: ExtractedFields): VerificationReport {
+/**
+ * Run the label-only rule set against the extracted fields. Internal helper
+ * used by both `runRules` (legacy) and `runVerification` (cross-check-aware).
+ */
+function runRulesInternal(extracted: ExtractedFields): {
+  fields: Record<string, ReturnType<Rule['check']>>;
+  anyFail: boolean;
+} {
   const fields: Record<string, ReturnType<Rule['check']>> = {};
   let anyFail = false;
   for (const rule of RULES) {
@@ -32,8 +46,57 @@ export function runRules(extracted: ExtractedFields): VerificationReport {
       anyFail = true;
     }
   }
+  return { fields, anyFail };
+}
+
+/**
+ * Full verification: cross-check (application vs label) + label-only rules.
+ *
+ * overallStatus flips to `needs_review` if EITHER:
+ *   - any cross-check field is mismatch / not_on_label, OR
+ *   - any label-only rule returns `fail`.
+ * `uncertain` rules do NOT trip the verdict (preserves existing behavior).
+ */
+export function runVerification(
+  application: Application,
+  extracted: ExtractedFields,
+): VerificationReport {
+  const crossCheck: CrossCheckReport = runCrossCheck(application, extracted);
+  const { fields, anyFail } = runRulesInternal(extracted);
+
+  const crossCheckMismatch = crossCheck.overallStatus === 'mismatch';
   return {
-    overallStatus: anyFail ? 'needs_review' : 'compliant',
+    overallStatus: crossCheckMismatch || anyFail ? 'needs_review' : 'compliant',
+    crossCheck,
     fields,
   };
+}
+
+/**
+ * Backwards-compatible wrapper for callers that only have ExtractedFields (no
+ * Application). Wraps `runRulesInternal` with an empty cross-check so the
+ * VerificationReport shape stays consistent. Used by legacy evaluators and
+ * existing engine tests that pre-date the cross-check pivot.
+ */
+export function runRules(extracted: ExtractedFields): VerificationReport {
+  const { fields, anyFail } = runRulesInternal(extracted);
+  return {
+    overallStatus: anyFail ? 'needs_review' : 'compliant',
+    crossCheck: emptyCrossCheckReport(),
+    fields,
+  };
+}
+
+function emptyCrossCheckReport(): CrossCheckReport {
+  const fields = {} as CrossCheckReport['fields'];
+  for (const id of CROSS_CHECK_FIELDS) {
+    fields[id] = {
+      id,
+      label: CROSS_CHECK_FIELD_LABELS[id],
+      status: 'not_applicable',
+      applicationValue: null,
+      labelValue: null,
+    };
+  }
+  return { overallStatus: 'match', fields };
 }
