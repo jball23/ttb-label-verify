@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect, type MouseEvent } from 'react';
 import { Dialog } from '@/components/ui/dialog';
-import { ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCw, MousePointer2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface Props {
   open: boolean;
@@ -12,54 +13,72 @@ interface Props {
   alt: string;
 }
 
-const LENS_SIZE = 200;
 const DEFAULT_ZOOM = 2.5;
-const MAX_ZOOM = 6;
-const MIN_ZOOM = 1.5;
+const MAX_ZOOM = 8;
+const MIN_ZOOM = 1;
 
 /**
- * Full-image inspector with a magnifier lens that follows the cursor.
+ * Full-image inspector with zoom-into-cursor on hover.
  *
- * Hover anywhere on the image to see a circular zoomed region. Wheel-scroll
- * over the image to adjust zoom level (1.5x–6x). "Reset" returns to default.
+ * Default view: image fit to the modal. On hover, the image scales up to the
+ * current zoom level with transform-origin tracking the cursor — so the area
+ * under the mouse becomes the focal point of the magnification. Mouse-wheel
+ * adjusts zoom (1×–8×). "Reset" returns to default.
  */
 export function ImageInspector({ open, onOpenChange, imageUrl, alt }: Props) {
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const [hover, setHover] = useState(false);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [hovering, setHovering] = useState(false);
+  const [origin, setOrigin] = useState({ x: 50, y: 50 });
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
-  const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
 
+  // Reset hover state and zoom when the modal closes
   useEffect(() => {
-    if (!open) setHover(false);
+    if (!open) {
+      setHovering(false);
+      setOrigin({ x: 50, y: 50 });
+      setZoom(DEFAULT_ZOOM);
+    }
+  }, [open]);
+
+  // Attach the wheel listener with { passive: false } so preventDefault works.
+  // React's onWheel registers as a passive listener — preventDefault is a no-op
+  // there, which lets the browser scroll the page underneath the modal.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || !open) return;
+    function onWheel(e: WheelEvent): void {
+      e.preventDefault();
+      setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + (e.deltaY > 0 ? -0.25 : 0.25))));
+    }
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
   }, [open]);
 
   function handleMove(e: MouseEvent<HTMLDivElement>): void {
-    if (!imgRef.current) return;
-    const rect = imgRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setPos({ x: Math.max(0, Math.min(rect.width, x)), y: Math.max(0, Math.min(rect.height, y)) });
-  }
-
-  function handleImageLoad(e: React.SyntheticEvent<HTMLImageElement>): void {
-    const img = e.currentTarget;
-    setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
-  }
-
-  function handleWheel(e: React.WheelEvent<HTMLDivElement>): void {
-    e.preventDefault();
-    setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + (e.deltaY > 0 ? -0.25 : 0.25))));
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setOrigin({
+      x: Math.max(0, Math.min(100, x)),
+      y: Math.max(0, Math.min(100, y)),
+    });
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <div className="flex max-h-[90svh] flex-col">
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      contentClassName="max-w-6xl w-[min(95vw,80rem)]"
+    >
+      <div className="flex max-h-[92svh] flex-col">
+        {/* Header */}
         <div className="flex items-center justify-between gap-3 border-b border-border px-6 py-3">
           <div className="flex flex-col gap-0.5 min-w-0">
             <h2 className="truncate text-sm font-semibold">{alt}</h2>
-            <p className="text-[11px] text-muted-foreground">
-              Hover to magnify · scroll to adjust zoom
+            <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <MousePointer2 className="size-3" />
+              Hover to zoom into the cursor · scroll wheel adjusts zoom
             </p>
           </div>
           <div className="flex items-center gap-1.5">
@@ -69,10 +88,11 @@ export function ImageInspector({ open, onOpenChange, imageUrl, alt }: Props) {
               type="button"
               onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 0.5))}
               aria-label="Zoom out"
+              disabled={zoom <= MIN_ZOOM}
             >
               <ZoomOut className="size-3.5" />
             </Button>
-            <span className="min-w-12 text-center text-xs tabular-nums text-muted-foreground">
+            <span className="min-w-12 text-center text-xs font-medium tabular-nums">
               {zoom.toFixed(1)}×
             </span>
             <Button
@@ -81,6 +101,7 @@ export function ImageInspector({ open, onOpenChange, imageUrl, alt }: Props) {
               type="button"
               onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 0.5))}
               aria-label="Zoom in"
+              disabled={zoom >= MAX_ZOOM}
             >
               <ZoomIn className="size-3.5" />
             </Button>
@@ -95,81 +116,39 @@ export function ImageInspector({ open, onOpenChange, imageUrl, alt }: Props) {
             </Button>
           </div>
         </div>
+
+        {/* Image viewport */}
         <div
-          className="relative flex-1 overflow-hidden bg-muted/40"
-          onMouseEnter={() => setHover(true)}
-          onMouseLeave={() => setHover(false)}
+          ref={containerRef}
+          onMouseEnter={() => setHovering(true)}
+          onMouseLeave={() => setHovering(false)}
           onMouseMove={handleMove}
-          onWheel={handleWheel}
+          className={cn(
+            'relative flex flex-1 items-center justify-center overflow-hidden bg-muted/40',
+            hovering ? 'cursor-zoom-in' : 'cursor-pointer',
+          )}
+          style={{ minHeight: '60vh' }}
         >
           {imageUrl && (
-            <div className="flex h-full max-h-[78svh] items-center justify-center p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                ref={imgRef}
-                src={imageUrl}
-                alt={alt}
-                onLoad={handleImageLoad}
-                className="max-h-full max-w-full select-none rounded-md object-contain shadow-sm"
-                draggable={false}
-              />
-              {hover && imgRef.current && naturalSize.w > 0 && (
-                <Lens
-                  pos={pos}
-                  zoom={zoom}
-                  imageUrl={imageUrl}
-                  displayed={{
-                    width: imgRef.current.clientWidth,
-                    height: imgRef.current.clientHeight,
-                    left: imgRef.current.offsetLeft,
-                    top: imgRef.current.offsetTop,
-                  }}
-                  natural={naturalSize}
-                />
-              )}
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt={alt}
+              draggable={false}
+              className="max-h-[78svh] max-w-full select-none object-contain shadow-sm transition-transform duration-100 ease-out will-change-transform"
+              style={{
+                transform: hovering ? `scale(${zoom})` : 'scale(1)',
+                transformOrigin: `${origin.x}% ${origin.y}%`,
+              }}
+            />
+          )}
+          {!hovering && imageUrl && (
+            <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-border bg-background/90 px-3 py-1 text-[11px] text-muted-foreground shadow-sm backdrop-blur-sm">
+              Hover over the image to zoom
             </div>
           )}
         </div>
       </div>
     </Dialog>
-  );
-}
-
-interface LensProps {
-  pos: { x: number; y: number };
-  zoom: number;
-  imageUrl: string;
-  displayed: { width: number; height: number; left: number; top: number };
-  natural: { w: number; h: number };
-}
-
-function Lens({ pos, zoom, imageUrl, displayed, natural }: LensProps) {
-  // Background size = displayed dims * zoom. Position offsets so the cursor's
-  // image-coord is centered in the lens.
-  const bgWidth = displayed.width * zoom;
-  const bgHeight = displayed.height * zoom;
-  const bgX = -(pos.x * zoom - LENS_SIZE / 2);
-  const bgY = -(pos.y * zoom - LENS_SIZE / 2);
-
-  return (
-    <div
-      className="pointer-events-none absolute rounded-full border-2 border-foreground/80 shadow-2xl ring-2 ring-background"
-      style={{
-        width: LENS_SIZE,
-        height: LENS_SIZE,
-        left: displayed.left + pos.x - LENS_SIZE / 2,
-        top: displayed.top + pos.y - LENS_SIZE / 2,
-        backgroundImage: `url(${imageUrl})`,
-        backgroundRepeat: 'no-repeat',
-        backgroundSize: `${bgWidth}px ${bgHeight}px`,
-        backgroundPosition: `${bgX}px ${bgY}px`,
-        // Subtle crosshair
-        boxShadow: '0 0 0 1px rgba(0,0,0,0.05), 0 20px 40px -10px rgba(0,0,0,0.4)',
-      }}
-      aria-hidden="true"
-    >
-      <div className="absolute left-1/2 top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/40 ring-2 ring-background/80" />
-      <span className="sr-only">Natural size: {natural.w}×{natural.h}</span>
-    </div>
   );
 }

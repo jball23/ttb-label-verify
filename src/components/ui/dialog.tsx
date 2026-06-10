@@ -9,13 +9,14 @@ interface DialogProps {
   open: boolean;
   onOpenChange(open: boolean): void;
   children: React.ReactNode;
+  contentClassName?: string;
 }
 
 /**
  * Minimal accessible modal — focus-trap, ESC to close, click-outside to close,
  * portal-rendered. No external deps.
  */
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, children, contentClassName }: DialogProps) {
   const [mounted, setMounted] = React.useState(false);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
@@ -88,6 +89,7 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
         className={cn(
           'relative z-10 w-full max-w-lg rounded-xl border border-border bg-card text-card-foreground shadow-2xl',
           'animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200',
+          contentClassName,
         )}
       >
         <button
