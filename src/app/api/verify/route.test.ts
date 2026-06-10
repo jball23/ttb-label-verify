@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { resetEnvForTesting } from '@/lib/env';
 import { resetObservabilityForTesting } from '@/lib/observability/langfuse';
 import { ResultLineSchema, type ResultLine } from '@/lib/results/result-types';
@@ -20,8 +22,30 @@ function makeFile(name: string, type: string, size = 256): File {
   return new File([new Uint8Array(size)], name, { type });
 }
 
-function buildFormData(files: File[]): FormData {
+function loadFixtureApplication(slug = '01-ridge-creek-bourbon'): string {
+  const file = path.join(
+    process.cwd(),
+    'public',
+    'samples',
+    'applications',
+    slug,
+    'application.json',
+  );
+  return readFileSync(file, 'utf8');
+}
+
+function buildFormData(
+  files: File[],
+  options: { applicationJson?: string | null } = {},
+): FormData {
   const fd = new FormData();
+  const applicationJson =
+    options.applicationJson === undefined
+      ? loadFixtureApplication()
+      : options.applicationJson;
+  if (applicationJson != null) {
+    fd.append('application', applicationJson);
+  }
   files.forEach((f, i) => fd.append(`file-${i}`, f, f.name));
   return fd;
 }
@@ -58,20 +82,24 @@ async function readNDJSON(response: Response): Promise<ResultLine[]> {
 }
 
 function fakeExtractedFields(): ExtractedFields {
+  // Matches the Ridge Creek bourbon application's crossCheckExpectations so the
+  // happy-path test produces a `compliant` verdict end-to-end.
   return {
-    brandName: 'Test Brand',
-    abv: '40% ALC/VOL',
+    brandName: 'Ridge Creek',
+    abv: '45% ALC/VOL',
     governmentWarning: {
       text: GOVERNMENT_WARNING_CANONICAL,
       appearsAllCaps: true,
       appearsBold: true,
     },
     netContents: '750 mL',
-    classType: 'BOURBON',
-    producer: 'Test Co.',
+    classType: 'Kentucky Straight Bourbon Whiskey',
+    producer:
+      'Distilled and Bottled by Ridge Creek Distillery LLC · Bardstown, Kentucky',
     countryOfOrigin: 'USA',
     wineVarietal: null,
-    wineAppellation: null,    extractionConfidence: 'high',
+    wineAppellation: null,
+    extractionConfidence: 'high',
   };
 }
 
@@ -88,37 +116,80 @@ describe('POST /api/verify', () => {
     vi.restoreAllMocks();
   });
 
-  it('returns 400 when no files are sent', async () => {
+  it('returns 400 when application field is missing', async () => {
     vi.doMock('@/lib/extraction/factory', () => ({
-      getExtractor: () => ({
-        providerName: 'fake',
-        extract: vi.fn(),
-      }),
+      getExtractor: () => ({ providerName: 'fake', extract: vi.fn() }),
     }));
     const { POST } = await import('./route');
-    const fd = new FormData();
+    const fd = buildFormData([makeFile('a.jpg', 'image/jpeg')], {
+      applicationJson: null,
+    });
+    const res = await POST(fakeRequest(fd) as never);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/application/i);
+  });
+
+  it('returns 400 when application JSON is malformed', async () => {
+    vi.doMock('@/lib/extraction/factory', () => ({
+      getExtractor: () => ({ providerName: 'fake', extract: vi.fn() }),
+    }));
+    const { POST } = await import('./route');
+    const fd = buildFormData([makeFile('a.jpg', 'image/jpeg')], {
+      applicationJson: '{not json',
+    });
+    const res = await POST(fakeRequest(fd) as never);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/parse|json/i);
+  });
+
+  it('returns 400 when application fails Zod (bad productType)', async () => {
+    vi.doMock('@/lib/extraction/factory', () => ({
+      getExtractor: () => ({ providerName: 'fake', extract: vi.fn() }),
+    }));
+    const { POST } = await import('./route');
+    const raw = JSON.parse(loadFixtureApplication()) as {
+      form: Record<string, unknown>;
+    };
+    raw.form.productType = 'BEER';
+    const fd = buildFormData([makeFile('a.jpg', 'image/jpeg')], {
+      applicationJson: JSON.stringify(raw),
+    });
+    const res = await POST(fakeRequest(fd) as never);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/productType/i);
+  });
+
+  it('returns 400 when more than one label image is submitted with an application', async () => {
+    vi.doMock('@/lib/extraction/factory', () => ({
+      getExtractor: () => ({ providerName: 'fake', extract: vi.fn() }),
+    }));
+    const { POST } = await import('./route');
+    const fd = buildFormData([
+      makeFile('a.jpg', 'image/jpeg'),
+      makeFile('b.jpg', 'image/jpeg'),
+    ]);
+    const res = await POST(fakeRequest(fd) as never);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/single-label|one label/i);
+  });
+
+  it('returns 400 when no files are sent (with application)', async () => {
+    vi.doMock('@/lib/extraction/factory', () => ({
+      getExtractor: () => ({ providerName: 'fake', extract: vi.fn() }),
+    }));
+    const { POST } = await import('./route');
+    const fd = buildFormData([]);
     const res = await POST(fakeRequest(fd) as never);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toMatch(/at least one/i);
   });
 
-  it('returns 413 when more than 25 files are sent', async () => {
-    vi.doMock('@/lib/extraction/factory', () => ({
-      getExtractor: () => ({
-        providerName: 'fake',
-        extract: vi.fn(),
-      }),
-    }));
-    const { POST } = await import('./route');
-    const files = Array.from({ length: 26 }, (_, i) =>
-      makeFile(`l-${i}.jpg`, 'image/jpeg'),
-    );
-    const res = await POST(fakeRequest(buildFormData(files)) as never);
-    expect(res.status).toBe(413);
-  });
-
-  it('streams one ok line for a valid single-image upload', async () => {
+  it('streams one ok line with crossCheck section for a valid pair', async () => {
     vi.doMock('@/lib/extraction/factory', () => ({
       getExtractor: () => ({
         providerName: 'fake',
@@ -135,10 +206,12 @@ describe('POST /api/verify', () => {
     expect(lines[0]?.status).toBe('ok');
     if (lines[0]?.status === 'ok') {
       expect(lines[0].report.overallStatus).toBe('compliant');
+      expect(lines[0].report.crossCheck.overallStatus).toBe('match');
+      expect(lines[0].report.crossCheck.fields.brandName.status).toBe('match');
     }
   });
 
-  it('emits an error line per invalid file but keeps good ones', async () => {
+  it('returns 400 when the only file has an unsupported MIME', async () => {
     vi.doMock('@/lib/extraction/factory', () => ({
       getExtractor: () => ({
         providerName: 'fake',
@@ -146,45 +219,27 @@ describe('POST /api/verify', () => {
       }),
     }));
     const { POST } = await import('./route');
-    const fd = buildFormData([
-      makeFile('good.jpg', 'image/jpeg'),
-      makeFile('bad.txt', 'text/plain'),
-    ]);
+    const fd = buildFormData([makeFile('bad.txt', 'text/plain')]);
     const res = await POST(fakeRequest(fd) as never);
-    expect(res.status).toBe(200);
-    const lines = await readNDJSON(res);
-    expect(lines).toHaveLength(2);
-    const statuses = lines.map((l) => l.status).sort();
-    expect(statuses).toEqual(['error', 'ok']);
-    const err = lines.find((l) => l.status === 'error');
-    if (err?.status === 'error') {
-      expect(err.errorMessage).toMatch(/unsupported/i);
-    }
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/no valid files|unsupported|at least one/i);
   });
 
-  it('emits an error line when the extractor throws — others still complete', async () => {
-    let callCount = 0;
+  it('emits an error line when the extractor throws', async () => {
     vi.doMock('@/lib/extraction/factory', () => ({
       getExtractor: () => ({
         providerName: 'fake',
         extract: async () => {
-          callCount += 1;
-          if (callCount === 1) throw new Error('extractor exploded');
-          return fakeExtractedFields();
+          throw new Error('extractor exploded');
         },
       }),
     }));
     const { POST } = await import('./route');
-    const fd = buildFormData([
-      makeFile('a.jpg', 'image/jpeg'),
-      makeFile('b.jpg', 'image/jpeg'),
-    ]);
+    const fd = buildFormData([makeFile('a.jpg', 'image/jpeg')]);
     const res = await POST(fakeRequest(fd) as never);
     const lines = await readNDJSON(res);
-    expect(lines).toHaveLength(2);
-    const errors = lines.filter((l) => l.status === 'error');
-    const oks = lines.filter((l) => l.status === 'ok');
-    expect(errors).toHaveLength(1);
-    expect(oks).toHaveLength(1);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.status).toBe('error');
   });
 });

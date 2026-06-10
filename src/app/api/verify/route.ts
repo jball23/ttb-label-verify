@@ -2,7 +2,7 @@ import { type NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 import pLimit from 'p-limit';
 import { getExtractor } from '@/lib/extraction/factory';
-import { runRules } from '@/lib/validation/engine';
+import { runVerification } from '@/lib/validation/engine';
 import { encodeNDJSON } from '@/lib/streaming/ndjson';
 import {
   validateBatch,
@@ -13,6 +13,11 @@ import { withRequestSpan, withLabelSpan } from '@/lib/observability/spans';
 import { PROMPT_VERSION } from '@/lib/extraction/prompt';
 import { type ResultLine } from '@/lib/results/result-types';
 import { scrubError } from '@/lib/safety/scrub-error';
+import {
+  parseApplication,
+  InvalidApplicationError,
+} from '@/lib/application/loader';
+import { type Application } from '@/lib/application/types';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -27,9 +32,45 @@ export async function POST(req: NextRequest): Promise<Response> {
     return errorResponse(400, `Malformed multipart body: ${(e as Error).message}`);
   }
 
+  // Application JSON is required. Read + validate before doing any file work
+  // so a bad application fails fast without consuming an extractor token.
+  const applicationField = formData.get('application');
+  if (applicationField == null) {
+    return errorResponse(
+      400,
+      'Missing "application" field. POST a multipart form with the filled COLA application JSON in an "application" field alongside the label image.',
+    );
+  }
+  if (typeof applicationField !== 'string') {
+    return errorResponse(400, 'The "application" field must be a JSON string, not a file.');
+  }
+  let application: Application;
+  try {
+    application = parseApplication(JSON.parse(applicationField));
+  } catch (e) {
+    if (e instanceof InvalidApplicationError) {
+      return errorResponse(400, e.message);
+    }
+    if (e instanceof SyntaxError) {
+      return errorResponse(400, `Could not parse application JSON: ${e.message}`);
+    }
+    return errorResponse(400, `Application validation failed: ${(e as Error).message}`);
+  }
+
   const rawFiles: File[] = [];
   for (const value of formData.values()) {
     if (value instanceof File) rawFiles.push(value);
+  }
+
+  // The cross-check pipeline is single-label-per-application by design (the
+  // demo dataset is 1:1, and a single application typically belongs to one
+  // primary brand label). Reject multi-label submissions explicitly so the
+  // demo's contract is unambiguous.
+  if (rawFiles.length > 1) {
+    return errorResponse(
+      400,
+      'Single-label submissions only when an application is attached. Submit one label image per application.',
+    );
   }
 
   const validation = validateBatch(rawFiles);
@@ -56,9 +97,6 @@ export async function POST(req: NextRequest): Promise<Response> {
         controller.enqueue(encoder.encode(encodeNDJSON(line)));
       };
 
-      // Rejected files surface as error lines first, in original order.
-      const indexByName = new Map<string, number>();
-      validation.files.forEach((file, idx) => indexByName.set(file.name, idx));
       const baseIndex = validation.files.length;
       validation.rejected.forEach((r, i) => {
         enqueue({
@@ -75,6 +113,8 @@ export async function POST(req: NextRequest): Promise<Response> {
         {
           labelCount: validation.files.length,
           promptVersion: PROMPT_VERSION,
+          applicationScenarioId: application.scenarioId,
+          applicationProductType: application.form.productType,
         },
         async () => {
           await Promise.all(
@@ -102,7 +142,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                     },
                     () => extractor.extract(buffer, mimeType),
                   );
-                  const report = runRules(extracted);
+                  const report = runVerification(application, extracted);
                   enqueue({
                     status: 'ok',
                     index,
@@ -127,8 +167,6 @@ export async function POST(req: NextRequest): Promise<Response> {
 
       wrappedWork
         .catch((e) => {
-          // Defensive — withRequestSpan re-throws, but per-label errors are
-          // already captured. This only fires on truly unexpected failures.
           enqueue({
             status: 'error',
             index: -1,
