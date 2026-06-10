@@ -1,0 +1,52 @@
+{
+  "ttbFormId": "TTB F 5100.31",
+  "formRevision": "04/2023",
+  "scenarioId": "04-ironwood-ipa",
+  "expectedVerdict": "NEEDS_REVIEW",
+  "form": {
+    "repId": null,
+    "plantRegistryNumber": "BR-NC-19437",
+    "source": "Domestic",
+    "serialNumber": "26-0306",
+    "productType": "MALT BEVERAGES",
+    "brandName": "Ironwood Brewing",
+    "fancifulName": "Hop Forge IPA",
+    "applicant": {
+      "name": "Ironwood Brewing Co.",
+      "addressLine1": "219 Front Street",
+      "city": "Asheville",
+      "state": "NC",
+      "postalCode": "28801"
+    },
+    "mailingAddress": null,
+    "formulaId": null,
+    "grapeVarietals": null,
+    "wineAppellation": null,
+    "phone": "(828) 555-0411",
+    "email": "labels@ironwoodbrewing.example",
+    "applicationType": "CERTIFICATE_OF_LABEL_APPROVAL",
+    "containerInfo": null,
+    "applicationDate": "2026-05-18",
+    "applicantSignatureName": "Sarah Whitley"
+  },
+  "crossCheckExpectations": {
+    "brandName": "Ironwood Brewing",
+    "classType": "India Pale Ale",
+    "producer": "Ironwood Brewing Co., Asheville, NC",
+    "countryOfOrigin": "USA"
+  },
+  "labelOnlyExpectations": {
+    "abv": "6.8% alc/vol",
+    "netContents": "12 fl. oz.",
+    "governmentWarning": "ABSENT"
+  },
+  "intentionalMismatches": [
+    {
+      "field": "governmentWarning",
+      "expectedFromApplication": "PRESENT",
+      "appearsOnLabelAs": "ABSENT",
+      "rationale": "Mandatory Government Warning text (27 CFR § 16) is missing entirely from the can. Common real-world issue when a brewer reuses an old artwork file. Hard fail under TTB rules — should surface as a label-only rule failure (not a cross-check failure)."
+    }
+  ],
+  "notes": "Cross-check passes (brand, producer, type all match), but label-only rule trips: no Government Warning on the can. Demonstrates the label-only rule path independent of cross-check."
+}

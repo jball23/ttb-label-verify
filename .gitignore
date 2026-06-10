@@ -37,3 +37,7 @@ next-env.d.ts
 # editors
 .vscode/
 .idea/
+
+# session handoffs + decryption byproducts
+.claude/
+scripts/.cola-template-*.pdf

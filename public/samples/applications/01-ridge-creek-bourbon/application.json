@@ -1,0 +1,44 @@
+{
+  "ttbFormId": "TTB F 5100.31",
+  "formRevision": "04/2023",
+  "scenarioId": "01-ridge-creek-bourbon",
+  "expectedVerdict": "COMPLIANT",
+  "form": {
+    "repId": null,
+    "plantRegistryNumber": "DSP-KY-20158",
+    "source": "Domestic",
+    "serialNumber": "26-0117",
+    "productType": "DISTILLED SPIRITS",
+    "brandName": "Ridge Creek",
+    "fancifulName": "Kentucky Straight Bourbon Whiskey",
+    "applicant": {
+      "name": "Ridge Creek Distillery, LLC",
+      "addressLine1": "142 Limestone Road",
+      "city": "Bardstown",
+      "state": "KY",
+      "postalCode": "40004"
+    },
+    "mailingAddress": null,
+    "formulaId": null,
+    "grapeVarietals": null,
+    "wineAppellation": null,
+    "phone": "(502) 555-0142",
+    "email": "labels@ridgecreekdistillery.example",
+    "applicationType": "CERTIFICATE_OF_LABEL_APPROVAL",
+    "containerInfo": null,
+    "applicationDate": "2026-05-22",
+    "applicantSignatureName": "Margaret Hollister"
+  },
+  "crossCheckExpectations": {
+    "brandName": "Ridge Creek",
+    "classType": "Kentucky Straight Bourbon Whiskey",
+    "producer": "Ridge Creek Distillery, LLC, Bardstown, KY",
+    "countryOfOrigin": "USA"
+  },
+  "labelOnlyExpectations": {
+    "abv": "45% alc/vol (90 proof)",
+    "netContents": "750 mL",
+    "governmentWarning": "PRESENT_AND_VERBATIM"
+  },
+  "notes": "Clean baseline: every field on the label matches the application, all six TTB rules pass. Demo's 'green path'."
+}
