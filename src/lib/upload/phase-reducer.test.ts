@@ -21,9 +21,56 @@ describe('phaseReducer', () => {
     expect(INITIAL_STATE).toEqual({
       phase: 'empty',
       files: [],
+      application: null,
       results: [],
       totalExpected: 0,
     });
+  });
+
+  it('SCENARIO_LOADED replaces files + application and stages', () => {
+    const app = { scenarioId: 'test-01' } as unknown as NonNullable<
+      AppState['application']
+    >;
+    const file = makeFile('label.jpg');
+    const next = phaseReducer(INITIAL_STATE, {
+      type: 'SCENARIO_LOADED',
+      application: app,
+      file,
+    });
+    expect(next.phase).toBe('staged');
+    expect(next.files).toEqual([file]);
+    expect(next.application).toBe(app);
+  });
+
+  it('SCENARIO_LOADED replaces any previously staged files', () => {
+    const staged = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_STAGED',
+      files: [makeFile('old.jpg')],
+    });
+    const app = { scenarioId: 'test-02' } as unknown as NonNullable<
+      AppState['application']
+    >;
+    const newFile = makeFile('new.jpg');
+    const next = phaseReducer(staged, {
+      type: 'SCENARIO_LOADED',
+      application: app,
+      file: newFile,
+    });
+    expect(next.files).toEqual([newFile]);
+    expect(next.application).toBe(app);
+  });
+
+  it('START_OVER clears application back to null', () => {
+    const app = { scenarioId: 'x' } as unknown as NonNullable<
+      AppState['application']
+    >;
+    const loaded = phaseReducer(INITIAL_STATE, {
+      type: 'SCENARIO_LOADED',
+      application: app,
+      file: makeFile('a.jpg'),
+    });
+    const cleared = phaseReducer(loaded, { type: 'START_OVER' });
+    expect(cleared.application).toBeNull();
   });
 
   it('FILES_STAGED from empty moves to staged with the files', () => {
@@ -110,6 +157,7 @@ describe('phaseReducer', () => {
     const state: AppState = {
       phase: 'done',
       files: [makeFile('a.jpg')],
+      application: null,
       results: [okResult('a.jpg')],
       totalExpected: 1,
     };

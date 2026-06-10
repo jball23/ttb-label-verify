@@ -1,4 +1,5 @@
 import { type ResultLine } from '../results/result-types';
+import { type Application } from '../application/types';
 
 /**
  * The phase state machine for the upload page.
@@ -12,6 +13,7 @@ export type Phase = 'empty' | 'staged' | 'processing' | 'done';
 export interface AppState {
   phase: Phase;
   files: File[];
+  application: Application | null;
   results: ResultLine[];
   totalExpected: number;
 }
@@ -19,6 +21,7 @@ export interface AppState {
 export const INITIAL_STATE: AppState = {
   phase: 'empty',
   files: [],
+  application: null,
   results: [],
   totalExpected: 0,
 };
@@ -26,6 +29,7 @@ export const INITIAL_STATE: AppState = {
 export type Action =
   | { type: 'FILES_STAGED'; files: File[] }
   | { type: 'FILE_REMOVED'; file: File }
+  | { type: 'SCENARIO_LOADED'; application: Application; file: File }
   | { type: 'VERIFY_STARTED' }
   | { type: 'RESULT_RECEIVED'; result: ResultLine }
   | { type: 'STREAM_CLOSED' }
@@ -46,6 +50,16 @@ export function phaseReducer(state: AppState, action: Action): AppState {
         return { ...INITIAL_STATE };
       }
       return { ...state, files: remaining };
+    }
+    case 'SCENARIO_LOADED': {
+      // Loading a scenario replaces any manually-staged files and the
+      // previously-loaded application — a scenario is a complete pair.
+      return {
+        ...state,
+        phase: 'staged',
+        files: [action.file],
+        application: action.application,
+      };
     }
     case 'VERIFY_STARTED': {
       if (state.phase !== 'staged') return state;

@@ -1,46 +1,72 @@
 'use client';
 
 import { useReducer, useCallback, useRef, useState } from 'react';
-import {
-  phaseReducer,
-  INITIAL_STATE,
-} from '@/lib/upload/phase-reducer';
+import { phaseReducer, INITIAL_STATE } from '@/lib/upload/phase-reducer';
 import { validateBatch } from '@/lib/upload/file-validation';
 import { consumeResultStream } from '@/lib/results/stream-consumer';
 import { AlertCircle, AlertTriangle } from 'lucide-react';
 import UploadZone from '@/components/upload-zone';
 import StagedFilesList from '@/components/staged-files-list';
 import ResultsGrid from '@/components/results-grid';
+import ScenarioPicker from '@/components/scenario-picker';
+import type { Application } from '@/lib/application/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function HomeClient() {
   const [state, dispatch] = useReducer(phaseReducer, INITIAL_STATE);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [perFileErrors, setPerFileErrors] = useState<string[]>([]);
-  // Tracks the in-flight verify request so Start Over can cancel it.
   const inFlightRef = useRef<AbortController | null>(null);
 
-  const stageFiles = useCallback((incoming: File[]) => {
-    const result = validateBatch([...state.files, ...incoming]);
-    if (!result.ok) {
-      setValidationError(result.reason ?? 'Could not stage files.');
-      setPerFileErrors([]);
-      return;
-    }
-    setValidationError(null);
-    setPerFileErrors(result.rejected.map((r) => `${r.file.name}: ${r.reason}`));
-    const newFiles = result.files.filter((f) => !state.files.includes(f));
-    dispatch({ type: 'FILES_STAGED', files: newFiles });
-  }, [state.files]);
+  const stageFiles = useCallback(
+    (incoming: File[]) => {
+      const result = validateBatch([...state.files, ...incoming]);
+      if (!result.ok) {
+        setValidationError(result.reason ?? 'Could not stage files.');
+        setPerFileErrors([]);
+        return;
+      }
+      setValidationError(null);
+      setPerFileErrors(result.rejected.map((r) => `${r.file.name}: ${r.reason}`));
+      const newFiles = result.files.filter((f) => !state.files.includes(f));
+      dispatch({ type: 'FILES_STAGED', files: newFiles });
+    },
+    [state.files],
+  );
 
   const removeFile = useCallback((file: File) => {
     dispatch({ type: 'FILE_REMOVED', file });
   }, []);
 
+  const onScenarioLoaded = useCallback(
+    (application: Application, file: File) => {
+      setValidationError(null);
+      setPerFileErrors([]);
+      dispatch({ type: 'SCENARIO_LOADED', application, file });
+    },
+    [],
+  );
+
+  const onScenarioError = useCallback((message: string) => {
+    setValidationError(message);
+  }, []);
+
   const onVerify = useCallback(async () => {
-    if (inFlightRef.current) return; // dedupe rapid double-clicks
+    if (inFlightRef.current) return;
     const files = state.files;
     if (files.length === 0) return;
+    if (!state.application) {
+      setValidationError(
+        'Pick a demo scenario before verifying. Manual uploads need a COLA application JSON to cross-check against.',
+      );
+      return;
+    }
+    if (files.length > 1) {
+      setValidationError(
+        'Single-label submissions only. Remove the extra labels or pick a different scenario.',
+      );
+      return;
+    }
 
     dispatch({ type: 'VERIFY_STARTED' });
 
@@ -49,6 +75,7 @@ export default function HomeClient() {
 
     try {
       const fd = new FormData();
+      fd.append('application', JSON.stringify(state.application));
       files.forEach((f, i) => fd.append(`file-${i}`, f, f.name));
       const res = await fetch('/api/verify', {
         method: 'POST',
@@ -56,7 +83,9 @@ export default function HomeClient() {
         signal: ac.signal,
       });
       if (!res.ok || !res.body) {
-        const errorText = res.ok ? 'No response body' : await res.text();
+        const errorText = res.ok
+          ? 'No response body'
+          : await safeErrorText(res);
         files.forEach((f, i) => {
           dispatch({
             type: 'RESULT_RECEIVED',
@@ -97,7 +126,7 @@ export default function HomeClient() {
       inFlightRef.current = null;
       dispatch({ type: 'STREAM_CLOSED' });
     }
-  }, [state.files]);
+  }, [state.files, state.application]);
 
   const startOver = useCallback(() => {
     inFlightRef.current?.abort();
@@ -106,25 +135,6 @@ export default function HomeClient() {
     setPerFileErrors([]);
     dispatch({ type: 'START_OVER' });
   }, []);
-
-  async function loadSample(): Promise<void> {
-    try {
-      const res = await fetch('/samples/compliant-bourbon.jpg');
-      if (!res.ok) {
-        setValidationError(
-          'Sample label is not available. Add an image at public/samples/compliant-bourbon.jpg.',
-        );
-        return;
-      }
-      const blob = await res.blob();
-      const file = new File([blob], 'sample-compliant-bourbon.jpg', {
-        type: 'image/jpeg',
-      });
-      stageFiles([file]);
-    } catch (e) {
-      setValidationError(`Could not load sample: ${(e as Error).message}`);
-    }
-  }
 
   return (
     <>
@@ -154,7 +164,15 @@ export default function HomeClient() {
       )}
 
       {state.phase === 'empty' && (
-        <UploadZone onFilesSelected={stageFiles} onSampleSelected={loadSample} />
+        <UploadZone
+          onFilesSelected={stageFiles}
+          scenarioPicker={
+            <ScenarioPicker
+              onScenarioLoaded={onScenarioLoaded}
+              onError={onScenarioError}
+            />
+          }
+        />
       )}
 
       {state.phase === 'staged' && (
@@ -177,4 +195,22 @@ export default function HomeClient() {
       )}
     </>
   );
+}
+
+async function safeErrorText(res: Response): Promise<string> {
+  try {
+    const text = await res.text();
+    try {
+      const parsed: unknown = JSON.parse(text);
+      if (parsed && typeof parsed === 'object' && 'error' in parsed) {
+        const err = (parsed as { error: unknown }).error;
+        return typeof err === 'string' ? err : text;
+      }
+    } catch {
+      // not JSON; return raw text
+    }
+    return text;
+  } catch {
+    return `${res.status} ${res.statusText}`;
+  }
 }

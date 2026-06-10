@@ -1,19 +1,18 @@
 'use client';
 
-import { useState, useRef, type DragEvent } from 'react';
+import { useState, useRef, type DragEvent, type ReactNode } from 'react';
 import { Upload, FileImage, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { ACCEPTED_MIME_TYPES, MAX_BATCH_SIZE } from '@/lib/upload/file-validation';
 import { cn } from '@/lib/utils';
 
 interface Props {
   onFilesSelected(files: File[]): void;
-  onSampleSelected(): void;
+  scenarioPicker?: ReactNode;
 }
 
 const ACCEPT_ATTR = ACCEPTED_MIME_TYPES.join(',');
 
-export default function UploadZone({ onFilesSelected, onSampleSelected }: Props) {
+export default function UploadZone({ onFilesSelected, scenarioPicker }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,14 +45,14 @@ export default function UploadZone({ onFilesSelected, onSampleSelected }: Props)
       <div className="mb-8 text-center sm:mb-12">
         <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
           <Sparkles className="size-3" />
-          GPT-4o vision · TTB rule engine
+          GPT-4o vision · COLA cross-check + TTB rule engine
         </div>
         <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-          Verify alcohol labels against TTB compliance
+          Verify alcohol labels against a COLA application
         </h1>
         <p className="mx-auto mt-3 max-w-xl text-balance text-sm text-muted-foreground sm:text-base">
-          Drop label images. Each label is checked against six TTB rules in
-          about five seconds.
+          Pick a demo scenario to load a filled COLA application alongside its
+          submitted label, then verify both against the TTB rules.
         </p>
       </div>
 
@@ -110,12 +109,7 @@ export default function UploadZone({ onFilesSelected, onSampleSelected }: Props)
         />
       </div>
 
-      <div className="mt-5 text-center">
-        <Button variant="link" size="sm" type="button" onClick={onSampleSelected}>
-          <Sparkles className="size-3.5" />
-          Try a sample label
-        </Button>
-      </div>
+      {scenarioPicker && <div className="mt-6">{scenarioPicker}</div>}
     </div>
   );
 }
