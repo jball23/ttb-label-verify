@@ -14,31 +14,12 @@ body {
   min-height: 100vh;
 }
 
-// Skip-to-content link follows the standard USWDS pattern: visually hidden
-// until focused, then revealed at the top of the page.
-.usa-skipnav {
-  background: white;
-  color: color('primary-darker');
-  left: 0;
-  padding: units(1) units(2);
-  position: absolute;
-  top: -4rem;
-  transition: top 0.2s ease-in-out;
-  z-index: 100;
-
-  &:focus {
-    outline-offset: 2px;
-    position: absolute;
-    top: 0;
-  }
-}
-
 // Drop zone hover state — USWDS FileInput's default styling is restrained;
 // we layer a clear visual on top when the user drags over the zone.
 .upload-zone {
   &.is-drag-over {
-    background-color: color('primary-lighter');
-    border-color: color('primary');
+    background-color: #d9e8f6;
+    border-color: #005ea2;
   }
 }
 
@@ -64,9 +45,9 @@ body {
 // Sticky summary bar — USWDS doesn't ship one by default.
 .summary-bar {
   background: white;
-  border-bottom: 1px solid color('base-lighter');
+  border-bottom: 1px solid #dfe1e2;
   position: sticky;
   top: 0;
   z-index: 10;
-  padding: units(1) 0;
+  padding: 0.5rem 0;
 }

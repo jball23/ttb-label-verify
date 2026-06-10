@@ -1,5 +1,7 @@
 import LoginForm from './login-form';
 
+export const dynamic = 'force-dynamic';
+
 interface LoginPageProps {
   searchParams: Promise<{ error?: string }>;
 }
