@@ -29,6 +29,8 @@ export const ExtractedFieldsSchema = z.object({
   classType: z.string().nullable(),
   producer: z.string().nullable(),
   countryOfOrigin: z.string().nullable(),
+  wineVarietal: z.string().nullable(),
+  wineAppellation: z.string().nullable(),
   extractionConfidence: ConfidenceSchema,
 });
 export type ExtractedFields = z.infer<typeof ExtractedFieldsSchema>;
