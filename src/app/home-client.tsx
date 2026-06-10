@@ -1,22 +1,23 @@
 'use client';
 
-import { useReducer, useCallback } from 'react';
+import { useReducer, useCallback, useRef, useState } from 'react';
 import {
   phaseReducer,
   INITIAL_STATE,
-  type Action,
 } from '@/lib/upload/phase-reducer';
 import { validateBatch } from '@/lib/upload/file-validation';
+import { consumeResultStream } from '@/lib/results/stream-consumer';
 import UploadZone from '@/components/upload-zone';
 import StagedFilesList from '@/components/staged-files-list';
 import ResultsGrid from '@/components/results-grid';
 import { Alert } from '@trussworks/react-uswds';
-import { useState } from 'react';
 
 export default function HomeClient() {
   const [state, dispatch] = useReducer(phaseReducer, INITIAL_STATE);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [perFileErrors, setPerFileErrors] = useState<string[]>([]);
+  // Tracks the in-flight verify request so Start Over can cancel it.
+  const inFlightRef = useRef<AbortController | null>(null);
 
   const stageFiles = useCallback((incoming: File[]) => {
     const result = validateBatch([...state.files, ...incoming]);
@@ -35,15 +36,71 @@ export default function HomeClient() {
     dispatch({ type: 'FILE_REMOVED', file });
   }, []);
 
-  const onVerify = useCallback(() => {
-    dispatch({ type: 'VERIFY_STARTED' });
-  }, []);
+  const onVerify = useCallback(async () => {
+    if (inFlightRef.current) return; // dedupe rapid double-clicks
+    const files = state.files;
+    if (files.length === 0) return;
 
-  const onResult = useCallback((action: Action) => {
-    dispatch(action);
-  }, []);
+    dispatch({ type: 'VERIFY_STARTED' });
+
+    const ac = new AbortController();
+    inFlightRef.current = ac;
+
+    try {
+      const fd = new FormData();
+      files.forEach((f, i) => fd.append(`file-${i}`, f, f.name));
+      const res = await fetch('/api/verify', {
+        method: 'POST',
+        body: fd,
+        signal: ac.signal,
+      });
+      if (!res.ok || !res.body) {
+        const errorText = res.ok ? 'No response body' : await res.text();
+        files.forEach((f, i) => {
+          dispatch({
+            type: 'RESULT_RECEIVED',
+            result: {
+              status: 'error',
+              index: i,
+              filename: f.name,
+              durationMs: 0,
+              errorMessage: errorText,
+            },
+          });
+        });
+      } else {
+        for await (const entry of consumeResultStream(res.body.getReader())) {
+          if (entry.kind === 'value') {
+            dispatch({ type: 'RESULT_RECEIVED', result: entry.value });
+          } else {
+            console.warn('[home-client] dropped malformed result line', entry);
+          }
+        }
+      }
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') {
+        files.forEach((f, i) => {
+          dispatch({
+            type: 'RESULT_RECEIVED',
+            result: {
+              status: 'error',
+              index: i,
+              filename: f.name,
+              durationMs: 0,
+              errorMessage: `Network error: ${(e as Error).message}`,
+            },
+          });
+        });
+      }
+    } finally {
+      inFlightRef.current = null;
+      dispatch({ type: 'STREAM_CLOSED' });
+    }
+  }, [state.files]);
 
   const startOver = useCallback(() => {
+    inFlightRef.current?.abort();
+    inFlightRef.current = null;
     setValidationError(null);
     setPerFileErrors([]);
     dispatch({ type: 'START_OVER' });
@@ -123,7 +180,6 @@ export default function HomeClient() {
           results={state.results}
           totalExpected={state.totalExpected}
           isStreaming={state.phase === 'processing'}
-          onResult={onResult}
           onStartOver={startOver}
         />
       )}
