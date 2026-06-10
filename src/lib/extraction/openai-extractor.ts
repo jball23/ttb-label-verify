@@ -32,6 +32,11 @@ export class OpenAIExtractor implements LabelExtractor {
     const response = await this.client.chat.completions.create({
       model: this.model,
       response_format: zodResponseFormat(ExtractedFieldsSchema, 'extracted_fields'),
+      // Deterministic settings — the same image+prompt should yield the same
+      // extraction every run. temperature=0 + a fixed seed materially reduces
+      // run-to-run drift in vision-LLM outputs.
+      temperature: 0,
+      seed: 1,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         {
