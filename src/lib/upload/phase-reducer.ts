@@ -1,83 +1,79 @@
 import { type ResultLine } from '../results/result-types';
-import { type Application } from '../application/types';
 
 /**
- * The phase state machine for the upload page.
+ * Phase state machine for the verify page.
  *
- * Lifted out of the component so it's a pure reducer — testable as a function,
- * not as a rendered component. The component just dispatches and renders state.
+ * The PDF-only flow has a single file and a single result, so the model
+ * collapses from `application + files[]` to `pdfFile + result`. Selection
+ * state (which extracted field is currently highlighted) is intentionally
+ * NOT in the reducer — it's UI state owned by the verifier pane.
  */
 
-export type Phase = 'empty' | 'staged' | 'processing' | 'done';
+export type Phase = 'empty' | 'staged' | 'processing' | 'done' | 'error';
 
 export interface AppState {
   phase: Phase;
-  files: File[];
-  application: Application | null;
-  results: ResultLine[];
-  totalExpected: number;
+  pdfFile: File | null;
+  result: ResultLine | null;
+  errorMessage: string | null;
 }
 
 export const INITIAL_STATE: AppState = {
   phase: 'empty',
-  files: [],
-  application: null,
-  results: [],
-  totalExpected: 0,
+  pdfFile: null,
+  result: null,
+  errorMessage: null,
 };
 
 export type Action =
-  | { type: 'FILES_STAGED'; files: File[] }
-  | { type: 'FILE_REMOVED'; file: File }
-  | { type: 'SCENARIO_LOADED'; application: Application; file: File }
+  | { type: 'PDF_STAGED'; file: File }
+  | { type: 'PDF_CLEARED' }
+  | { type: 'SCENARIO_LOADED_PDF'; file: File }
   | { type: 'VERIFY_STARTED' }
   | { type: 'RESULT_RECEIVED'; result: ResultLine }
   | { type: 'STREAM_CLOSED' }
+  | { type: 'VERIFY_FAILED'; message: string }
   | { type: 'START_OVER' };
 
 export function phaseReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'FILES_STAGED': {
-      if (state.phase !== 'empty' && state.phase !== 'staged') return state;
-      const combined = [...state.files, ...action.files];
-      if (combined.length === 0) return state;
-      return { ...state, phase: 'staged', files: combined };
-    }
-    case 'FILE_REMOVED': {
-      if (state.phase !== 'staged') return state;
-      const remaining = state.files.filter((f) => f !== action.file);
-      if (remaining.length === 0) {
-        return { ...INITIAL_STATE };
-      }
-      return { ...state, files: remaining };
-    }
-    case 'SCENARIO_LOADED': {
-      // Loading a scenario replaces any manually-staged files and the
-      // previously-loaded application — a scenario is a complete pair.
+    case 'PDF_STAGED':
       return {
         ...state,
         phase: 'staged',
-        files: [action.file],
-        application: action.application,
+        pdfFile: action.file,
+        result: null,
+        errorMessage: null,
       };
-    }
-    case 'VERIFY_STARTED': {
-      if (state.phase !== 'staged') return state;
+    case 'PDF_CLEARED':
+      return { ...INITIAL_STATE };
+    case 'SCENARIO_LOADED_PDF':
+      // Loading a scenario clears any prior result and replaces the staged PDF.
       return {
         ...state,
-        phase: 'processing',
-        results: [],
-        totalExpected: state.files.length,
+        phase: 'staged',
+        pdfFile: action.file,
+        result: null,
+        errorMessage: null,
       };
+    case 'VERIFY_STARTED': {
+      if (state.phase !== 'staged') return state;
+      return { ...state, phase: 'processing', result: null, errorMessage: null };
     }
     case 'RESULT_RECEIVED': {
       if (state.phase !== 'processing') return state;
-      return { ...state, results: [...state.results, action.result] };
+      return { ...state, result: action.result };
     }
     case 'STREAM_CLOSED': {
       if (state.phase !== 'processing') return state;
       return { ...state, phase: 'done' };
     }
+    case 'VERIFY_FAILED':
+      return {
+        ...state,
+        phase: 'error',
+        errorMessage: action.message,
+      };
     case 'START_OVER':
       return { ...INITIAL_STATE };
     default:
@@ -86,6 +82,5 @@ export function phaseReducer(state: AppState, action: Action): AppState {
 }
 
 function assertNever(_: never): AppState {
-  // Reached only if a new Action variant is added without a switch case.
   return INITIAL_STATE;
 }

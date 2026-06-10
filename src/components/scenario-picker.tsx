@@ -4,12 +4,11 @@ import { useState } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import {
   DEMO_SCENARIOS,
-  loadScenarioFromServer,
+  loadScenarioPdf,
 } from '@/lib/application/load-scenario.client';
-import type { Application } from '@/lib/application/types';
 
 interface Props {
-  onScenarioLoaded(application: Application, labelFile: File): void;
+  onScenarioLoaded(pdfFile: File): void;
   onError(message: string): void;
 }
 
@@ -21,13 +20,12 @@ export default function ScenarioPicker({ onScenarioLoaded, onError }: Props) {
     if (!slug || loadingSlug) return;
     setLoadingSlug(slug);
     try {
-      const { application, labelFile } = await loadScenarioFromServer(slug);
-      onScenarioLoaded(application, labelFile);
+      const pdfFile = await loadScenarioPdf(slug);
+      onScenarioLoaded(pdfFile);
     } catch (err) {
       onError(`Could not load demo scenario: ${(err as Error).message}`);
     } finally {
       setLoadingSlug(null);
-      // Reset to the placeholder so re-selecting the same scenario re-fires.
       e.target.value = '';
     }
   }

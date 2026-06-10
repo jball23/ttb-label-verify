@@ -97,10 +97,19 @@ export const FieldProvenanceSchema = z.object({
 });
 export type FieldProvenance = z.infer<typeof FieldProvenanceSchema>;
 
-// Provenance arrives as a record keyed by FieldPath. Zod's `record` accepts a
-// key schema and value schema; paths not present in the response simply don't
-// appear in the record.
-export const ProvenanceMapSchema = z.record(FieldPathSchema, FieldProvenanceSchema);
+// Provenance arrives as a fixed-shape object with one optional key per
+// FieldPath. We use an explicit shape (rather than `z.record`) because OpenAI
+// structured-output's JSON Schema dialect doesn't support the `propertyNames`
+// constraint Zod emits for `record(enum, value)` — the request 400s with
+// "'propertyNames' is not permitted" at validation time.
+const provenanceShape = FIELD_PATHS.reduce(
+  (acc, path) => {
+    acc[path] = FieldProvenanceSchema.nullable().optional();
+    return acc;
+  },
+  {} as Record<FieldPath, z.ZodOptional<z.ZodNullable<typeof FieldProvenanceSchema>>>,
+);
+export const ProvenanceMapSchema = z.object(provenanceShape).strict();
 export type ProvenanceMap = z.infer<typeof ProvenanceMapSchema>;
 
 export const ExtractedDocumentSchema = z.object({

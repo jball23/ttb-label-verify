@@ -58,19 +58,32 @@ export async function renderPageOne(pdfBuffer: Uint8Array | Buffer): Promise<Buf
   }
   ensurePolyfills();
 
-  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  // pdfjs spawns a Web Worker by default to do parsing; in Node we have to
+  // point GlobalWorkerOptions at the worker bundle so it can be loaded
+  // synchronously. The legacy build ships the worker at a known location.
+  if (!pdfjs.GlobalWorkerOptions.workerSrc) {
+    const { createRequire } = (await import('node:module')) as unknown as {
+      createRequire: (url: string) => { resolve: (p: string) => string };
+    };
+    const req = createRequire(import.meta.url);
+    pdfjs.GlobalWorkerOptions.workerSrc = req.resolve(
+      'pdfjs-dist/legacy/build/pdf.worker.mjs',
+    );
+  }
 
   let doc;
   try {
-    doc = await getDocument({
+    doc = await pdfjs.getDocument({
       data: new Uint8Array(pdfBuffer),
       isEvalSupported: false,
       disableFontFace: true,
       useSystemFonts: false,
+      useWorkerFetch: false,
       // `canvasFactory` is supported on the pdfjs runtime but not in its public
       // type — cast to bypass the gap rather than ship a misleading type for it.
       canvasFactory: new NodeCanvasFactory(),
-    } as Parameters<typeof getDocument>[0]).promise;
+    } as Parameters<typeof pdfjs.getDocument>[0]).promise;
   } catch (e) {
     throw new PdfRenderError(`Could not parse PDF: ${(e as Error).message}`, {
       cause: e,

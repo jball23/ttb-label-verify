@@ -1,16 +1,11 @@
 /**
- * Client-side helper to load a demo scenario into the upload state.
+ * Client-side helper that loads a demo scenario PDF into upload state.
  *
- * Fetches the scenario's application.json + label.jpg from `/samples/...`,
- * validates the application against the Application Zod schema, and returns a
- * `{ application, labelFile }` pair the upload reducer can stage.
- *
- * Kept separate from `loader.ts` (which is isomorphic — pure Zod) so the
- * client-only fetch logic doesn't leak into server bundles.
+ * Replaces the prior `application.json + label.jpg` flow with a single
+ * `application.pdf` fetch — the new contract for /api/verify. Validation
+ * happens server-side inside the verify pipeline; here we just shape the
+ * blob into a File the reducer can stage.
  */
-
-import { parseApplication } from './loader';
-import type { Application } from './types';
 
 export interface ScenarioOption {
   slug: string;
@@ -46,32 +41,14 @@ export const DEMO_SCENARIOS: readonly ScenarioOption[] = [
   },
 ];
 
-export interface LoadedScenario {
-  application: Application;
-  labelFile: File;
-}
-
-export async function loadScenarioFromServer(
-  slug: string,
-): Promise<LoadedScenario> {
-  const base = `/samples/applications/${slug}`;
-  const [appRes, labelRes] = await Promise.all([
-    fetch(`${base}/application.json`, { cache: 'no-store' }),
-    fetch(`${base}/label.jpg`, { cache: 'no-store' }),
-  ]);
-  if (!appRes.ok) {
+export async function loadScenarioPdf(slug: string): Promise<File> {
+  const url = `/samples/applications/${slug}/application.pdf`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) {
     throw new Error(
-      `Failed to load application.json for scenario ${slug} (${appRes.status}).`,
+      `Failed to load scenario PDF ${slug} (${res.status} ${res.statusText}).`,
     );
   }
-  if (!labelRes.ok) {
-    throw new Error(
-      `Failed to load label.jpg for scenario ${slug} (${labelRes.status}).`,
-    );
-  }
-  const applicationRaw: unknown = await appRes.json();
-  const application = parseApplication(applicationRaw);
-  const blob = await labelRes.blob();
-  const labelFile = new File([blob], `${slug}.jpg`, { type: 'image/jpeg' });
-  return { application, labelFile };
+  const blob = await res.blob();
+  return new File([blob], `${slug}.pdf`, { type: 'application/pdf' });
 }

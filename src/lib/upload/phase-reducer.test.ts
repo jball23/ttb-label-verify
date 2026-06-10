@@ -2,178 +2,142 @@ import { describe, it, expect } from 'vitest';
 import { phaseReducer, INITIAL_STATE, type AppState } from './phase-reducer';
 import { type ResultLine } from '../results/result-types';
 
-function makeFile(name: string): File {
-  return new File([new Uint8Array(8)], name, { type: 'image/jpeg' });
+function makePdf(name = 'application.pdf'): File {
+  return new File([new Uint8Array(8)], name, { type: 'application/pdf' });
 }
 
-function okResult(filename: string, index = 0): ResultLine {
+function okResult(filename = 'application.pdf'): ResultLine {
   return {
     status: 'ok',
-    index,
+    index: 0,
     filename,
     durationMs: 100,
-    report: { overallStatus: 'compliant', crossCheck: { overallStatus: 'match', fields: {} }, fields: {}, provenance: {}, },
+    report: {
+      overallStatus: 'compliant',
+      crossCheck: { overallStatus: 'match', fields: {} },
+      fields: {},
+      provenance: {},
+    },
   };
 }
 
 describe('phaseReducer', () => {
-  it('initial state is empty/no-files/no-results', () => {
+  it('initial state is empty/no-file/no-result', () => {
     expect(INITIAL_STATE).toEqual({
       phase: 'empty',
-      files: [],
-      application: null,
-      results: [],
-      totalExpected: 0,
+      pdfFile: null,
+      result: null,
+      errorMessage: null,
     });
   });
 
-  it('SCENARIO_LOADED replaces files + application and stages', () => {
-    const app = { scenarioId: 'test-01' } as unknown as NonNullable<
-      AppState['application']
-    >;
-    const file = makeFile('label.jpg');
+  it('PDF_STAGED from empty moves to staged with the file', () => {
+    const f = makePdf();
+    const next = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
+    expect(next.phase).toBe('staged');
+    expect(next.pdfFile).toBe(f);
+  });
+
+  it('PDF_STAGED replaces any previously staged file', () => {
+    const f1 = makePdf('a.pdf');
+    const f2 = makePdf('b.pdf');
+    const after = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f1 });
+    const next = phaseReducer(after, { type: 'PDF_STAGED', file: f2 });
+    expect(next.pdfFile).toBe(f2);
+  });
+
+  it('PDF_CLEARED returns to initial state', () => {
+    const f = makePdf();
+    const after = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
+    expect(phaseReducer(after, { type: 'PDF_CLEARED' })).toEqual(INITIAL_STATE);
+  });
+
+  it('SCENARIO_LOADED_PDF stages a scenario PDF from empty', () => {
+    const f = makePdf('scenario-01.pdf');
     const next = phaseReducer(INITIAL_STATE, {
-      type: 'SCENARIO_LOADED',
-      application: app,
-      file,
+      type: 'SCENARIO_LOADED_PDF',
+      file: f,
     });
     expect(next.phase).toBe('staged');
-    expect(next.files).toEqual([file]);
-    expect(next.application).toBe(app);
+    expect(next.pdfFile).toBe(f);
   });
 
-  it('SCENARIO_LOADED replaces any previously staged files', () => {
-    const staged = phaseReducer(INITIAL_STATE, {
-      type: 'FILES_STAGED',
-      files: [makeFile('old.jpg')],
+  it('SCENARIO_LOADED_PDF from verified clears the prior result', () => {
+    const f1 = makePdf('a.pdf');
+    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f1 });
+    const processing = phaseReducer(staged, { type: 'VERIFY_STARTED' });
+    const withResult = phaseReducer(processing, {
+      type: 'RESULT_RECEIVED',
+      result: okResult(),
     });
-    const app = { scenarioId: 'test-02' } as unknown as NonNullable<
-      AppState['application']
-    >;
-    const newFile = makeFile('new.jpg');
-    const next = phaseReducer(staged, {
-      type: 'SCENARIO_LOADED',
-      application: app,
-      file: newFile,
+    const done = phaseReducer(withResult, { type: 'STREAM_CLOSED' });
+    expect(done.phase).toBe('done');
+    expect(done.result).not.toBeNull();
+    const reloaded = phaseReducer(done, {
+      type: 'SCENARIO_LOADED_PDF',
+      file: makePdf('b.pdf'),
     });
-    expect(next.files).toEqual([newFile]);
-    expect(next.application).toBe(app);
+    expect(reloaded.phase).toBe('staged');
+    expect(reloaded.result).toBeNull();
   });
 
-  it('START_OVER clears application back to null', () => {
-    const app = { scenarioId: 'x' } as unknown as NonNullable<
-      AppState['application']
-    >;
-    const loaded = phaseReducer(INITIAL_STATE, {
-      type: 'SCENARIO_LOADED',
-      application: app,
-      file: makeFile('a.jpg'),
-    });
-    const cleared = phaseReducer(loaded, { type: 'START_OVER' });
-    expect(cleared.application).toBeNull();
-  });
-
-  it('FILES_STAGED from empty moves to staged with the files', () => {
-    const next = phaseReducer(INITIAL_STATE, {
-      type: 'FILES_STAGED',
-      files: [makeFile('a.jpg'), makeFile('b.jpg')],
-    });
-    expect(next.phase).toBe('staged');
-    expect(next.files).toHaveLength(2);
-  });
-
-  it('FILES_STAGED from staged appends files', () => {
-    const f1 = makeFile('a.jpg');
-    const f2 = makeFile('b.jpg');
-    const after1 = phaseReducer(INITIAL_STATE, {
-      type: 'FILES_STAGED',
-      files: [f1],
-    });
-    const after2 = phaseReducer(after1, { type: 'FILES_STAGED', files: [f2] });
-    expect(after2.files).toEqual([f1, f2]);
-  });
-
-  it('FILE_REMOVED removes a single file but stays staged', () => {
-    const f1 = makeFile('a.jpg');
-    const f2 = makeFile('b.jpg');
-    const staged = phaseReducer(INITIAL_STATE, {
-      type: 'FILES_STAGED',
-      files: [f1, f2],
-    });
-    const next = phaseReducer(staged, { type: 'FILE_REMOVED', file: f1 });
-    expect(next.phase).toBe('staged');
-    expect(next.files).toEqual([f2]);
-  });
-
-  it('FILE_REMOVED of the last file returns to empty', () => {
-    const f = makeFile('a.jpg');
-    const staged = phaseReducer(INITIAL_STATE, {
-      type: 'FILES_STAGED',
-      files: [f],
-    });
-    const next = phaseReducer(staged, { type: 'FILE_REMOVED', file: f });
-    expect(next.phase).toBe('empty');
-    expect(next.files).toEqual([]);
-  });
-
-  it('VERIFY_STARTED moves to processing with totalExpected set', () => {
-    const staged = phaseReducer(INITIAL_STATE, {
-      type: 'FILES_STAGED',
-      files: [makeFile('a.jpg'), makeFile('b.jpg')],
-    });
+  it('VERIFY_STARTED moves staged → processing and clears prior result', () => {
+    const f = makePdf();
+    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
     const next = phaseReducer(staged, { type: 'VERIFY_STARTED' });
     expect(next.phase).toBe('processing');
-    expect(next.totalExpected).toBe(2);
-    expect(next.results).toEqual([]);
+    expect(next.result).toBeNull();
   });
 
-  it('RESULT_RECEIVED appends in arrival order', () => {
-    const staged = phaseReducer(INITIAL_STATE, {
-      type: 'FILES_STAGED',
-      files: [makeFile('a.jpg'), makeFile('b.jpg')],
-    });
+  it('VERIFY_STARTED while empty leaves state unchanged', () => {
+    const next = phaseReducer(INITIAL_STATE, { type: 'VERIFY_STARTED' });
+    expect(next).toBe(INITIAL_STATE);
+  });
+
+  it('RESULT_RECEIVED stores the result while processing', () => {
+    const f = makePdf();
+    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
     const processing = phaseReducer(staged, { type: 'VERIFY_STARTED' });
-    const r1 = okResult('b.jpg', 1);
-    const r2 = okResult('a.jpg', 0);
-    const after1 = phaseReducer(processing, {
-      type: 'RESULT_RECEIVED',
-      result: r1,
-    });
-    const after2 = phaseReducer(after1, { type: 'RESULT_RECEIVED', result: r2 });
-    expect(after2.results).toEqual([r1, r2]);
+    const r = okResult();
+    const next = phaseReducer(processing, { type: 'RESULT_RECEIVED', result: r });
+    expect(next.result).toBe(r);
   });
 
-  it('STREAM_CLOSED moves processing to done', () => {
-    const staged = phaseReducer(INITIAL_STATE, {
-      type: 'FILES_STAGED',
-      files: [makeFile('a.jpg')],
+  it('RESULT_RECEIVED outside processing leaves state unchanged', () => {
+    const next = phaseReducer(INITIAL_STATE, {
+      type: 'RESULT_RECEIVED',
+      result: okResult(),
     });
+    expect(next).toBe(INITIAL_STATE);
+  });
+
+  it('STREAM_CLOSED moves processing → done', () => {
+    const f = makePdf();
+    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
     const processing = phaseReducer(staged, { type: 'VERIFY_STARTED' });
     const done = phaseReducer(processing, { type: 'STREAM_CLOSED' });
     expect(done.phase).toBe('done');
   });
 
+  it('VERIFY_FAILED captures the message and moves to error from any phase', () => {
+    const f = makePdf();
+    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
+    const processing = phaseReducer(staged, { type: 'VERIFY_STARTED' });
+    const next = phaseReducer(processing, {
+      type: 'VERIFY_FAILED',
+      message: 'render exploded',
+    });
+    expect(next.phase).toBe('error');
+    expect(next.errorMessage).toBe('render exploded');
+  });
+
   it('START_OVER from any phase returns to initial state', () => {
     const state: AppState = {
       phase: 'done',
-      files: [makeFile('a.jpg')],
-      application: null,
-      results: [okResult('a.jpg')],
-      totalExpected: 1,
+      pdfFile: makePdf(),
+      result: okResult(),
+      errorMessage: null,
     };
     expect(phaseReducer(state, { type: 'START_OVER' })).toEqual(INITIAL_STATE);
-  });
-
-  it('invalid transition (RESULT_RECEIVED while empty) leaves state unchanged', () => {
-    const next = phaseReducer(INITIAL_STATE, {
-      type: 'RESULT_RECEIVED',
-      result: okResult('a.jpg'),
-    });
-    expect(next).toBe(INITIAL_STATE);
-  });
-
-  it('invalid transition (VERIFY_STARTED while empty) leaves state unchanged', () => {
-    const next = phaseReducer(INITIAL_STATE, { type: 'VERIFY_STARTED' });
-    expect(next).toBe(INITIAL_STATE);
   });
 });
