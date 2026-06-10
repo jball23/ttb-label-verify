@@ -1,0 +1,19 @@
+{
+  "id": "wrong-abv-format",
+  "imagePath": "evals/dataset/images/wrong-abv-format.jpg",
+  "notes": "ABV stated as 'forty percent alcohol' in spelled-out form. Extractor returns the text verbatim; the ABV rule should reject this format.",
+  "expected": {
+    "brandName": "Old Quarry Distillers",
+    "abv": "forty percent alcohol",
+    "governmentWarning": {
+      "text": "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+      "appearsAllCaps": true,
+      "appearsBold": true
+    },
+    "netContents": "750 mL",
+    "classType": "BLENDED WHISKEY",
+    "producer": "Old Quarry Distillers, Frankfort, KY",
+    "countryOfOrigin": "USA",
+    "extractionConfidence": "high"
+  }
+}

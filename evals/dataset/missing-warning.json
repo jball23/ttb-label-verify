@@ -1,0 +1,19 @@
+{
+  "id": "missing-warning",
+  "imagePath": "evals/dataset/images/missing-warning.jpg",
+  "notes": "Label with no Government Warning visible. Model should return null for warning.text.",
+  "expected": {
+    "brandName": "Bluegrass Reserve",
+    "abv": "40% ALC/VOL",
+    "governmentWarning": {
+      "text": null,
+      "appearsAllCaps": null,
+      "appearsBold": null
+    },
+    "netContents": "750 mL",
+    "classType": "KENTUCKY STRAIGHT BOURBON WHISKEY",
+    "producer": "Distilled by Bluegrass Reserve, Lexington, KY",
+    "countryOfOrigin": "USA",
+    "extractionConfidence": "high"
+  }
+}

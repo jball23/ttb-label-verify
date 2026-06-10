@@ -6,6 +6,7 @@ import {
   type LabelExtractor,
 } from './types';
 import { SYSTEM_PROMPT, USER_PROMPT_INTRO } from './prompt';
+import { getObservedOpenAI } from '../observability/langfuse';
 
 export interface OpenAIExtractorOptions {
   apiKey: string;
@@ -21,7 +22,7 @@ export class OpenAIExtractor implements LabelExtractor {
   private readonly model: string;
 
   constructor(options: OpenAIExtractorOptions) {
-    this.client = options.client ?? new OpenAI({ apiKey: options.apiKey });
+    this.client = options.client ?? getObservedOpenAI(options.apiKey);
     this.model = options.model ?? DEFAULT_MODEL;
   }
 

@@ -1,0 +1,19 @@
+{
+  "id": "partial-extraction",
+  "imagePath": "evals/dataset/images/partial-extraction.jpg",
+  "notes": "Label where producer/country of origin are genuinely missing from the front label (would be on a back label not photographed). Model should return null for both, not invent values.",
+  "expected": {
+    "brandName": "Sunset Lager",
+    "abv": "5.0% ALC/VOL",
+    "governmentWarning": {
+      "text": "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+      "appearsAllCaps": true,
+      "appearsBold": true
+    },
+    "netContents": "12 FL OZ",
+    "classType": "BEER",
+    "producer": null,
+    "countryOfOrigin": null,
+    "extractionConfidence": "medium"
+  }
+}

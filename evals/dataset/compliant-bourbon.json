@@ -1,0 +1,19 @@
+{
+  "id": "compliant-bourbon",
+  "imagePath": "evals/dataset/images/compliant-bourbon.jpg",
+  "notes": "Fully-compliant straight bourbon label. Expected to score 1.0 on every field.",
+  "expected": {
+    "brandName": "Wild Acre Distillery",
+    "abv": "45% ALC/VOL",
+    "governmentWarning": {
+      "text": "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+      "appearsAllCaps": true,
+      "appearsBold": true
+    },
+    "netContents": "750 mL",
+    "classType": "STRAIGHT BOURBON WHISKEY",
+    "producer": "Bottled by Wild Acre Distillery, Louisville, Kentucky",
+    "countryOfOrigin": "USA",
+    "extractionConfidence": "high"
+  }
+}
