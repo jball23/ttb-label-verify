@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { phaseReducer, INITIAL_STATE, type AppState } from './phase-reducer';
+import { phaseReducer, INITIAL_STATE } from './phase-reducer';
 import { type ResultLine } from '../results/result-types';
 
 function makePdf(name = 'application.pdf'): File {
@@ -16,128 +16,160 @@ function okResult(filename = 'application.pdf'): ResultLine {
       overallStatus: 'compliant',
       crossCheck: { overallStatus: 'match', fields: {} },
       fields: {},
-      provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as any, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as any,
+      provenance: {},
+      extractedForm: {
+        plantRegistryNumber: null,
+        source: null,
+        serialNumber: null,
+        productType: null,
+        brandName: null,
+        fancifulName: null,
+        applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },
+        grapeVarietals: null,
+        wineAppellation: null,
+        phone: null,
+        email: null,
+        applicationType: null,
+        applicationDate: null,
+        applicantSignatureName: null,
+      },
+      extractedLabel: {
+        brandName: null,
+        abv: null,
+        governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },
+        netContents: null,
+        classType: null,
+        producer: null,
+        countryOfOrigin: null,
+        wineVarietal: null,
+        wineAppellation: null,
+        extractionConfidence: 'high',
+      },
     },
   };
 }
 
+function errResult(filename = 'application.pdf'): ResultLine {
+  return {
+    status: 'error',
+    index: 0,
+    filename,
+    durationMs: 100,
+    errorMessage: 'render failed',
+  };
+}
+
 describe('phaseReducer', () => {
-  it('initial state is empty/no-file/no-result', () => {
-    expect(INITIAL_STATE).toEqual({
-      phase: 'empty',
-      pdfFile: null,
-      result: null,
-      errorMessage: null,
-    });
+  it('initial state has no cards', () => {
+    expect(INITIAL_STATE).toEqual({ phase: 'empty', cards: [] });
   });
 
-  it('PDF_STAGED from empty moves to staged with the file', () => {
-    const f = makePdf();
-    const next = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
-    expect(next.phase).toBe('staged');
-    expect(next.pdfFile).toBe(f);
-  });
-
-  it('PDF_STAGED replaces any previously staged file', () => {
-    const f1 = makePdf('a.pdf');
-    const f2 = makePdf('b.pdf');
-    const after = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f1 });
-    const next = phaseReducer(after, { type: 'PDF_STAGED', file: f2 });
-    expect(next.pdfFile).toBe(f2);
-  });
-
-  it('PDF_CLEARED returns to initial state', () => {
-    const f = makePdf();
-    const after = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
-    expect(phaseReducer(after, { type: 'PDF_CLEARED' })).toEqual(INITIAL_STATE);
-  });
-
-  it('SCENARIO_LOADED_PDF stages a scenario PDF from empty', () => {
-    const f = makePdf('scenario-01.pdf');
+  it('FILES_ADDED stages new cards', () => {
     const next = phaseReducer(INITIAL_STATE, {
-      type: 'SCENARIO_LOADED_PDF',
-      file: f,
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf'), makePdf('b.pdf')],
     });
     expect(next.phase).toBe('staged');
-    expect(next.pdfFile).toBe(f);
+    expect(next.cards).toHaveLength(2);
+    expect(next.cards.every((c) => c.status === 'pending')).toBe(true);
+    expect(next.cards[0]!.id).not.toBe(next.cards[1]!.id);
   });
 
-  it('SCENARIO_LOADED_PDF from verified clears the prior result', () => {
-    const f1 = makePdf('a.pdf');
-    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f1 });
-    const processing = phaseReducer(staged, { type: 'VERIFY_STARTED' });
-    const withResult = phaseReducer(processing, {
-      type: 'RESULT_RECEIVED',
+  it('FILES_ADDED appends to existing cards', () => {
+    const a = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf')],
+    });
+    const b = phaseReducer(a, { type: 'FILES_ADDED', files: [makePdf('b.pdf')] });
+    expect(b.cards).toHaveLength(2);
+  });
+
+  it('CARD_REMOVED takes a single card out of the list', () => {
+    const a = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf'), makePdf('b.pdf')],
+    });
+    const removed = phaseReducer(a, { type: 'CARD_REMOVED', id: a.cards[0]!.id });
+    expect(removed.cards).toHaveLength(1);
+    expect(removed.cards[0]!.file.name).toBe('b.pdf');
+  });
+
+  it('CARD_REMOVED of the last card resets to initial', () => {
+    const a = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf')],
+    });
+    const removed = phaseReducer(a, { type: 'CARD_REMOVED', id: a.cards[0]!.id });
+    expect(removed).toEqual(INITIAL_STATE);
+  });
+
+  it('CARD_VERIFY_STARTED sets that card to processing', () => {
+    const a = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf'), makePdf('b.pdf')],
+    });
+    const next = phaseReducer(a, {
+      type: 'CARD_VERIFY_STARTED',
+      id: a.cards[1]!.id,
+    });
+    expect(next.cards[0]!.status).toBe('pending');
+    expect(next.cards[1]!.status).toBe('processing');
+  });
+
+  it('CARD_RESULT_RECEIVED with ok result marks done + stores it', () => {
+    const a = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf')],
+    });
+    const next = phaseReducer(a, {
+      type: 'CARD_RESULT_RECEIVED',
+      id: a.cards[0]!.id,
       result: okResult(),
     });
-    const done = phaseReducer(withResult, { type: 'STREAM_CLOSED' });
-    expect(done.phase).toBe('done');
-    expect(done.result).not.toBeNull();
-    const reloaded = phaseReducer(done, {
-      type: 'SCENARIO_LOADED_PDF',
-      file: makePdf('b.pdf'),
-    });
-    expect(reloaded.phase).toBe('staged');
-    expect(reloaded.result).toBeNull();
+    expect(next.cards[0]!.status).toBe('done');
+    expect(next.cards[0]!.result).not.toBeNull();
   });
 
-  it('VERIFY_STARTED moves staged → processing and clears prior result', () => {
-    const f = makePdf();
-    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
-    const next = phaseReducer(staged, { type: 'VERIFY_STARTED' });
+  it('CARD_RESULT_RECEIVED with error result marks card as error', () => {
+    const a = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf')],
+    });
+    const next = phaseReducer(a, {
+      type: 'CARD_RESULT_RECEIVED',
+      id: a.cards[0]!.id,
+      result: errResult(),
+    });
+    expect(next.cards[0]!.status).toBe('error');
+    expect(next.cards[0]!.errorMessage).toMatch(/render failed/);
+  });
+
+  it('VERIFY_STARTED moves phase to processing', () => {
+    const a = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf')],
+    });
+    const next = phaseReducer(a, { type: 'VERIFY_STARTED' });
     expect(next.phase).toBe('processing');
-    expect(next.result).toBeNull();
   });
 
-  it('VERIFY_STARTED while empty leaves state unchanged', () => {
-    const next = phaseReducer(INITIAL_STATE, { type: 'VERIFY_STARTED' });
-    expect(next).toBe(INITIAL_STATE);
-  });
-
-  it('RESULT_RECEIVED stores the result while processing', () => {
-    const f = makePdf();
-    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
-    const processing = phaseReducer(staged, { type: 'VERIFY_STARTED' });
-    const r = okResult();
-    const next = phaseReducer(processing, { type: 'RESULT_RECEIVED', result: r });
-    expect(next.result).toBe(r);
-  });
-
-  it('RESULT_RECEIVED outside processing leaves state unchanged', () => {
-    const next = phaseReducer(INITIAL_STATE, {
-      type: 'RESULT_RECEIVED',
-      result: okResult(),
+  it('BATCH_COMPLETE moves processing -> done', () => {
+    const a = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf')],
     });
-    expect(next).toBe(INITIAL_STATE);
-  });
-
-  it('STREAM_CLOSED moves processing → done', () => {
-    const f = makePdf();
-    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
-    const processing = phaseReducer(staged, { type: 'VERIFY_STARTED' });
-    const done = phaseReducer(processing, { type: 'STREAM_CLOSED' });
-    expect(done.phase).toBe('done');
-  });
-
-  it('VERIFY_FAILED captures the message and moves to error from any phase', () => {
-    const f = makePdf();
-    const staged = phaseReducer(INITIAL_STATE, { type: 'PDF_STAGED', file: f });
-    const processing = phaseReducer(staged, { type: 'VERIFY_STARTED' });
-    const next = phaseReducer(processing, {
-      type: 'VERIFY_FAILED',
-      message: 'render exploded',
-    });
-    expect(next.phase).toBe('error');
-    expect(next.errorMessage).toBe('render exploded');
+    const p = phaseReducer(a, { type: 'VERIFY_STARTED' });
+    const d = phaseReducer(p, { type: 'BATCH_COMPLETE' });
+    expect(d.phase).toBe('done');
   });
 
   it('START_OVER from any phase returns to initial state', () => {
-    const state: AppState = {
-      phase: 'done',
-      pdfFile: makePdf(),
-      result: okResult(),
-      errorMessage: null,
-    };
-    expect(phaseReducer(state, { type: 'START_OVER' })).toEqual(INITIAL_STATE);
+    const a = phaseReducer(INITIAL_STATE, {
+      type: 'FILES_ADDED',
+      files: [makePdf('a.pdf'), makePdf('b.pdf')],
+    });
+    const p = phaseReducer(a, { type: 'VERIFY_STARTED' });
+    const d = phaseReducer(p, { type: 'START_OVER' });
+    expect(d).toEqual(INITIAL_STATE);
   });
 });
