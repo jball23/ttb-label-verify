@@ -1,8 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { Header, Title, NavMenuButton, PrimaryNav } from '@trussworks/react-uswds';
-import AboutModal from './about-modal';
+
+// AboutModal pulls in focus-trap-react, which references `document` at module
+// scope. Skip SSR for it so server rendering doesn't blow up.
+const AboutModal = dynamic(() => import('./about-modal'), { ssr: false });
 
 export default function PageHeader() {
   const [aboutOpen, setAboutOpen] = useState(false);
