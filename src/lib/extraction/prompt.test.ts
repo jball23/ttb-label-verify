@@ -2,12 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { PROMPT_VERSION, SYSTEM_PROMPT, USER_PROMPT_INTRO } from './prompt';
 
 describe('PROMPT_VERSION', () => {
-  it('is the v4 string for the dual-extraction prompt', () => {
-    expect(PROMPT_VERSION).toBe('2026-06-10.v4');
+  it('is the v5 string for the dual-extraction prompt', () => {
+    expect(PROMPT_VERSION).toBe('2026-06-10.v5');
   });
 
   it('differs from the previous label-only revision', () => {
     expect(PROMPT_VERSION).not.toBe('2026-06-10.v3');
+    expect(PROMPT_VERSION).not.toBe('2026-06-10.v4');
   });
 });
 

@@ -9,6 +9,7 @@ import { type ResultLine } from '@/lib/results/result-types';
 import { scrubError } from '@/lib/safety/scrub-error';
 import { synthesizeExpectations } from '@/lib/application/loader';
 import { renderPageOne, PdfRenderError } from '@/lib/pdf/render';
+import { snapApplicationProvenance } from '@/lib/pdf/form-widgets';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -94,10 +95,13 @@ export async function POST(req: NextRequest): Promise<Response> {
             );
 
             const application = synthesizeExpectations(extracted.application);
+            // Override the model's application-side bboxes with deterministic
+            // AcroForm widget rects; label-side bboxes stay vision-LLM.
+            const snappedProvenance = snapApplicationProvenance(extracted.provenance);
             const report = runVerification(
               application,
               extracted.label,
-              extracted.provenance,
+              snappedProvenance,
             );
 
             enqueue({

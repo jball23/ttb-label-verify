@@ -221,6 +221,9 @@ describe('ExtractedDocumentSchema', () => {
     },
     grapeVarietals: null,
     wineAppellation: null,
+    phone: null,
+    email: null,
+    applicationType: null,
     applicationDate: '2026-05-22',
     applicantSignatureName: 'Margaret Hollister',
   };
@@ -300,6 +303,9 @@ describe('ExtractedDocumentSchema', () => {
       },
       grapeVarietals: null,
       wineAppellation: null,
+      phone: null,
+      email: null,
+      applicationType: null,
       applicationDate: null,
       applicantSignatureName: null,
     };

@@ -99,6 +99,9 @@ function formFromScenario(slug: Scenario): ExtractedApplicationForm {
     },
     grapeVarietals: (f.grapeVarietals as string | null) ?? null,
     wineAppellation: (f.wineAppellation as string | null) ?? null,
+    phone: null,
+    email: null,
+    applicationType: null,
     applicationDate: (f.applicationDate as string | null) ?? null,
     applicantSignatureName: (f.applicantSignatureName as string | null) ?? null,
   };
@@ -169,6 +172,9 @@ describe('synthesizeExpectations', () => {
       },
       grapeVarietals: null,
       wineAppellation: null,
+      phone: null,
+      email: null,
+      applicationType: null,
       applicationDate: null,
       applicantSignatureName: null,
     };
