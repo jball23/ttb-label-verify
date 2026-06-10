@@ -7,6 +7,13 @@ function present(value: string | null): boolean {
 const producerOriginRule: Rule = {
   id: 'producerOrigin',
   label: 'Producer & country of origin',
+  cfr: {
+    section: '27 CFR §4.35 (wine) / §5.36 (spirits) / §7.25 (malt beverages)',
+    summary:
+      'The label must identify the producer/bottler/importer of record and the place of production. For imported product, country of origin must be declared.',
+    quote:
+      'The brand label or back label must state the name and address of the bottler (and producer or importer, as applicable). Imported alcoholic beverages must declare "Product of [country]" or equivalent.',
+  },
   check(extracted) {
     const hasProducer = present(extracted.producer);
     const hasCountry = present(extracted.countryOfOrigin);

@@ -12,6 +12,13 @@ const NORMALIZED_CANONICAL = normalizeWhitespace(GOVERNMENT_WARNING_CANONICAL);
 const governmentWarningRule: Rule = {
   id: 'governmentWarning',
   label: 'Government warning',
+  cfr: {
+    section: '27 CFR §16.21–§16.22',
+    summary:
+      'The Health Warning Statement is required on the label of every alcoholic beverage container bottled on or after November 18, 1989. It must be readable, conspicuous, separated from other text, and meet minimum type-size requirements.',
+    quote:
+      '"GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems." — must appear in capital letters and bold print, on a contrasting background, at minimum 1 mm type for containers ≤237 mL and 2 mm for >237 mL.',
+  },
   check(extracted) {
     const { text, appearsBold, appearsAllCaps } = extracted.governmentWarning;
 

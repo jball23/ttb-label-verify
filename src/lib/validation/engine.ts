@@ -1,4 +1,5 @@
 import {
+  type ExtractedApplicationForm,
   type ExtractedFields,
   type ProvenanceMap,
 } from '../extraction/types';
@@ -64,6 +65,7 @@ export function runVerification(
   application: Application,
   extracted: ExtractedFields,
   provenance: ProvenanceMap = {},
+  extractedForm?: ExtractedApplicationForm,
 ): VerificationReport {
   const crossCheck: CrossCheckReport = runCrossCheck(application, extracted);
   const { fields, anyFail } = runRulesInternal(extracted);
@@ -74,6 +76,37 @@ export function runVerification(
     crossCheck,
     fields,
     provenance,
+    extractedForm: extractedForm ?? extractedFormFromApplication(application),
+    extractedLabel: extracted,
+  };
+}
+
+function extractedFormFromApplication(application: Application): ExtractedApplicationForm {
+  // Fallback for callers that don't pass the raw extraction — derive a
+  // sufficient ExtractedApplicationForm from the synthesized Application so
+  // the UI never has to render an empty form panel.
+  const f = application.form;
+  return {
+    plantRegistryNumber: f.plantRegistryNumber,
+    source: f.source,
+    serialNumber: f.serialNumber,
+    productType: f.productType,
+    brandName: f.brandName,
+    fancifulName: f.fancifulName,
+    applicant: {
+      name: f.applicant.name,
+      addressLine1: f.applicant.addressLine1,
+      city: f.applicant.city,
+      state: f.applicant.state,
+      postalCode: f.applicant.postalCode,
+    },
+    grapeVarietals: f.grapeVarietals,
+    wineAppellation: f.wineAppellation,
+    phone: f.phone || null,
+    email: f.email || null,
+    applicationType: f.applicationType,
+    applicationDate: f.applicationDate,
+    applicantSignatureName: f.applicantSignatureName,
   };
 }
 
@@ -90,6 +123,33 @@ export function runRules(extracted: ExtractedFields): VerificationReport {
     crossCheck: emptyCrossCheckReport(),
     fields,
     provenance: {},
+    extractedForm: blankExtractedForm(),
+    extractedLabel: extracted,
+  };
+}
+
+function blankExtractedForm(): ExtractedApplicationForm {
+  return {
+    plantRegistryNumber: null,
+    source: null,
+    serialNumber: null,
+    productType: null,
+    brandName: null,
+    fancifulName: null,
+    applicant: {
+      name: null,
+      addressLine1: null,
+      city: null,
+      state: null,
+      postalCode: null,
+    },
+    grapeVarietals: null,
+    wineAppellation: null,
+    phone: null,
+    email: null,
+    applicationType: null,
+    applicationDate: null,
+    applicantSignatureName: null,
   };
 }
 

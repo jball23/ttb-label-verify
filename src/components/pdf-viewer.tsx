@@ -9,6 +9,7 @@ import {
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { Minus, Plus, Maximize2 } from 'lucide-react';
 import type {
   FieldPath,
   FieldProvenance,
@@ -28,7 +29,7 @@ interface Props {
   selectedFieldId: FieldPath | null;
 }
 
-const DEFAULT_PAGE_WIDTH = 720;
+const ZOOM_STEPS = [0.6, 0.75, 0.9, 1.0, 1.25, 1.5, 2.0, 2.5] as const;
 
 export default function PdfViewer({
   pdfFile,
@@ -36,7 +37,8 @@ export default function PdfViewer({
   selectedFieldId,
 }: Props) {
   const [numPages, setNumPages] = useState(0);
-  const [pageWidth, setPageWidth] = useState(DEFAULT_PAGE_WIDTH);
+  const [containerWidth, setContainerWidth] = useState(720);
+  const [zoomIndex, setZoomIndex] = useState(() => ZOOM_STEPS.indexOf(1.0));
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
@@ -48,7 +50,7 @@ export default function PdfViewer({
     const node = containerRef.current;
     const ro = new ResizeObserver((entries) => {
       const w = entries[0]?.contentRect.width;
-      if (w && w > 0) setPageWidth(Math.floor(w));
+      if (w && w > 0) setContainerWidth(Math.floor(w));
     });
     ro.observe(node);
     return () => ro.disconnect();
@@ -76,8 +78,50 @@ export default function PdfViewer({
     );
   }
 
+  const zoom = ZOOM_STEPS[zoomIndex] ?? 1.0;
+  const pageWidth = Math.floor(containerWidth * zoom);
+
+  function zoomIn(): void {
+    setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1));
+  }
+  function zoomOut(): void {
+    setZoomIndex((i) => Math.max(0, i - 1));
+  }
+  function zoomReset(): void {
+    setZoomIndex(ZOOM_STEPS.indexOf(1.0));
+  }
+
   return (
     <div ref={containerRef} className="flex flex-col items-center gap-3">
+      <div className="sticky top-0 z-20 flex w-full items-center justify-end gap-1 rounded-md border border-border bg-card/95 px-2 py-1 backdrop-blur">
+        <button
+          type="button"
+          onClick={zoomOut}
+          disabled={zoomIndex === 0}
+          aria-label="Zoom out"
+          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/40 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <Minus className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={zoomReset}
+          aria-label={`Reset zoom (currently ${Math.round(zoom * 100)}%)`}
+          className="inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+        >
+          <Maximize2 className="size-3" />
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          onClick={zoomIn}
+          disabled={zoomIndex === ZOOM_STEPS.length - 1}
+          aria-label="Zoom in"
+          className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/40 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <Plus className="size-3.5" />
+        </button>
+      </div>
       <Document
         file={pdfFile}
         onLoadSuccess={(p) => setNumPages(p.numPages)}

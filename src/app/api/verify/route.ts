@@ -102,6 +102,7 @@ export async function POST(req: NextRequest): Promise<Response> {
               application,
               extracted.label,
               snappedProvenance,
+              extracted.application,
             );
 
             enqueue({
