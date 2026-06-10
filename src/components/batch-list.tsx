@@ -40,42 +40,53 @@ export default function BatchList({ cards, onRemove }: Props) {
             key={card.id}
             className="overflow-hidden rounded-xl border border-border bg-card"
           >
-            <button
-              type="button"
-              onClick={() => expandable && toggle(card.id)}
-              disabled={!expandable}
-              aria-expanded={expanded}
+            <div
               className={cn(
                 'flex w-full items-center gap-3 px-3 py-2 text-left transition-colors sm:px-4',
                 expandable && 'hover:bg-accent/30',
               )}
             >
-              <StatusIcon card={card} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{card.file.name}</p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {(card.file.size / 1024).toFixed(1)} KB · {humanStatus(card)}
-                </p>
-              </div>
-              <VerdictBadge card={card} />
               <button
                 type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRemove(card.id);
-                }}
+                onClick={() => expandable && toggle(card.id)}
+                disabled={!expandable}
+                aria-expanded={expanded}
+                aria-label={
+                  expandable
+                    ? `${expanded ? 'Collapse' : 'Expand'} ${card.file.name}`
+                    : undefined
+                }
+                className={cn(
+                  'flex min-w-0 flex-1 items-center gap-3 text-left',
+                  expandable
+                    ? 'cursor-pointer'
+                    : 'cursor-default',
+                )}
+              >
+                <StatusIcon card={card} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{card.file.name}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">
+                    {(card.file.size / 1024).toFixed(1)} KB · {humanStatus(card)}
+                  </p>
+                </div>
+                <VerdictBadge card={card} />
+                {expandable &&
+                  (expanded ? (
+                    <ChevronUp className="size-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="size-4 text-muted-foreground" />
+                  ))}
+              </button>
+              <button
+                type="button"
+                onClick={() => onRemove(card.id)}
                 aria-label={`Remove ${card.file.name}`}
-                className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/40 hover:text-foreground"
+                className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/40 hover:text-foreground"
               >
                 <X className="size-3.5" />
               </button>
-              {expandable &&
-                (expanded ? (
-                  <ChevronUp className="size-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="size-4 text-muted-foreground" />
-                ))}
-            </button>
+            </div>
             {expanded && expandable && (
               <div className="border-t border-border bg-background p-2 sm:p-3">
                 <VerifierPane
