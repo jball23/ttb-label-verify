@@ -24,7 +24,11 @@ const VALID_OK_LINE: ResultLine = {
   index: 0,
   filename: 'a.jpg',
   durationMs: 1000,
-  report: { overallStatus: 'compliant', fields: {} },
+  report: {
+    overallStatus: 'compliant',
+    crossCheck: { overallStatus: 'match', fields: {} },
+    fields: {},
+  },
 };
 
 describe('consumeResultStream', () => {

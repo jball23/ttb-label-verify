@@ -14,8 +14,32 @@ const RuleResultSchema = z.object({
   extractedValue: z.string().nullable().optional(),
 });
 
+const CrossCheckFieldIdSchema = z.enum([
+  'brandName',
+  'classType',
+  'producer',
+  'countryOfOrigin',
+  'wineVarietal',
+  'wineAppellation',
+]);
+
+const CrossCheckFieldResultSchema = z.object({
+  id: CrossCheckFieldIdSchema,
+  label: z.string(),
+  status: z.enum(['match', 'mismatch', 'not_on_label', 'not_applicable']),
+  applicationValue: z.string().nullable(),
+  labelValue: z.string().nullable(),
+  reason: z.string().optional(),
+});
+
+const CrossCheckReportSchema = z.object({
+  overallStatus: z.enum(['match', 'mismatch']),
+  fields: z.record(CrossCheckFieldIdSchema, CrossCheckFieldResultSchema),
+});
+
 const VerificationReportSchema = z.object({
   overallStatus: z.enum(['compliant', 'needs_review']),
+  crossCheck: CrossCheckReportSchema,
   fields: z.record(z.string(), RuleResultSchema),
 });
 
