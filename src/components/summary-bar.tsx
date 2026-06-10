@@ -1,6 +1,8 @@
 'use client';
 
-import { Button, ButtonGroup } from '@trussworks/react-uswds';
+import { Download, RotateCcw, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { countByStatus } from '@/lib/results/aggregate';
 import { formatJSON } from '@/lib/export/json-formatter';
 import { formatCSV } from '@/lib/export/csv-formatter';
@@ -33,35 +35,48 @@ export default function SummaryBar({
 }: Props) {
   const counts = countByStatus(results);
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const progress = totalExpected > 0 ? (results.length / totalExpected) * 100 : 0;
 
   return (
-    <div className="summary-bar margin-bottom-3">
-      <div className="grid-container">
-        <div className="display-flex flex-wrap flex-align-center flex-justify">
-          <div className="display-flex flex-align-center">
-            <span className="font-sans-md margin-right-3">
-              <strong>{results.length}</strong> of <strong>{totalExpected}</strong> checked
-            </span>
-            {counts.compliant > 0 && (
-              <span className="margin-right-2 padding-x-1 padding-y-05 radius-pill bg-success-lighter text-success-darker font-sans-2xs">
-                {counts.compliant} compliant
+    <div className="sticky top-14 z-30 border-b border-border bg-background/85 backdrop-blur-md">
+      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex items-center gap-2">
+              {isStreaming ? (
+                <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
+              ) : null}
+              <span className="text-sm font-medium tabular-nums">
+                <span className="text-foreground">{results.length}</span>
+                <span className="text-muted-foreground"> / {totalExpected}</span>
               </span>
-            )}
-            {counts.needsReview > 0 && (
-              <span className="margin-right-2 padding-x-1 padding-y-05 radius-pill bg-warning-lighter text-warning-darker font-sans-2xs">
-                {counts.needsReview} need review
+              <span className="text-xs text-muted-foreground">
+                {isStreaming ? 'checking' : 'checked'}
               </span>
-            )}
-            {counts.error > 0 && (
-              <span className="margin-right-2 padding-x-1 padding-y-05 radius-pill bg-error-lighter text-error-darker font-sans-2xs">
-                {counts.error} error{counts.error === 1 ? '' : 's'}
-              </span>
-            )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              {counts.compliant > 0 && (
+                <Badge variant="success" className="tabular-nums">
+                  {counts.compliant} compliant
+                </Badge>
+              )}
+              {counts.needsReview > 0 && (
+                <Badge variant="warning" className="tabular-nums">
+                  {counts.needsReview} need review
+                </Badge>
+              )}
+              {counts.error > 0 && (
+                <Badge variant="destructive" className="tabular-nums">
+                  {counts.error} error{counts.error === 1 ? '' : 's'}
+                </Badge>
+              )}
+            </div>
           </div>
-          <ButtonGroup>
+          <div className="flex items-center gap-1.5">
             <Button
+              variant="outline"
+              size="sm"
               type="button"
-              outline
               disabled={results.length === 0 || isStreaming}
               onClick={() =>
                 downloadBlob(
@@ -71,22 +86,33 @@ export default function SummaryBar({
                 )
               }
             >
-              Download JSON
+              <Download className="size-3.5" />
+              JSON
             </Button>
             <Button
+              variant="outline"
+              size="sm"
               type="button"
-              outline
               disabled={results.length === 0 || isStreaming}
               onClick={() =>
                 downloadBlob(formatCSV(results), `ttb-results-${ts}.csv`, 'text/csv')
               }
             >
-              Download CSV
+              <Download className="size-3.5" />
+              CSV
             </Button>
-            <Button type="button" secondary onClick={onStartOver}>
+            <Button variant="ghost" size="sm" type="button" onClick={onStartOver}>
+              <RotateCcw className="size-3.5" />
               Start over
             </Button>
-          </ButtonGroup>
+          </div>
+        </div>
+        {/* Progress bar */}
+        <div className="mt-3 h-0.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full bg-foreground transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
         </div>
       </div>
     </div>

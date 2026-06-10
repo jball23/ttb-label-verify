@@ -7,10 +7,11 @@ import {
 } from '@/lib/upload/phase-reducer';
 import { validateBatch } from '@/lib/upload/file-validation';
 import { consumeResultStream } from '@/lib/results/stream-consumer';
+import { AlertCircle, AlertTriangle } from 'lucide-react';
 import UploadZone from '@/components/upload-zone';
 import StagedFilesList from '@/components/staged-files-list';
 import ResultsGrid from '@/components/results-grid';
-import { Alert } from '@trussworks/react-uswds';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function HomeClient() {
   const [state, dispatch] = useReducer(phaseReducer, INITIAL_STATE);
@@ -128,36 +129,27 @@ export default function HomeClient() {
   return (
     <>
       {(validationError || perFileErrors.length > 0) && (
-        <div className="grid-container padding-top-3">
-          <div className="grid-row">
-            <div className="grid-col-12 desktop:grid-col-8 desktop:grid-offset-2">
-              {validationError && (
-                <Alert
-                  type="error"
-                  headingLevel="h3"
-                  slim
-                  className="margin-bottom-2"
-                >
-                  {validationError}
-                </Alert>
-              )}
-              {perFileErrors.length > 0 && (
-                <Alert
-                  type="warning"
-                  headingLevel="h3"
-                  slim
-                  className="margin-bottom-2"
-                >
-                  Some files were skipped:
-                  <ul className="margin-top-1 margin-bottom-0">
-                    {perFileErrors.map((m) => (
-                      <li key={m}>{m}</li>
-                    ))}
-                  </ul>
-                </Alert>
-              )}
-            </div>
-          </div>
+        <div className="mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 space-y-3">
+          {validationError && (
+            <Alert variant="destructive">
+              <AlertCircle />
+              <AlertTitle>Cannot stage files</AlertTitle>
+              <AlertDescription>{validationError}</AlertDescription>
+            </Alert>
+          )}
+          {perFileErrors.length > 0 && (
+            <Alert variant="warning">
+              <AlertTriangle />
+              <AlertTitle>Some files were skipped</AlertTitle>
+              <AlertDescription>
+                <ul className="mt-1 space-y-0.5 text-xs">
+                  {perFileErrors.map((m) => (
+                    <li key={m}>{m}</li>
+                  ))}
+                </ul>
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       )}
 

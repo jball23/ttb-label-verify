@@ -1,13 +1,11 @@
 'use client';
 
-import {
-  Alert,
-  Button,
-  ErrorMessage,
-  FormGroup,
-  Label,
-  TextInput,
-} from '@trussworks/react-uswds';
+import { AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface Props {
   hasError: boolean;
@@ -15,40 +13,35 @@ interface Props {
 
 export default function LoginForm({ hasError }: Props) {
   return (
-    <>
-      {hasError && (
-        <Alert
-          type="error"
-          headingLevel="h2"
-          slim
-          className="margin-bottom-3"
-          aria-live="polite"
-        >
-          That password was not correct. Try again.
-        </Alert>
-      )}
-      <form action="/api/auth" method="post" noValidate>
-        <FormGroup error={hasError}>
-          <Label htmlFor="password">Demo password</Label>
-          {hasError && (
-            <ErrorMessage id="password-error">
-              Password did not match.
-            </ErrorMessage>
-          )}
-          <TextInput
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            aria-describedby={hasError ? 'password-error' : undefined}
-            autoFocus
-          />
-        </FormGroup>
-        <Button type="submit" className="margin-top-3">
-          Continue
-        </Button>
-      </form>
-    </>
+    <Card className="border-border/60">
+      <CardContent className="p-6">
+        {hasError && (
+          <Alert variant="destructive" className="mb-5">
+            <AlertCircle />
+            <AlertDescription>
+              That password was not correct. Try again.
+            </AlertDescription>
+          </Alert>
+        )}
+        <form action="/api/auth" method="post" noValidate className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="password">Demo password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              autoFocus
+              aria-invalid={hasError}
+              aria-describedby={hasError ? 'password-error' : undefined}
+            />
+          </div>
+          <Button type="submit" className="w-full" size="lg">
+            Continue
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

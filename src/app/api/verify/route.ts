@@ -12,6 +12,7 @@ import {
 import { withRequestSpan, withLabelSpan } from '@/lib/observability/spans';
 import { PROMPT_VERSION } from '@/lib/extraction/prompt';
 import { type ResultLine } from '@/lib/results/result-types';
+import { scrubError } from '@/lib/safety/scrub-error';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                     index,
                     filename: file.name,
                     durationMs: Date.now() - start,
-                    errorMessage: (e as Error).message,
+                    errorMessage: scrubError(humanizeExtractionError(e as Error)),
                   });
                 }
               }),
@@ -153,8 +154,29 @@ export async function POST(req: NextRequest): Promise<Response> {
 }
 
 function errorResponse(status: number, message: string): Response {
-  return new Response(JSON.stringify({ error: message }), {
+  return new Response(JSON.stringify({ error: scrubError(message) }), {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+/**
+ * Map provider SDK errors to user-friendly messages so the UI doesn't read like
+ * a stack trace. Falls through to the raw message (which is then scrub'd).
+ */
+function humanizeExtractionError(error: Error): string {
+  const raw = error.message;
+  if (/invalid.*header|invalid_api_key|incorrect api key|401|unauthorized/i.test(raw)) {
+    return 'The AI provider rejected the request. Check the OPENAI_API_KEY in your environment.';
+  }
+  if (/rate limit|429/i.test(raw)) {
+    return 'AI provider rate limit hit. Wait a few seconds and try again.';
+  }
+  if (/timeout|timed out/i.test(raw)) {
+    return 'The AI provider timed out reading this label. Try a smaller or clearer image.';
+  }
+  if (/safety|content_policy|content policy/i.test(raw)) {
+    return 'The AI provider declined to process this image. It may have flagged the content.';
+  }
+  return raw;
 }

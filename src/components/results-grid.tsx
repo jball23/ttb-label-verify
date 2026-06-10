@@ -20,8 +20,6 @@ export default function ResultsGrid({
   isStreaming,
   onStartOver,
 }: Props) {
-  // Build an index→result map so cards render in original staged order
-  // regardless of arrival order from the server.
   const resultsByIndex = new Map<number, ResultLine>();
   results.forEach((r) => resultsByIndex.set(r.index, r));
 
@@ -33,20 +31,17 @@ export default function ResultsGrid({
         isStreaming={isStreaming}
         onStartOver={onStartOver}
       />
-      <div className="grid-container padding-bottom-6">
-        <div
-          aria-live="polite"
-          aria-atomic="true"
-          className="usa-sr-only"
-          role="status"
-        >
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        <div className="sr-only" aria-live="polite" aria-atomic="true" role="status">
           {liveRegionMessage(results.length, totalExpected)}
         </div>
-        <div className="grid-row grid-gap">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {files.map((file, idx) => (
-            <div key={`${file.name}-${idx}`} className="grid-col-12 desktop:grid-col-6">
-              <ResultCard file={file} result={resultsByIndex.get(idx)} />
-            </div>
+            <ResultCard
+              key={`${file.name}-${idx}`}
+              file={file}
+              result={resultsByIndex.get(idx)}
+            />
           ))}
         </div>
       </div>

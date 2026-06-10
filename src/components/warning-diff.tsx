@@ -10,12 +10,11 @@ interface Props {
 export default function WarningDiff({ extracted }: Props) {
   if (extracted === null) {
     return (
-      <div className="bg-error-lighter padding-2 radius-sm">
-        <p className="margin-0">
-          No Government Warning was detected on this label. The full required
-          text is shown below — it must appear on the label exactly:
+      <div className="rounded-md border border-border bg-muted/40 p-3">
+        <p className="text-xs text-muted-foreground">
+          No Government Warning was detected on this label. The full required text:
         </p>
-        <p className="font-mono-sm margin-top-2 margin-bottom-0 text-base-darker">
+        <p className="mt-2 font-mono text-xs leading-relaxed text-foreground">
           {GOVERNMENT_WARNING_CANONICAL}
         </p>
       </div>
@@ -25,36 +24,35 @@ export default function WarningDiff({ extracted }: Props) {
   const segments = diffWarning(GOVERNMENT_WARNING_CANONICAL, extracted);
 
   return (
-    <div>
-      <p className="font-sans-2xs text-base-darker margin-top-0 margin-bottom-1">
-        Comparison against required TTB text. <strong className="bg-success-lighter padding-x-05">Green</strong> = matches; <strong className="bg-error-lighter padding-x-05">red</strong> = missing or different.
-      </p>
-      <pre className="font-mono-sm bg-base-lightest padding-2 radius-sm overflow-x-auto margin-0" aria-label="Warning text comparison">
-        <code>
+    <div className="space-y-2">
+      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="diff-missing inline-block size-2.5 rounded-[2px]" />
+          Missing from label
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="diff-extra inline-block size-2.5 rounded-[2px]" />
+          Extra / changed
+        </span>
+      </div>
+      <div className="rounded-md border border-border bg-muted/30 p-3 max-h-64 overflow-y-auto">
+        <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground">
           {segments.map((seg, i) => {
             if (seg.kind === 'equal') return <span key={i}>{seg.text}</span>;
             if (seg.kind === 'missing')
               return (
-                <span
-                  key={i}
-                  className="bg-error-lighter text-error-darker"
-                  aria-label="Missing from label"
-                >
+                <span key={i} className="diff-missing" aria-label="Missing from label">
                   {seg.text}
                 </span>
               );
             return (
-              <span
-                key={i}
-                className="bg-warning-lighter text-warning-darker text-strike"
-                aria-label="Extra on label"
-              >
+              <span key={i} className="diff-extra" aria-label="Extra on label">
                 {seg.text}
               </span>
             );
           })}
-        </code>
-      </pre>
+        </pre>
+      </div>
     </div>
   );
 }
