@@ -174,8 +174,12 @@ export function synthesizeApplicationProvenance(
   // FieldPath → predicate that decides whether the corresponding form value
   // is populated enough to deserve a provenance entry.
   const populated: Partial<Record<FieldPath, boolean>> = {
+    'application.repId': isPresent(form.repId),
     'application.brandName': isPresent(form.brandName),
     'application.fancifulName': isPresent(form.fancifulName),
+    'application.mailingAddress': isPresent(form.mailingAddress),
+    'application.formula': isPresent(form.formula),
+    'application.containerWording': isPresent(form.containerWording),
     'application.classType': form.productType != null,
     'application.productType': form.productType != null,
     'application.source': form.source != null,

@@ -51,6 +51,10 @@ function validOkLine(overrides: Record<string, unknown> = {}): unknown {
         email: null,
         applicationType: null,
         applicationDate: null,
+        repId: null,
+        mailingAddress: null,
+        formula: null,
+        containerWording: null,
         applicantSignatureName: null,
       },
       extractedLabel: {

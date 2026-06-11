@@ -103,6 +103,10 @@ function formFromScenario(slug: Scenario): ExtractedApplicationForm {
     email: null,
     applicationType: null,
     applicationDate: (f.applicationDate as string | null) ?? null,
+    repId: null,
+    mailingAddress: null,
+    formula: null,
+    containerWording: null,
     applicantSignatureName: (f.applicantSignatureName as string | null) ?? null,
   };
 }
@@ -176,6 +180,10 @@ describe('synthesizeExpectations', () => {
       email: null,
       applicationType: null,
       applicationDate: null,
+      repId: null,
+      mailingAddress: null,
+      formula: null,
+      containerWording: null,
       applicantSignatureName: null,
     };
     const synth = synthesizeExpectations(blank);

@@ -225,6 +225,10 @@ describe('ExtractedDocumentSchema', () => {
     email: null,
     applicationType: null,
     applicationDate: '2026-05-22',
+    repId: null,
+    mailingAddress: null,
+    formula: null,
+    containerWording: null,
     applicantSignatureName: 'Margaret Hollister',
   };
 
@@ -307,6 +311,10 @@ describe('ExtractedDocumentSchema', () => {
       email: null,
       applicationType: null,
       applicationDate: null,
+      repId: null,
+      mailingAddress: null,
+      formula: null,
+      containerWording: null,
       applicantSignatureName: null,
     };
     expect(

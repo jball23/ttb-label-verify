@@ -2,14 +2,15 @@ import { describe, it, expect } from 'vitest';
 import { PROMPT_VERSION, SYSTEM_PROMPT, USER_PROMPT_INTRO } from './prompt';
 
 describe('PROMPT_VERSION', () => {
-  it('is the v6 string for the multi-page dual-extraction prompt', () => {
-    expect(PROMPT_VERSION).toBe('2026-06-11.v6');
+  it('is the v7 string for the extended Item-set prompt', () => {
+    expect(PROMPT_VERSION).toBe('2026-06-11.v7');
   });
 
   it('differs from earlier revisions', () => {
     expect(PROMPT_VERSION).not.toBe('2026-06-10.v3');
     expect(PROMPT_VERSION).not.toBe('2026-06-10.v4');
     expect(PROMPT_VERSION).not.toBe('2026-06-10.v5');
+    expect(PROMPT_VERSION).not.toBe('2026-06-11.v6');
   });
 });
 

@@ -7,10 +7,10 @@
  * substantive change so Langfuse traces don't conflate revisions.
  */
 
-export const PROMPT_VERSION = '2026-06-11.v6';
+export const PROMPT_VERSION = '2026-06-11.v7';
 // Distinct version when provenance is disabled — keeps Langfuse traces from
 // conflating runs with and without bbox output.
-export const PROMPT_VERSION_NO_PROVENANCE = '2026-06-11.v6-nobbox';
+export const PROMPT_VERSION_NO_PROVENANCE = '2026-06-11.v7-nobbox';
 
 export function getPromptVersion(includeProvenance: boolean): string {
   return includeProvenance ? PROMPT_VERSION : PROMPT_VERSION_NO_PROVENANCE;
@@ -32,6 +32,9 @@ GENERAL RULES
 APPLICATION HALF — TTB FORM 5100.31 ITEMS
 ──────────────────────────────────────────────────────────────────────────
 Walk the form Item by Item. The numbers below match the printed Item numbers on the form.
+
+  Item 1  REP. ID. NO. (If any) — a small optional rep/agent ID cell in the top-left.
+            → application.repId (verbatim, e.g. "CT-OR-53", "12345"). null when blank.
 
   Item 2  PLANT REGISTRY/BASIC PERMIT/BREWER'S NO.
             → application.plantRegistryNumber (verbatim, e.g. "BR-NC-19437", "DSP-KY-20158")
@@ -61,6 +64,14 @@ Walk the form Item by Item. The numbers below match the printed Item numbers on 
               application.applicant.city      (city)
               application.applicant.state     (2-letter state abbreviation)
 
+  Item 8a MAILING ADDRESS, IF DIFFERENT — a separate multi-line block adjacent to Item 8.
+            → application.mailingAddress (the full mailing block joined with commas, e.g.
+              "PO Box 142, Bardstown, KY 40004"). null when blank — this cell is empty
+              on most applications because the applicant uses the Item 8 address.
+
+  Item 9  FORMULA / SOP NO. (If any) — small alphanumeric cell.
+            → application.formula (verbatim, e.g. "10102000000051 - 04/15/2010"). null when blank.
+
   Item 10 GRAPE VARIETAL(S) — Wine only
             → application.grapeVarietals (e.g. "Cabernet Sauvignon"). null for non-wine.
 
@@ -77,6 +88,12 @@ Walk the form Item by Item. The numbers below match the printed Item numbers on 
             → application.applicationType = the LABEL TEXT next to the checked box, verbatim
               (e.g. "CERTIFICATE OF LABEL APPROVAL", "CERTIFICATE OF EXEMPTION FROM LABEL APPROVAL",
               "DISTINCTIVE LIQUOR BOTTLE APPROVAL", "RESUBMISSION AFTER REJECTION")
+
+  Item 15 SHOW ANY WORDING BLOWN, BRANDED, OR EMBOSSED ON THE CONTAINER (e.g. "net contents only")
+            if it does NOT appear on the labels affixed below. Also any translations of foreign
+            language text appearing on labels. This is a free-form text cell.
+            → application.containerWording (verbatim, e.g. "N/A — All mandatory information appears
+              on the affixed label below" or the actual disclosure). null when blank.
 
   Item 16 DATE OF APPLICATION
             → application.applicationDate (verbatim as printed, e.g. "05/18/2026" — do NOT normalize)
@@ -143,7 +160,7 @@ OUTPUT
 Return only the JSON object matching the provided schema. No prose. No markdown.`;
 
 export const USER_PROMPT_INTRO =
-  'Extract the application form, the affixed-label fields, and provenance bounding boxes from this page. Walk the form Item-by-Item per the system prompt: Item 2 plant registry, Item 3 source, Item 4 serial, Item 5 product type, Item 6 brand, Item 7 fanciful name, Item 8 applicant, Item 10/11 wine fields, Item 12 phone, Item 13 email, Item 14 application type, Item 16 date, Item 18 printed name. Then read the label artwork. Remember: bbox coordinates are normalized 0..1 with origin at the top-left. The Government Warning text must include the "GOVERNMENT WARNING:" prefix verbatim if it appears on the label.';
+  'Extract the application form, the affixed-label fields, and provenance bounding boxes from this page. Walk the form Item-by-Item per the system prompt: Item 1 rep ID, Item 2 plant registry, Item 3 source, Item 4 serial, Item 5 product type, Item 6 brand, Item 7 fanciful name, Item 8 applicant, Item 8a mailing address, Item 9 formula, Item 10/11 wine fields, Item 12 phone, Item 13 email, Item 14 application type, Item 15 container wording, Item 16 date, Item 18 printed name. Then read the label artwork. Remember: bbox coordinates are normalized 0..1 with origin at the top-left. The Government Warning text must include the "GOVERNMENT WARNING:" prefix verbatim if it appears on the label.';
 
 /**
  * Variant of the system prompt used when EXTRACT_PROVENANCE is disabled —
@@ -177,4 +194,4 @@ export const SYSTEM_PROMPT_NO_PROVENANCE = stripProvenanceSection(SYSTEM_PROMPT)
   );
 
 export const USER_PROMPT_INTRO_NO_PROVENANCE =
-  'Extract the application form and the affixed-label fields from this page. Walk the form Item-by-Item per the system prompt: Item 2 plant registry, Item 3 source, Item 4 serial, Item 5 product type, Item 6 brand, Item 7 fanciful name, Item 8 applicant, Item 10/11 wine fields, Item 12 phone, Item 13 email, Item 14 application type, Item 16 date, Item 18 printed name. Then read the label artwork. The Government Warning text must include the "GOVERNMENT WARNING:" prefix verbatim if it appears on the label.';
+  'Extract the application form and the affixed-label fields from this page. Walk the form Item-by-Item per the system prompt: Item 1 rep ID, Item 2 plant registry, Item 3 source, Item 4 serial, Item 5 product type, Item 6 brand, Item 7 fanciful name, Item 8 applicant, Item 8a mailing address, Item 9 formula, Item 10/11 wine fields, Item 12 phone, Item 13 email, Item 14 application type, Item 15 container wording, Item 16 date, Item 18 printed name. Then read the label artwork. The Government Warning text must include the "GOVERNMENT WARNING:" prefix verbatim if it appears on the label.';

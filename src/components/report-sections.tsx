@@ -60,6 +60,7 @@ type FormField = {
   value: (form: WireReport['extractedForm']) => string | null;
 };
 const APP_FORM_FIELDS: ReadonlyArray<FormField> = [
+  { key: 'repId', label: 'Rep ID (Item 1)', path: 'application.repId', value: (f) => f.repId },
   { key: 'plantRegistry', label: 'Plant registry / permit (Item 2)', path: 'application.plantRegistryNumber', value: (f) => f.plantRegistryNumber },
   { key: 'source', label: 'Source of product (Item 3)', path: 'application.source', value: (f) => f.source },
   { key: 'serial', label: 'Serial number (Item 4)', path: 'application.serialNumber', value: (f) => f.serialNumber },
@@ -70,11 +71,14 @@ const APP_FORM_FIELDS: ReadonlyArray<FormField> = [
   { key: 'applicantAddress', label: 'Applicant street address (Item 8)', path: 'application.applicant.address', value: (f) => f.applicant.addressLine1 },
   { key: 'applicantCity', label: 'Applicant city (Item 8)', path: 'application.applicant.city', value: (f) => f.applicant.city },
   { key: 'applicantState', label: 'Applicant state (Item 8)', path: 'application.applicant.state', value: (f) => f.applicant.state },
+  { key: 'mailingAddress', label: 'Mailing address if different (Item 8a)', path: 'application.mailingAddress', value: (f) => f.mailingAddress },
+  { key: 'formula', label: 'Formula / SOP no. (Item 9)', path: 'application.formula', value: (f) => f.formula },
   { key: 'grape', label: 'Grape varietal (Item 10)', path: 'application.grapeVarietals', value: (f) => f.grapeVarietals },
   { key: 'appellation', label: 'Wine appellation (Item 11)', path: 'application.wineAppellation', value: (f) => f.wineAppellation },
   { key: 'phone', label: 'Phone (Item 12)', path: 'application.phone', value: (f) => f.phone },
   { key: 'email', label: 'Email (Item 13)', path: 'application.email', value: (f) => f.email },
   { key: 'appType', label: 'Type of application (Item 14)', path: 'application.applicationType', value: (f) => f.applicationType },
+  { key: 'containerWording', label: 'Container wording / translations (Item 15)', path: 'application.containerWording', value: (f) => f.containerWording },
   { key: 'date', label: 'Date of application (Item 16)', path: 'application.applicationDate', value: (f) => f.applicationDate },
   { key: 'signer', label: 'Printed name of applicant (Item 18)', path: 'application.applicantSignatureName', value: (f) => f.applicantSignatureName },
 ];

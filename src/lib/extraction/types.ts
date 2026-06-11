@@ -38,6 +38,7 @@ const ExtractedApplicantSchema = z.object({
 });
 
 export const ExtractedApplicationFormSchema = z.object({
+  repId: z.string().nullable(),
   plantRegistryNumber: z.string().nullable(),
   source: z.enum(['Domestic', 'Imported']).nullable(),
   serialNumber: z.string().nullable(),
@@ -45,11 +46,14 @@ export const ExtractedApplicationFormSchema = z.object({
   brandName: z.string().nullable(),
   fancifulName: z.string().nullable(),
   applicant: ExtractedApplicantSchema,
+  mailingAddress: z.string().nullable(),
+  formula: z.string().nullable(),
   grapeVarietals: z.string().nullable(),
   wineAppellation: z.string().nullable(),
   phone: z.string().nullable(),
   email: z.string().nullable(),
   applicationType: z.string().nullable(),
+  containerWording: z.string().nullable(),
   applicationDate: z.string().nullable(),
   applicantSignatureName: z.string().nullable(),
 });
@@ -58,6 +62,7 @@ export type ExtractedApplicationForm = z.infer<typeof ExtractedApplicationFormSc
 // All the field paths that can carry provenance. The model returns a bbox for
 // each path it populates; paths it leaves null are omitted from the map.
 export const FIELD_PATHS = [
+  'application.repId',
   'application.brandName',
   'application.fancifulName',
   'application.productType',
@@ -67,6 +72,8 @@ export const FIELD_PATHS = [
   'application.applicant.address',
   'application.applicant.city',
   'application.applicant.state',
+  'application.mailingAddress',
+  'application.formula',
   'application.grapeVarietals',
   'application.wineAppellation',
   'application.serialNumber',
@@ -74,6 +81,7 @@ export const FIELD_PATHS = [
   'application.phone',
   'application.email',
   'application.applicationType',
+  'application.containerWording',
   'application.applicationDate',
   'application.applicantSignatureName',
   'label.brandName',

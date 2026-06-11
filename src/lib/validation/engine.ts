@@ -112,6 +112,7 @@ function extractedFormFromApplication(application: Application): ExtractedApplic
   // the UI never has to render an empty form panel.
   const f = application.form;
   return {
+    repId: f.repId,
     plantRegistryNumber: f.plantRegistryNumber,
     source: f.source,
     serialNumber: f.serialNumber,
@@ -125,11 +126,30 @@ function extractedFormFromApplication(application: Application): ExtractedApplic
       state: f.applicant.state,
       postalCode: f.applicant.postalCode,
     },
+    // Application.form's mailingAddress is a structured ApplicantSchema; the
+    // extracted form's mailingAddress is a flat free-form string. Join the
+    // relevant lines when present, null otherwise.
+    mailingAddress: f.mailingAddress
+      ? [
+          f.mailingAddress.name,
+          f.mailingAddress.addressLine1,
+          f.mailingAddress.city,
+          f.mailingAddress.state,
+          f.mailingAddress.postalCode,
+        ]
+          .filter((s): s is string => Boolean(s))
+          .join(', ') || null
+      : null,
+    formula: f.formulaId,
     grapeVarietals: f.grapeVarietals,
     wineAppellation: f.wineAppellation,
     phone: f.phone || null,
     email: f.email || null,
     applicationType: f.applicationType,
+    // containerInfo on the canonical Application is an `unknown` slot —
+    // there's no string representation of it here, so we surface it as
+    // null. Real extraction sets containerWording directly.
+    containerWording: null,
     applicationDate: f.applicationDate,
     applicantSignatureName: f.applicantSignatureName,
   };
@@ -161,6 +181,7 @@ export function runRules(extracted: ExtractedFields): VerificationReport {
 
 function blankExtractedForm(): ExtractedApplicationForm {
   return {
+    repId: null,
     plantRegistryNumber: null,
     source: null,
     serialNumber: null,
@@ -174,11 +195,14 @@ function blankExtractedForm(): ExtractedApplicationForm {
       state: null,
       postalCode: null,
     },
+    mailingAddress: null,
+    formula: null,
     grapeVarietals: null,
     wineAppellation: null,
     phone: null,
     email: null,
     applicationType: null,
+    containerWording: null,
     applicationDate: null,
     applicantSignatureName: null,
   };

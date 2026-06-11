@@ -82,6 +82,10 @@ function fakeRidgeCreekDocument(): ExtractedDocument {
       email: null,
       applicationType: null,
       applicationDate: '2026-05-22',
+      repId: null,
+      mailingAddress: null,
+      formula: null,
+      containerWording: null,
       applicantSignatureName: 'Margaret Hollister',
     },
     label: {
