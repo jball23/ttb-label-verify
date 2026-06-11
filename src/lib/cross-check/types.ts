@@ -22,6 +22,7 @@ export type CrossCheckStatus =
   | 'match'
   | 'mismatch'
   | 'not_on_label'
+  | 'not_on_application'
   | 'not_applicable';
 
 export interface CrossCheckFieldResult {

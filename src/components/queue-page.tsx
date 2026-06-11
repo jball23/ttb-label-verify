@@ -444,8 +444,7 @@ function DecisionTab({
     <ul className="space-y-2">
       {cards.map((card) => {
         const expanded = expandedId === card.id;
-        const aiVerdict =
-          card.aiVerdict === 'compliant' ? 'compliant' : 'needs_review';
+        const aiVerdict = card.aiVerdict;
         return (
           <li
             key={card.id}
@@ -520,9 +519,20 @@ function CardIcon({ tab }: { tab: 'approved' | 'rejected' }) {
   return <X className="size-4 text-rose-600" />;
 }
 
-function AiVerdictPill({ aiVerdict }: { aiVerdict: 'compliant' | 'needs_review' }) {
+function AiVerdictPill({
+  aiVerdict,
+}: {
+  aiVerdict: 'compliant' | 'needs_review' | 'non_compliant';
+}) {
   if (aiVerdict === 'compliant') {
     return <Badge>AI: Compliant</Badge>;
+  }
+  if (aiVerdict === 'non_compliant') {
+    return (
+      <span className="inline-flex items-center rounded-full bg-rose-500/15 px-2.5 py-0.5 text-[11px] font-medium text-rose-700 dark:text-rose-300">
+        AI: Non-compliant
+      </span>
+    );
   }
   return (
     <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">

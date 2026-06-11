@@ -44,6 +44,10 @@ export function runCrossCheck(
   for (const id of CROSS_CHECK_FIELDS) {
     const result = checkField(id, application, extracted);
     fields[id] = result;
+    // `not_on_application` is informational: the app form didn't declare a
+    // value but the label has one. Item 7 (fanciful name) is the common
+    // offender here — it's optional on the form. Don't drag the overall
+    // status into mismatch on its account.
     if (result.status === 'mismatch' || result.status === 'not_on_label') {
       anyMismatchOrMissing = true;
     }
@@ -76,11 +80,29 @@ function checkField(
     }
   }
 
-  const applicationValue = readApplicationValue(id, application);
+  const rawApplicationValue = readApplicationValue(id, application);
   const labelValue = readLabelValue(id, extracted);
+  const applicationValue =
+    rawApplicationValue != null && rawApplicationValue.trim() === ''
+      ? null
+      : rawApplicationValue;
+  const labelHasValue = labelValue != null && labelValue.trim() !== '';
 
   // Application doesn't declare an expectation for this field.
   if (applicationValue == null) {
+    // Asymmetric: label has data the application omitted (Item 7 fanciful
+    // name on the form is optional; the label often carries the class
+    // designation regardless). Surface it as informational, not a mismatch.
+    if (labelHasValue) {
+      return {
+        id,
+        label,
+        status: 'not_on_application',
+        applicationValue: null,
+        labelValue,
+        reason: `Label declares ${label.toLowerCase()} but the application did not.`,
+      };
+    }
     return {
       id,
       label,
@@ -92,7 +114,7 @@ function checkField(
   }
 
   // Application expects a value but the label doesn't have one.
-  if (labelValue == null || labelValue.trim() === '') {
+  if (!labelHasValue) {
     return {
       id,
       label,

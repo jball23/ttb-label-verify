@@ -9,15 +9,18 @@ type Decision = 'approved' | 'rejected';
 
 interface Props {
   applicationId: string;
-  // AI's pick — used to pre-select the decision button. If the AI judged
-  // the application compliant we pre-select Approve; otherwise Reject.
-  aiVerdict: 'compliant' | 'needs_review';
+  // AI's pick — used to pre-select the decision button. compliant and
+  // needs_review both pre-select Approve (the verdict tiers are: compliant
+  // = obviously fine, needs_review = look at it but probably fine,
+  // non_compliant = actually rejected). Only non_compliant pre-selects
+  // Reject — that mirrors how persist-verification routes initial status.
+  aiVerdict: 'compliant' | 'needs_review' | 'non_compliant';
   defaultReviewerLabel?: string;
   onSubmitted?(decision: Decision): void;
 }
 
 const aiPick = (v: Props['aiVerdict']): Decision =>
-  v === 'compliant' ? 'approved' : 'rejected';
+  v === 'non_compliant' ? 'rejected' : 'approved';
 
 export default function FinalizeForm({
   applicationId,
@@ -79,13 +82,19 @@ export default function FinalizeForm({
           <p className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             AI Verdict
           </p>
-          {aiVerdict === 'compliant' ? (
+          {aiVerdict === 'compliant' && (
             <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
               Compliant · AI suggests Approve
             </span>
-          ) : (
+          )}
+          {aiVerdict === 'needs_review' && (
             <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
-              Needs review · AI suggests Reject
+              Needs review · AI suggests Approve
+            </span>
+          )}
+          {aiVerdict === 'non_compliant' && (
+            <span className="inline-flex items-center rounded-full bg-rose-500/15 px-2.5 py-0.5 text-[11px] font-medium text-rose-700 dark:text-rose-300">
+              Non-compliant · AI suggests Reject
             </span>
           )}
         </div>

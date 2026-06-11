@@ -39,7 +39,11 @@ export type CurrentStatus =
 export type ReviewDecision = 'approved' | 'rejected';
 
 export function aiVerdictToInitialStatus(verdict: AiVerdict): CurrentStatus {
-  return verdict === 'compliant' ? 'pending_approval' : 'pending_rejection';
+  // Only a *non_compliant* verdict routes to pending_rejection. `needs_review`
+  // means "look at it, but it's probably fine" — TTB approves plenty of these
+  // — so it shares the pending_approval queue. The reviewer can still flip
+  // the decision in the Finalize form.
+  return verdict === 'non_compliant' ? 'pending_rejection' : 'pending_approval';
 }
 
 export function isFinalized(status: CurrentStatus): boolean {

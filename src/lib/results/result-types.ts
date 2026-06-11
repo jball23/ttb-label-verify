@@ -31,7 +31,13 @@ const CrossCheckFieldIdSchema = z.enum([
 const CrossCheckFieldResultSchema = z.object({
   id: CrossCheckFieldIdSchema,
   label: z.string(),
-  status: z.enum(['match', 'mismatch', 'not_on_label', 'not_applicable']),
+  status: z.enum([
+    'match',
+    'mismatch',
+    'not_on_label',
+    'not_on_application',
+    'not_applicable',
+  ]),
   applicationValue: z.string().nullable(),
   labelValue: z.string().nullable(),
   reason: z.string().optional(),
@@ -43,7 +49,7 @@ const CrossCheckReportSchema = z.object({
 });
 
 const VerificationReportSchema = z.object({
-  overallStatus: z.enum(['compliant', 'needs_review']),
+  overallStatus: z.enum(['compliant', 'needs_review', 'non_compliant']),
   crossCheck: CrossCheckReportSchema,
   fields: z.record(z.string(), RuleResultSchema),
   provenance: ProvenanceMapSchema,

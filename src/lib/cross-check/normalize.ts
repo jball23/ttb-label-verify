@@ -198,6 +198,13 @@ export function producerMatches(applicationValue: string, labelValue: string): b
 
 /**
  * Country match: normalized exact with USA aliases.
+ *
+ * Special case: when the application declares "IMPORTED" (synthesized from
+ * Item 3's Imported checkbox), the form does NOT specify a country — it
+ * only says the product is foreign-sourced. Treat any non-USA label
+ * country as a match in that case. TTB approves labels with a specific
+ * foreign country (Mexico, Germany, France, etc.) against Imported
+ * applications all the time; they aren't a compliance failure.
  */
 export function countryMatches(applicationValue: string, labelValue: string): boolean {
   const appNorm =
@@ -205,6 +212,7 @@ export function countryMatches(applicationValue: string, labelValue: string): bo
     normalizedExact(applicationValue);
   const labelNorm =
     COUNTRY_ALIASES[normalizedExact(labelValue)] ?? normalizedExact(labelValue);
+  if (appNorm === 'imported') return labelNorm !== 'usa' && labelNorm.length > 0;
   return appNorm === labelNorm;
 }
 

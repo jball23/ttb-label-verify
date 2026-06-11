@@ -73,7 +73,15 @@ export function synthesizeExpectations(
   const productType: ApplicationProductType = form.productType ?? 'DISTILLED SPIRITS';
   const isWine = productType === 'WINE';
 
-  const classType = form.fancifulName ?? productType;
+  // classType in the cross-check carries the SPECIFIC class designation,
+  // which lives in Item 7 (Fanciful Name). Item 5 is the regulatory
+  // category — too coarse to compare against a label that says e.g.
+  // "TEQUILA" or "STRAIGHT BOURBON WHISKEY". When Item 7 is blank, leave
+  // the expectation as empty string; the cross-check engine treats empty
+  // application values as "not declared" and routes to `not_on_application`
+  // (informational, not a mismatch).
+  const fancifulTrimmed = form.fancifulName?.trim();
+  const classType = fancifulTrimmed ? fancifulTrimmed : '';
 
   const producerParts = [
     form.applicant.name,

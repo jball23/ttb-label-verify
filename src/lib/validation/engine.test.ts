@@ -69,12 +69,14 @@ describe('runRules', () => {
     expect(report.fields.abv?.status).toBe('pass');
   });
 
-  it('returns needs_review when Government Warning is missing', () => {
+  it('returns non_compliant when Government Warning is missing', () => {
+    // GW is the highest-stakes label requirement under 27 CFR §16.21 — a
+    // missing GW is a hard reject, not a "look at it again."
     const report = runRules({
       ...compliant(),
       governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },
     });
-    expect(report.overallStatus).toBe('needs_review');
+    expect(report.overallStatus).toBe('non_compliant');
     expect(report.fields.governmentWarning?.status).toBe('fail');
   });
 
@@ -93,9 +95,11 @@ describe('runRules', () => {
     expect(report.fields.brand?.status).toBe('uncertain');
   });
 
-  it('returns needs_review with every field failed when ExtractedFields is empty', () => {
+  it('returns non_compliant with every field failed when ExtractedFields is empty', () => {
+    // An empty extraction includes a missing GW, which trips the critical
+    // tier regardless of which other rules also failed.
     const report = runRules(empty());
-    expect(report.overallStatus).toBe('needs_review');
+    expect(report.overallStatus).toBe('non_compliant');
     for (const field of Object.values(report.fields)) {
       expect(field.status).toBe('fail');
     }
@@ -145,7 +149,10 @@ describe('runVerification', () => {
     expect(report.overallStatus).toBe('compliant');
   });
 
-  it('needs_review when cross-check mismatches even if all rules pass (scenario 02)', () => {
+  it('non_compliant when the brand-name cross-check mismatches (scenario 02)', () => {
+    // Brand name is the COLA's anchor — a mismatch means the application was
+    // filed against a different product than the label shows. Treated as a
+    // critical failure.
     const application = loadApplication('02-silver-birch-vodka');
     const extracted: ExtractedFields = {
       brandName: 'Silver Birch Premium',
@@ -165,13 +172,13 @@ describe('runVerification', () => {
       extractionConfidence: 'high',
     };
     const report = runVerification(application, extracted);
-    expect(report.overallStatus).toBe('needs_review');
+    expect(report.overallStatus).toBe('non_compliant');
     expect(report.crossCheck.overallStatus).toBe('mismatch');
     expect(report.crossCheck.fields.brandName.status).toBe('mismatch');
     expect(report.fields.brand?.status).toBe('pass');
   });
 
-  it('needs_review when label-only rule fails even if cross-check matches (scenario 04)', () => {
+  it('non_compliant when Government Warning is missing on the label (scenario 04)', () => {
     const application = loadApplication('04-ironwood-ipa');
     const extracted: ExtractedFields = {
       brandName: 'Ironwood Brewing',
@@ -187,7 +194,7 @@ describe('runVerification', () => {
       extractionConfidence: 'high',
     };
     const report = runVerification(application, extracted);
-    expect(report.overallStatus).toBe('needs_review');
+    expect(report.overallStatus).toBe('non_compliant');
     expect(report.crossCheck.overallStatus).toBe('match');
     expect(report.fields.governmentWarning?.status).toBe('fail');
   });

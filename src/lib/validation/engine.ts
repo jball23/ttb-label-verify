@@ -56,9 +56,20 @@ function runRulesInternal(extracted: ExtractedFields): {
 /**
  * Full verification: cross-check (application vs label) + label-only rules.
  *
- * overallStatus flips to `needs_review` if EITHER:
- *   - any cross-check field is mismatch / not_on_label, OR
- *   - any label-only rule returns `fail`.
+ * Verdict tiers (matching how TTB actually decides):
+ *   - non_compliant: a critical compliance failure that a human reviewer
+ *     would also fail. Currently means EITHER (a) the Government Warning
+ *     rule failed — the highest-stakes label requirement under 27 CFR
+ *     §16.21 — OR (b) the brand-name cross-check is a true mismatch, which
+ *     means the COLA was filed against a different product than the label
+ *     shows.
+ *   - needs_review: there's *something* off — a cross-check mismatch on a
+ *     non-critical field (producer drift, country variation, class-type
+ *     phrasing), a format quirk on ABV/net-contents, or asymmetric data
+ *     where the label declares something the application didn't. A reviewer
+ *     should glance, but the default disposition is approve.
+ *   - compliant: everything matches, no rule failures.
+ *
  * `uncertain` rules do NOT trip the verdict (preserves existing behavior).
  */
 export function runVerification(
@@ -70,9 +81,20 @@ export function runVerification(
   const crossCheck: CrossCheckReport = runCrossCheck(application, extracted);
   const { fields, anyFail } = runRulesInternal(extracted);
 
-  const crossCheckMismatch = crossCheck.overallStatus === 'mismatch';
+  const govWarningFailed = fields['governmentWarning']?.status === 'fail';
+  const brandMismatch = crossCheck.fields.brandName?.status === 'mismatch';
+
+  let overallStatus: VerificationReport['overallStatus'];
+  if (govWarningFailed || brandMismatch) {
+    overallStatus = 'non_compliant';
+  } else if (crossCheck.overallStatus === 'mismatch' || anyFail) {
+    overallStatus = 'needs_review';
+  } else {
+    overallStatus = 'compliant';
+  }
+
   return {
-    overallStatus: crossCheckMismatch || anyFail ? 'needs_review' : 'compliant',
+    overallStatus,
     crossCheck,
     fields,
     provenance,
@@ -118,8 +140,14 @@ function extractedFormFromApplication(application: Application): ExtractedApplic
  */
 export function runRules(extracted: ExtractedFields): VerificationReport {
   const { fields, anyFail } = runRulesInternal(extracted);
+  const govWarningFailed = fields['governmentWarning']?.status === 'fail';
+  const overallStatus: VerificationReport['overallStatus'] = govWarningFailed
+    ? 'non_compliant'
+    : anyFail
+      ? 'needs_review'
+      : 'compliant';
   return {
-    overallStatus: anyFail ? 'needs_review' : 'compliant',
+    overallStatus,
     crossCheck: emptyCrossCheckReport(),
     fields,
     provenance: {},

@@ -102,6 +102,10 @@ function crossCheckStatusToDot(status: CrossCheckStatus): string {
       return 'bg-rose-500';
     case 'not_on_label':
       return 'bg-amber-500';
+    case 'not_on_application':
+      // Informational only — label declares a value the application didn't.
+      // Common for Item 7 (fanciful name), which is optional on the form.
+      return 'bg-sky-500';
     default:
       return 'bg-muted';
   }
@@ -520,6 +524,7 @@ function CrossCheckIcon({ status }: { status: CrossCheckStatus }) {
   if (status === 'match') return <Check className="size-3.5 text-emerald-600" />;
   if (status === 'mismatch') return <X className="size-3.5 text-rose-600" />;
   if (status === 'not_on_label') return <AlertTriangle className="size-3.5 text-amber-600" />;
+  if (status === 'not_on_application') return <Info className="size-3.5 text-sky-600" />;
   return <HelpCircle className="size-3.5 text-muted-foreground" />;
 }
 

@@ -29,8 +29,17 @@ export async function persistVerification(
   if (!db) return null;
 
   try {
+    // Three-tier mapping. `non_compliant` is a genuine reject; `needs_review`
+    // surfaces in the queue but defaults to approve (TTB approves plenty of
+    // labels with minor format quirks or asymmetric data). See the verdict
+    // routing notes in `runVerification`.
+    const overall = input.report.overallStatus;
     const aiVerdict: AiVerdict =
-      input.report.overallStatus === 'compliant' ? 'compliant' : 'needs_review';
+      overall === 'compliant'
+        ? 'compliant'
+        : overall === 'non_compliant'
+          ? 'non_compliant'
+          : 'needs_review';
     const currentStatus = aiVerdictToInitialStatus(aiVerdict);
 
     const applicantName = input.extracted.application.applicant.name;

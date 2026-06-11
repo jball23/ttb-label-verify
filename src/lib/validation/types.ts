@@ -29,7 +29,7 @@ export interface Rule {
   check(extracted: ExtractedFields): RuleResult;
 }
 
-export type OverallStatus = 'compliant' | 'needs_review';
+export type OverallStatus = 'compliant' | 'needs_review' | 'non_compliant';
 
 export interface VerificationReport {
   overallStatus: OverallStatus;

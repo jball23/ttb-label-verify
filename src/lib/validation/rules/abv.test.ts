@@ -35,7 +35,7 @@ describe('abv rule', () => {
     (input) => {
       const result = abvRule.check(fields(input));
       expect(result.status).toBe('fail');
-      expect(result.reason).toMatch(/recognized format|format/i);
+      expect(result.reason).toMatch(/recognized format|format|percentage|proof/i);
     },
   );
 

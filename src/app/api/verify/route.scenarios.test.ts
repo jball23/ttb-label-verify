@@ -291,7 +291,7 @@ function calypso(): ExtractedDocument {
 const SCENARIOS: ReadonlyArray<{
   slug: string;
   makeDocument: () => ExtractedDocument;
-  expectedVerdict: 'compliant' | 'needs_review';
+  expectedVerdict: 'compliant' | 'needs_review' | 'non_compliant';
   // What we expect to find in the verified report. Each predicate runs over the
   // report and returns true when the per-scenario intentional behavior shows up.
   assertOutcome(report: NonNullable<Extract<ResultLine, { status: 'ok' }>>['report']): void;
@@ -307,8 +307,10 @@ const SCENARIOS: ReadonlyArray<{
   },
   {
     slug: '02-silver-birch-vodka',
+    // Brand mismatch is critical — the COLA is anchored on the brand name,
+    // so a label-vs-application mismatch on it is a hard reject.
     makeDocument: silverBirch,
-    expectedVerdict: 'needs_review',
+    expectedVerdict: 'non_compliant',
     assertOutcome(report) {
       expect(report.crossCheck.overallStatus).toBe('mismatch');
       expect(report.crossCheck.fields.brandName?.status).toBe('mismatch');
@@ -326,8 +328,9 @@ const SCENARIOS: ReadonlyArray<{
   },
   {
     slug: '04-ironwood-ipa',
+    // Government Warning missing is the §16.21 critical failure — hard reject.
     makeDocument: ironwood,
-    expectedVerdict: 'needs_review',
+    expectedVerdict: 'non_compliant',
     assertOutcome(report) {
       expect(report.crossCheck.overallStatus).toBe('match');
       expect(report.fields.governmentWarning?.status).toBe('fail');
@@ -335,11 +338,15 @@ const SCENARIOS: ReadonlyArray<{
   },
   {
     slug: '05-calypso-rum',
+    // Producer drift only (importer-of-record vs printed bottler). Not
+    // critical — stays in needs_review. The "80 PROOF" ABV format the
+    // fixture carries is now accepted by the ABV rule (TTB approves it),
+    // so this scenario exercises the producer-only soft path.
     makeDocument: calypso,
     expectedVerdict: 'needs_review',
     assertOutcome(report) {
       expect(report.crossCheck.fields.producer?.status).toBe('mismatch');
-      expect(report.fields.abv?.status).toBe('fail');
+      expect(report.fields.abv?.status).toBe('pass');
     },
   },
 ];
