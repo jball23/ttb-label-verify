@@ -1,14 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import dynamic from 'next/dynamic';
+import { useEffect, useRef, useState } from 'react';
 import {
   Check,
   X,
   AlertTriangle,
   HelpCircle,
   Info,
-  Loader2,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -22,28 +20,10 @@ import {
 } from '@/lib/cross-check/types';
 import { RULES } from '@/lib/validation/engine';
 import { type FieldPath, type ProvenanceMap } from '@/lib/extraction/types';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 type OkResultLine = Extract<ResultLine, { status: 'ok' }>;
 type WireReport = OkResultLine['report'];
-
-// react-pdf is heavy and client-only — split it out of the initial bundle.
-const PdfViewer = dynamic(() => import('./pdf-viewer'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-full min-h-[400px] items-center justify-center rounded-md border border-dashed border-border bg-muted/20 text-xs text-muted-foreground">
-      Loading PDF viewer…
-    </div>
-  ),
-});
-
-interface Props {
-  pdfFile: File;
-  result: ResultLine | null;
-  isStreaming: boolean;
-  onStartOver(): void;
-}
 
 // Two paths per cross-check row — one for the application side (Item N on
 // the form) and one for the label side. Clicking each highlights the
@@ -72,8 +52,6 @@ const RULE_TO_LABEL_PATH: Record<string, FieldPath | null> = {
   producerOrigin: 'label.producer',
 };
 
-// Friendly labels for every extracted application field — drives the
-// "Application form fields" section.
 type FormField = {
   key: string;
   label: string;
@@ -100,139 +78,7 @@ const APP_FORM_FIELDS: ReadonlyArray<FormField> = [
   { key: 'signer', label: 'Printed name of applicant (Item 18)', path: 'application.applicantSignatureName', value: (f) => f.applicantSignatureName },
 ];
 
-export default function VerifierPane({
-  pdfFile,
-  result,
-  isStreaming,
-  onStartOver,
-}: Props) {
-  const [selectedFieldId, setSelectedFieldId] = useState<FieldPath | null>(null);
-
-  function select(path: FieldPath | null): void {
-    setSelectedFieldId((current) => (current === path ? null : path));
-  }
-
-  const report = result && result.status === 'ok' ? result.report : null;
-  const provenance: ProvenanceMap = report?.provenance ?? {};
-  const verdict = report?.overallStatus ?? null;
-
-  return (
-    <div className="mx-auto w-full max-w-[1500px] px-4 py-4 sm:px-6">
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-base font-semibold tracking-tight sm:text-lg">
-            {pdfFile.name}
-          </h1>
-          {verdict && <VerdictBadge verdict={verdict} />}
-          {isStreaming && (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-              <Loader2 className="size-3 animate-spin" /> Verifying…
-            </span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onStartOver}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          Start over
-        </button>
-      </header>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-[3fr_2fr]">
-        <div className="rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="max-h-[80vh] overflow-auto">
-            <PdfViewer
-              pdfFile={pdfFile}
-              provenance={provenance}
-              selectedFieldId={selectedFieldId}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {result && result.status === 'error' && (
-            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-              <p className="font-medium">Verification failed</p>
-              <p className="mt-1 text-xs">{result.errorMessage}</p>
-            </div>
-          )}
-
-          {report && (
-            <>
-              <SummaryDots report={report} />
-              <CrossCheckSection
-                report={report.crossCheck}
-                selectedFieldId={selectedFieldId}
-                onSelect={select}
-                provenance={provenance}
-              />
-              <RulesSection
-                fields={report.fields}
-                selectedFieldId={selectedFieldId}
-                onSelect={select}
-                provenance={provenance}
-              />
-              <ApplicationFieldsSection
-                form={report.extractedForm}
-                selectedFieldId={selectedFieldId}
-                onSelect={select}
-                provenance={provenance}
-              />
-            </>
-          )}
-
-          {!report && isStreaming && (
-            <div className="rounded-xl border border-border bg-card p-6 text-center text-sm text-muted-foreground">
-              <Loader2 className="mx-auto mb-2 size-5 animate-spin" />
-              Reading the COLA application and the label…
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function VerdictBadge({ verdict }: { verdict: 'compliant' | 'needs_review' }) {
-  return (
-    <Badge variant={verdict === 'compliant' ? 'default' : 'destructive'}>
-      {verdict === 'compliant' ? 'Compliant' : 'Needs review'}
-    </Badge>
-  );
-}
-
-function SummaryDots({ report }: { report: WireReport }) {
-  const xc = report.crossCheck.overallStatus;
-  return (
-    <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs">
-      <span
-        title={`Cross-check ${xc}`}
-        className={cn(
-          'inline-block size-3 rounded-full ring-2 ring-offset-1 ring-offset-background',
-          xc === 'match' ? 'bg-emerald-500 ring-emerald-200' : 'bg-amber-500 ring-amber-200',
-        )}
-        aria-label={`Cross-check ${xc}`}
-      />
-      <span className="text-muted-foreground">XC</span>
-      <span className="ml-2 inline-block h-3 w-px bg-border" />
-      {RULES.map((rule) => {
-        const status = report.fields[rule.id]?.status ?? null;
-        return (
-          <span
-            key={rule.id}
-            title={`${rule.label}: ${status ?? 'pending'}`}
-            className={cn(
-              'inline-block size-2.5 rounded-full',
-              statusToDotColor(status),
-            )}
-            aria-label={`${rule.label}: ${status ?? 'pending'}`}
-          />
-        );
-      })}
-    </div>
-  );
-}
+// ---------------------------------------------------------------------------
 
 function statusToDotColor(status: FieldStatus | null): string {
   switch (status) {
@@ -247,7 +93,22 @@ function statusToDotColor(status: FieldStatus | null): string {
   }
 }
 
-function CrossCheckSection({
+function crossCheckStatusToDot(status: CrossCheckStatus): string {
+  switch (status) {
+    case 'match':
+      return 'bg-emerald-500';
+    case 'mismatch':
+      return 'bg-rose-500';
+    case 'not_on_label':
+      return 'bg-amber-500';
+    default:
+      return 'bg-muted';
+  }
+}
+
+// ---------------------------------------------------------------------------
+
+export function CrossCheckSection({
   report,
   selectedFieldId,
   onSelect,
@@ -260,11 +121,30 @@ function CrossCheckSection({
 }) {
   return (
     <section className="rounded-xl border border-border bg-card">
-      <header className="border-b border-border px-3 py-2">
-        <h2 className="text-sm font-semibold">Cross-check (application vs label)</h2>
-        <p className="text-[11px] text-muted-foreground">
-          Click the App or Label side of any row to highlight that source on the PDF.
-        </p>
+      <header className="flex items-start justify-between gap-3 border-b border-border px-3 py-2">
+        <div>
+          <h2 className="text-sm font-semibold">Cross-check (application vs label)</h2>
+          <p className="text-[11px] text-muted-foreground">
+            Click the App or Label side of any row to highlight that source on the PDF.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1 pt-0.5">
+          {CROSS_CHECK_FIELDS.map((id) => {
+            const f = report.fields[id];
+            if (!f || f.status === 'not_applicable') return null;
+            return (
+              <span
+                key={id}
+                title={`${CROSS_CHECK_FIELD_LABELS[id]}: ${f.status}`}
+                aria-label={`${CROSS_CHECK_FIELD_LABELS[id]}: ${f.status}`}
+                className={cn(
+                  'inline-block size-2.5 rounded-full',
+                  crossCheckStatusToDot(f.status),
+                )}
+              />
+            );
+          })}
+        </div>
       </header>
       <ul className="divide-y divide-border">
         {CROSS_CHECK_FIELDS.map((id) => {
@@ -352,7 +232,7 @@ function SideRow({
   );
 }
 
-function RulesSection({
+export function RulesSection({
   fields,
   selectedFieldId,
   onSelect,
@@ -363,13 +243,53 @@ function RulesSection({
   onSelect(path: FieldPath | null): void;
   provenance: ProvenanceMap;
 }) {
+  const [openTooltipId, setOpenTooltipId] = useState<string | null>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Close the open tooltip on outside click or Escape.
+  useEffect(() => {
+    if (!openTooltipId) return;
+    function onDown(e: MouseEvent): void {
+      if (!sectionRef.current) return;
+      const target = e.target as Node;
+      const tooltipRoot = (target as Element).closest?.('[data-cfr-tooltip]');
+      if (!tooltipRoot || !sectionRef.current.contains(tooltipRoot)) {
+        setOpenTooltipId(null);
+      }
+    }
+    function onKey(e: KeyboardEvent): void {
+      if (e.key === 'Escape') setOpenTooltipId(null);
+    }
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [openTooltipId]);
+
   return (
-    <section className="rounded-xl border border-border bg-card">
-      <header className="border-b border-border px-3 py-2">
-        <h2 className="text-sm font-semibold">TTB label rules</h2>
-        <p className="text-[11px] text-muted-foreground">
-          Six label-only rules. Click the ⓘ to see the actual CFR citation.
-        </p>
+    <section ref={sectionRef} className="rounded-xl border border-border bg-card">
+      <header className="flex items-start justify-between gap-3 border-b border-border px-3 py-2">
+        <div>
+          <h2 className="text-sm font-semibold">TTB label rules</h2>
+          <p className="text-[11px] text-muted-foreground">
+            Six label-only rules. Click the ⓘ to see the actual CFR citation.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1 pt-0.5">
+          {RULES.map((rule) => {
+            const status = fields[rule.id]?.status ?? null;
+            return (
+              <span
+                key={rule.id}
+                title={`${rule.label}: ${status ?? 'pending'}`}
+                aria-label={`${rule.label}: ${status ?? 'pending'}`}
+                className={cn('inline-block size-2.5 rounded-full', statusToDotColor(status))}
+              />
+            );
+          })}
+        </div>
       </header>
       <ul className="divide-y divide-border">
         {RULES.map((rule) => {
@@ -398,7 +318,13 @@ function RulesSection({
                     >
                       {rule.label}
                     </button>
-                    <CfrTooltip cfr={rule.cfr} />
+                    <CfrTooltip
+                      cfr={rule.cfr}
+                      open={openTooltipId === rule.id}
+                      onToggle={() =>
+                        setOpenTooltipId((cur) => (cur === rule.id ? null : rule.id))
+                      }
+                    />
                   </div>
                   {result?.extractedValue && (
                     <p className="text-[11px] text-muted-foreground">
@@ -423,14 +349,22 @@ function RulesSection({
   );
 }
 
-function CfrTooltip({ cfr }: { cfr: import('@/lib/validation/types').CfrCitation }) {
-  const [open, setOpen] = useState(false);
+function CfrTooltip({
+  cfr,
+  open,
+  onToggle,
+}: {
+  cfr: import('@/lib/validation/types').CfrCitation;
+  open: boolean;
+  onToggle(): void;
+}) {
   return (
-    <div className="relative inline-block">
+    <div className="relative inline-block" data-cfr-tooltip>
       <button
         type="button"
         aria-label={`Show CFR citation: ${cfr.section}`}
-        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        onClick={onToggle}
         className="inline-flex size-4 items-center justify-center rounded-full text-muted-foreground hover:bg-accent/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {open ? <ChevronUp className="size-3" /> : <Info className="size-3" />}
@@ -452,7 +386,7 @@ function CfrTooltip({ cfr }: { cfr: import('@/lib/validation/types').CfrCitation
   );
 }
 
-function ApplicationFieldsSection({
+export function ApplicationFieldsSection({
   form,
   selectedFieldId,
   onSelect,
