@@ -59,18 +59,27 @@ export async function renderPageOne(pdfBuffer: Uint8Array | Buffer): Promise<Buf
   ensurePolyfills();
 
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const { createRequire } = (await import('node:module')) as unknown as {
+    createRequire: (url: string) => { resolve: (p: string) => string };
+  };
+  const req = createRequire(import.meta.url);
   // pdfjs spawns a Web Worker by default to do parsing; in Node we have to
   // point GlobalWorkerOptions at the worker bundle so it can be loaded
   // synchronously. The legacy build ships the worker at a known location.
   if (!pdfjs.GlobalWorkerOptions.workerSrc) {
-    const { createRequire } = (await import('node:module')) as unknown as {
-      createRequire: (url: string) => { resolve: (p: string) => string };
-    };
-    const req = createRequire(import.meta.url);
     pdfjs.GlobalWorkerOptions.workerSrc = req.resolve(
       'pdfjs-dist/legacy/build/pdf.worker.mjs',
     );
   }
+  // Without standardFontDataUrl, pdfjs has no way to draw Helvetica/Times/etc.
+  // — every glyph in a Helvetica-rendered form drops to a blank, so the
+  // rasterized page looks like an empty template. pdfjs ships the standard
+  // fonts under standard_fonts/ in the package; point at them on disk. The
+  // Node factory does fs.promises.readFile(baseUrl + filename), so a plain
+  // path with trailing slash works — no file:// URL wrapping needed.
+  const standardFontDataUrl = req
+    .resolve('pdfjs-dist/package.json')
+    .replace(/package\.json$/, 'standard_fonts/');
 
   let doc;
   try {
@@ -80,6 +89,7 @@ export async function renderPageOne(pdfBuffer: Uint8Array | Buffer): Promise<Buf
       disableFontFace: true,
       useSystemFonts: false,
       useWorkerFetch: false,
+      standardFontDataUrl,
       // `canvasFactory` is supported on the pdfjs runtime but not in its public
       // type — cast to bypass the gap rather than ship a misleading type for it.
       canvasFactory: new NodeCanvasFactory(),
