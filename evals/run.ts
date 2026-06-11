@@ -69,7 +69,7 @@ async function runCase(extractor: ReturnType<typeof getExtractor>, eval_case: Re
   let actual: ExtractedFields | null = null;
   let errorMessage: string | undefined;
   try {
-    const document = await extractor.extract(image);
+    const document = await extractor.extract([image]);
     actual = document.label;
   } catch (e) {
     errorMessage = (e as Error).message;

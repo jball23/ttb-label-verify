@@ -124,7 +124,13 @@ function mockHappyPath(): void {
     }),
   }));
   vi.doMock('@/lib/pdf/render', () => ({
-    renderPageOne: async () => Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+    renderApplicationPages: async () => [
+      {
+        pageNumber: 1,
+        kind: 'form+label' as const,
+        png: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      },
+    ],
     PdfRenderError: class extends Error {},
   }));
 }
@@ -205,7 +211,7 @@ describe('POST /api/verify', () => {
         }
       }
       return {
-        renderPageOne: async () => {
+        renderApplicationPages: async () => {
           throw new PdfRenderError('Could not parse PDF');
         },
         PdfRenderError,
@@ -232,7 +238,13 @@ describe('POST /api/verify', () => {
       }),
     }));
     vi.doMock('@/lib/pdf/render', () => ({
-      renderPageOne: async () => Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      renderApplicationPages: async () => [
+      {
+        pageNumber: 1,
+        kind: 'form+label' as const,
+        png: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+      },
+    ],
       PdfRenderError: class extends Error {},
     }));
     const { POST } = await import('./route');

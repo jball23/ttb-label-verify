@@ -136,13 +136,16 @@ export const ExtractedDocumentNoProvenanceSchema = z.object({
 });
 export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
 
-// The provider abstraction the verify route depends on. The input is now a
-// rendered page-1 PNG buffer; the response carries both the application form
-// half and the label half plus their provenance.
+// The provider abstraction the verify route depends on. The input is the set
+// of rendered pages the verifier needs (form fields + label artwork); for a
+// single-page fixture that's one PNG, for a real TTB COLA Online export it
+// can be two or more. The response still carries one application + label +
+// provenance — the model is expected to find each field wherever it appears
+// across the supplied pages.
 export interface DocumentExtractor {
   readonly providerName: string;
   readonly modelId: string;
-  extract(pngBuffer: Buffer): Promise<ExtractedDocument>;
+  extract(pngBuffers: Buffer[]): Promise<ExtractedDocument>;
 }
 
 // Kept as an alias so legacy imports that referenced LabelExtractor compile.

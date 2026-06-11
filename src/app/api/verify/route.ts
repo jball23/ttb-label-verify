@@ -8,7 +8,7 @@ import { getPromptVersion } from '@/lib/extraction/prompt';
 import { type ResultLine } from '@/lib/results/result-types';
 import { scrubError } from '@/lib/safety/scrub-error';
 import { synthesizeExpectations } from '@/lib/application/loader';
-import { renderPageOne, PdfRenderError } from '@/lib/pdf/render';
+import { renderApplicationPages, PdfRenderError } from '@/lib/pdf/render';
 import { snapApplicationProvenance } from '@/lib/pdf/form-widgets';
 import { persistVerification } from '@/db/persist-verification';
 import { findApplicationByHash } from '@/db/applications';
@@ -113,18 +113,23 @@ export async function POST(req: NextRequest): Promise<Response> {
             }
 
             const renderStart = Date.now();
-            const pngBuffer = await renderPageOne(pdfBuffer);
+            const renderedPages = await renderApplicationPages(pdfBuffer);
             mark('render', renderStart);
+            const pngBuffers = renderedPages.map((p) => p.png);
+            const totalPngBytes = pngBuffers.reduce(
+              (sum, b) => sum + b.byteLength,
+              0,
+            );
 
             const llmStart = Date.now();
             const extracted = await withLabelSpan(
               {
                 filename: pdfField.name,
                 mimeType: 'image/png',
-                byteSize: pngBuffer.byteLength,
+                byteSize: totalPngBytes,
                 imageSha256: pdfSha,
               },
-              () => extractor.extract(pngBuffer),
+              () => extractor.extract(pngBuffers),
             );
             mark('llm', llmStart);
 
@@ -145,8 +150,11 @@ export async function POST(req: NextRequest): Promise<Response> {
             );
 
             const latencyMs = Date.now() - start;
+            const pagesLog = renderedPages
+              .map((p) => `${p.pageNumber}:${p.kind}`)
+              .join(',');
             console.log(
-              `[verify] ${pdfField.name} model=${extractor.modelId} bbox=${includeProvenance ? 'on' : 'off'} total=${latencyMs}ms render=${timings.render ?? 0}ms llm=${timings.llm ?? 0}ms`,
+              `[verify] ${pdfField.name} model=${extractor.modelId} bbox=${includeProvenance ? 'on' : 'off'} pages=[${pagesLog}] total=${latencyMs}ms render=${timings.render ?? 0}ms llm=${timings.llm ?? 0}ms`,
             );
             const applicationId = await persistVerification({
               sourceFilename: pdfField.name,

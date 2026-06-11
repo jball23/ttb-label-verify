@@ -36,9 +36,20 @@ export class OpenAIExtractor implements DocumentExtractor {
     this.modelId = options.model ?? DEFAULT_MODEL;
   }
 
-  async extract(pngBuffer: Buffer): Promise<ExtractedDocument> {
+  async extract(pngBuffers: Buffer[]): Promise<ExtractedDocument> {
+    if (pngBuffers.length === 0) {
+      throw new Error(
+        'OpenAIExtractor.extract requires at least one rendered page.',
+      );
+    }
     const includeProvenance = getEnv().EXTRACT_PROVENANCE;
-    const dataUrl = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+    const imageContent = pngBuffers.map((png) => ({
+      type: 'image_url' as const,
+      image_url: {
+        url: `data:image/png;base64,${png.toString('base64')}`,
+        detail: 'high' as const,
+      },
+    }));
 
     const responseFormat = includeProvenance
       ? zodResponseFormat(ExtractedDocumentSchema, 'extracted_document')
@@ -46,6 +57,14 @@ export class OpenAIExtractor implements DocumentExtractor {
           ExtractedDocumentNoProvenanceSchema,
           'extracted_document_no_provenance',
         );
+
+    const introText = includeProvenance
+      ? USER_PROMPT_INTRO
+      : USER_PROMPT_INTRO_NO_PROVENANCE;
+    const multiPageNote =
+      pngBuffers.length > 1
+        ? ` You are receiving ${pngBuffers.length} page images for this single application; treat them as one document. The form fields (Item 1-18) usually appear on one page, and the affixed label artwork (often a separate "front" and "back" label) may appear on another page. Extract each field from whichever page it actually appears on.`
+        : '';
 
     const response = await this.client.chat.completions.create({
       model: this.modelId,
@@ -63,11 +82,8 @@ export class OpenAIExtractor implements DocumentExtractor {
         {
           role: 'user',
           content: [
-            {
-              type: 'text',
-              text: includeProvenance ? USER_PROMPT_INTRO : USER_PROMPT_INTRO_NO_PROVENANCE,
-            },
-            { type: 'image_url', image_url: { url: dataUrl, detail: 'high' } },
+            { type: 'text', text: introText + multiPageNote },
+            ...imageContent,
           ],
         },
       ],

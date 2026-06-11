@@ -367,7 +367,13 @@ describe('POST /api/verify — 5-scenario truth table (PDF pipeline)', () => {
         }),
       }));
       vi.doMock('@/lib/pdf/render', () => ({
-        renderPageOne: async () => Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        renderApplicationPages: async () => [
+          {
+            pageNumber: 1,
+            kind: 'form+label' as const,
+            png: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+          },
+        ],
         PdfRenderError: class extends Error {},
       }));
 

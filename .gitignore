@@ -41,3 +41,4 @@ next-env.d.ts
 # session handoffs + decryption byproducts
 .claude/
 scripts/.cola-template-*.pdf
+.playwright-mcp/

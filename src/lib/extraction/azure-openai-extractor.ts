@@ -30,7 +30,7 @@ export class AzureOpenAIExtractor implements DocumentExtractor {
     this.modelId = `azure:${options.deployment ?? 'unknown'}`;
   }
 
-  async extract(_pngBuffer: Buffer): Promise<ExtractedDocument> {
+  async extract(_pngBuffers: Buffer[]): Promise<ExtractedDocument> {
     throw new NotImplementedError(
       `AzureOpenAIExtractor is documented but not implemented in the prototype. ` +
         `Endpoint configured: ${this.options.endpoint}. ` +

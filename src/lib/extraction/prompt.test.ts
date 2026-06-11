@@ -2,20 +2,30 @@ import { describe, it, expect } from 'vitest';
 import { PROMPT_VERSION, SYSTEM_PROMPT, USER_PROMPT_INTRO } from './prompt';
 
 describe('PROMPT_VERSION', () => {
-  it('is the v5 string for the dual-extraction prompt', () => {
-    expect(PROMPT_VERSION).toBe('2026-06-10.v5');
+  it('is the v6 string for the multi-page dual-extraction prompt', () => {
+    expect(PROMPT_VERSION).toBe('2026-06-11.v6');
   });
 
-  it('differs from the previous label-only revision', () => {
+  it('differs from earlier revisions', () => {
     expect(PROMPT_VERSION).not.toBe('2026-06-10.v3');
     expect(PROMPT_VERSION).not.toBe('2026-06-10.v4');
+    expect(PROMPT_VERSION).not.toBe('2026-06-10.v5');
   });
 });
 
 describe('SYSTEM_PROMPT', () => {
   it('frames the task as both application + label extraction', () => {
-    expect(SYSTEM_PROMPT).toMatch(/application form/i);
+    expect(SYSTEM_PROMPT).toMatch(/application|TTB Form 5100\.31/i);
     expect(SYSTEM_PROMPT).toMatch(/affixed[- ]?label/i);
+  });
+
+  it('notes that input may be one or more page images', () => {
+    expect(SYSTEM_PROMPT).toMatch(/one or more|multiple page|several page/i);
+  });
+
+  it('mentions front and back labels for multi-page real exports', () => {
+    expect(SYSTEM_PROMPT).toMatch(/front/i);
+    expect(SYSTEM_PROMPT).toMatch(/back/i);
   });
 
   it('mentions provenance bounding boxes', () => {

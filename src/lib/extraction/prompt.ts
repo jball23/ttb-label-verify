@@ -7,16 +7,16 @@
  * substantive change so Langfuse traces don't conflate revisions.
  */
 
-export const PROMPT_VERSION = '2026-06-10.v5';
+export const PROMPT_VERSION = '2026-06-11.v6';
 // Distinct version when provenance is disabled — keeps Langfuse traces from
 // conflating runs with and without bbox output.
-export const PROMPT_VERSION_NO_PROVENANCE = '2026-06-10.v5-nobbox';
+export const PROMPT_VERSION_NO_PROVENANCE = '2026-06-11.v6-nobbox';
 
 export function getPromptVersion(includeProvenance: boolean): string {
   return includeProvenance ? PROMPT_VERSION : PROMPT_VERSION_NO_PROVENANCE;
 }
 
-export const SYSTEM_PROMPT = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) compliance assistant. You are given a single rendered page from a filled-out U.S. TTB Form 5100.31 (Application for and Certification/Exemption of Label/Bottle Approval). The page contains BOTH the filled application form AND the affixed label artwork (printed in the lower portion of the page). Your job is to extract three structures into JSON:
+export const SYSTEM_PROMPT = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) compliance assistant. You are given ONE OR MORE rendered pages from a filled-out U.S. TTB Form 5100.31 (Application for and Certification/Exemption of Label/Bottle Approval). For a bundled single-page fixture, you may receive just one page containing both the filled form AND the affixed label artwork at the bottom. For a real TTB COLA Online export, the form fields typically live on one page and the affixed label artwork — often a separate "front" label AND "back" label — lives on a different page. Treat all supplied page images as ONE document; extract every field from whichever page it actually appears on. The Government Warning text is most often on the BACK label. Your job is to extract three structures into JSON:
 
   • application  — the form fields as filled in by the applicant
   • label        — the regulated fields visible on the affixed label artwork
