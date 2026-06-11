@@ -91,6 +91,12 @@ export const applications = pgTable(
     // detail page. Production path: move to object storage (Vercel Blob /
     // Azure Blob inside FedRAMP boundary) and store a URL here instead.
     pdfBytes: bytea('pdf_bytes'),
+
+    // Set when a reviewer moves a finalized row from the Finalized tab to
+    // the /applications archive via the Archive Selected button. Finalize
+    // (approve/reject) no longer auto-archives — items stay in the
+    // Finalized queue until the reviewer batch-archives them.
+    archivedAt: timestamp({ withTimezone: true }),
   },
   (t) => [
     index('applications_created_at_idx').on(t.createdAt.desc()),
@@ -98,6 +104,7 @@ export const applications = pgTable(
     index('applications_content_hash_idx').on(t.contentHash),
     index('applications_brand_name_idx').on(sql`lower(${t.brandName})`),
     index('applications_ttb_serial_idx').on(t.ttbSerialNumber),
+    index('applications_archived_at_idx').on(t.archivedAt),
     check(
       'applications_ai_verdict_check',
       sql`${t.aiVerdict} in ('compliant','needs_review','non_compliant')`,

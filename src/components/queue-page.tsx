@@ -8,6 +8,7 @@ import {
 import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
+  Archive,
   Check,
   ChevronDown,
   ChevronUp,
@@ -33,7 +34,7 @@ import { type QueueData } from '@/app/(app)/page';
 const MAX_PDF_BYTES = 25 * 1024 * 1024;
 const VERIFY_CONCURRENCY = 3;
 
-type Tab = 'queue' | 'approved' | 'rejected';
+type Tab = 'queue' | 'approved' | 'rejected' | 'finalized';
 
 interface InFlightItem {
   id: string;
@@ -150,6 +151,7 @@ export default function QueuePage({ initial, databaseConnected }: Props) {
     queue: inFlight.length,
     approved: initial.counts.approved,
     rejected: initial.counts.rejected,
+    finalized: initial.counts.finalized,
   };
 
   return (
@@ -182,6 +184,12 @@ export default function QueuePage({ initial, databaseConnected }: Props) {
             count={counts.rejected}
             active={activeTab === 'rejected'}
             onClick={() => setActiveTab('rejected')}
+          />
+          <TabButton
+            label="Finalized"
+            count={counts.finalized}
+            active={activeTab === 'finalized'}
+            onClick={() => setActiveTab('finalized')}
           />
         </div>
       </div>
@@ -229,6 +237,14 @@ export default function QueuePage({ initial, databaseConnected }: Props) {
           cards={initial.rejectedPending}
           tab="rejected"
           databaseConnected={databaseConnected}
+        />
+      )}
+
+      {activeTab === 'finalized' && (
+        <FinalizedTab
+          cards={initial.finalized}
+          databaseConnected={databaseConnected}
+          onArchived={() => router.refresh()}
         />
       )}
     </div>
@@ -517,6 +533,203 @@ function CardIcon({ tab }: { tab: 'approved' | 'rejected' }) {
   if (tab === 'approved')
     return <Check className="size-4 text-emerald-600" />;
   return <X className="size-4 text-rose-600" />;
+}
+
+// ---------------------------------------------------------------------------
+
+function FinalizedTab({
+  cards,
+  databaseConnected,
+  onArchived,
+}: {
+  cards: ApplicationSummary[];
+  databaseConnected: boolean;
+  onArchived(): void;
+}) {
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [archiveError, setArchiveError] = useState<string | null>(null);
+
+  if (!databaseConnected) {
+    return (
+      <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+        Database not configured. Set DATABASE_URL in <code>.env.local</code> and
+        run <code>npm run db:push</code>.
+      </div>
+    );
+  }
+
+  if (cards.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+        Nothing finalized yet. Approve or reject a queued application to send
+        it here, then batch-archive via the button at the top of the list.
+      </div>
+    );
+  }
+
+  const allSelected = selected.size === cards.length;
+  const noneSelected = selected.size === 0;
+
+  function toggle(id: string): void {
+    setSelected((curr) => {
+      const next = new Set(curr);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll(): void {
+    setSelected(allSelected ? new Set() : new Set(cards.map((c) => c.id)));
+  }
+
+  async function archiveSelected(): Promise<void> {
+    if (noneSelected || isArchiving) return;
+    setArchiveError(null);
+    setIsArchiving(true);
+    try {
+      const res = await fetch('/api/archive', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ applicationIds: Array.from(selected) }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Unknown error' }));
+        setArchiveError(body.error ?? `Request failed (${res.status})`);
+        return;
+      }
+      setSelected(new Set());
+      onArchived();
+    } catch (e) {
+      setArchiveError((e as Error).message);
+    } finally {
+      setIsArchiving(false);
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3 py-2 sm:px-4">
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            // Use indeterminate when some but not all are selected.
+            ref={(el) => {
+              if (el) el.indeterminate = !allSelected && !noneSelected;
+            }}
+            onChange={toggleAll}
+            aria-label="Select all"
+            className="size-3.5"
+          />
+          <span className="font-medium">
+            {noneSelected
+              ? 'Select all'
+              : allSelected
+                ? `All ${cards.length} selected`
+                : `${selected.size} of ${cards.length} selected`}
+          </span>
+        </label>
+        <button
+          type="button"
+          onClick={archiveSelected}
+          disabled={noneSelected || isArchiving}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium',
+            'bg-primary text-primary-foreground hover:bg-primary/90',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'disabled:cursor-not-allowed disabled:opacity-50',
+          )}
+        >
+          {isArchiving ? (
+            <Loader2 className="size-3.5 animate-spin" />
+          ) : (
+            <Archive className="size-3.5" />
+          )}
+          Archive Selected
+        </button>
+      </div>
+
+      {archiveError && (
+        <Alert variant="destructive" className="mb-3">
+          <AlertCircle />
+          <AlertTitle>Could not archive</AlertTitle>
+          <AlertDescription>{archiveError}</AlertDescription>
+        </Alert>
+      )}
+
+      <ul className="space-y-2">
+        {cards.map((card) => {
+          const isOn = selected.has(card.id);
+          const decision = card.currentStatus;
+          return (
+            <li
+              key={card.id}
+              className={cn(
+                'flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 sm:px-4',
+                isOn ? 'border-primary/60 bg-primary/5' : 'border-border',
+              )}
+            >
+              <input
+                type="checkbox"
+                checked={isOn}
+                onChange={() => toggle(card.id)}
+                aria-label={`Select ${card.sourceFilename}`}
+                className="size-3.5 shrink-0"
+              />
+              <FinalDecisionIcon decision={decision} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">
+                  {card.sourceFilename}
+                </p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {card.brandName ?? 'unknown brand'} ·{' '}
+                  {card.ttbSerialNumber ?? 'no serial'} · finalized{' '}
+                  {formatRelative(card.currentStatusAt)}
+                </p>
+              </div>
+              <FinalDecisionPill decision={decision} />
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function FinalDecisionIcon({
+  decision,
+}: {
+  decision: ApplicationSummary['currentStatus'];
+}) {
+  if (decision === 'approved')
+    return <Check className="size-4 text-emerald-600" />;
+  if (decision === 'rejected')
+    return <X className="size-4 text-rose-600" />;
+  return null;
+}
+
+function FinalDecisionPill({
+  decision,
+}: {
+  decision: ApplicationSummary['currentStatus'];
+}) {
+  if (decision === 'approved') {
+    return (
+      <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+        Approved
+      </span>
+    );
+  }
+  if (decision === 'rejected') {
+    return (
+      <span className="inline-flex items-center rounded-full bg-rose-500/15 px-2.5 py-0.5 text-[11px] font-medium text-rose-700 dark:text-rose-300">
+        Rejected
+      </span>
+    );
+  }
+  return null;
 }
 
 function AiVerdictPill({

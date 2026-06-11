@@ -38,7 +38,9 @@ export default async function ApplicationsPage({ searchParams }: PageProps) {
 
   const { status } = await searchParams;
   const filter = parseFilter(status);
-  const rows = await listApplicationsByStatus(statusesFor(filter), 200);
+  // Archive page only shows rows the reviewer explicitly archived from the
+  // Finalized tab. Finalized-but-not-yet-archived rows stay in the queue.
+  const rows = await listApplicationsByStatus(statusesFor(filter), 200, true);
 
   return (
     <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6">
