@@ -114,6 +114,22 @@ function crossCheckStatusToDot(status: CrossCheckStatus): string {
   }
 }
 
+// Reason copy under each cross-check row should read in the same color
+// family as its icon — sky for "informational, label has extra info" and
+// amber for "values differ, reviewer should glance." Both stay
+// intentionally non-rose since cross-check never rejects a label.
+function crossCheckStatusToReasonText(status: CrossCheckStatus): string {
+  switch (status) {
+    case 'mismatch':
+    case 'not_on_label':
+      return 'text-amber-600 dark:text-amber-400';
+    case 'not_on_application':
+      return 'text-sky-600 dark:text-sky-400';
+    default:
+      return 'text-muted-foreground';
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 export function CrossCheckSection({
@@ -190,7 +206,12 @@ export function CrossCheckSection({
                 />
               </div>
               {field.reason && (
-                <p className="mt-1 pl-6 text-[11px] text-muted-foreground">
+                <p
+                  className={cn(
+                    'mt-1 pl-6 text-[11px]',
+                    crossCheckStatusToReasonText(field.status),
+                  )}
+                >
                   {field.reason}
                 </p>
               )}
