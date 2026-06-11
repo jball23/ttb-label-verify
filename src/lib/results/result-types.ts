@@ -58,6 +58,7 @@ export const ResultLineSchema = z.discriminatedUnion('status', [
     filename: z.string(),
     durationMs: z.number().nonnegative(),
     report: VerificationReportSchema,
+    applicationId: z.string().uuid().nullable().optional(),
   }),
   z.object({
     status: z.literal('error'),

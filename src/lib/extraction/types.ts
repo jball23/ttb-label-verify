@@ -125,6 +125,15 @@ export const ExtractedDocumentSchema = z.object({
   label: ExtractedFieldsSchema,
   provenance: ProvenanceMapSchema,
 });
+
+// Lean variant the model is asked for when EXTRACT_PROVENANCE=false. Skips
+// the provenance map entirely so the model doesn't burn output tokens on
+// ~27 bbox entries. The extractor post-pads `provenance: {}` so the
+// in-memory ExtractedDocument shape stays consistent.
+export const ExtractedDocumentNoProvenanceSchema = z.object({
+  application: ExtractedApplicationFormSchema,
+  label: ExtractedFieldsSchema,
+});
 export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
 
 // The provider abstraction the verify route depends on. The input is now a
@@ -132,6 +141,7 @@ export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
 // half and the label half plus their provenance.
 export interface DocumentExtractor {
   readonly providerName: string;
+  readonly modelId: string;
   extract(pngBuffer: Buffer): Promise<ExtractedDocument>;
 }
 

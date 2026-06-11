@@ -1,4 +1,8 @@
-import type { BoundingBox, FieldPath } from '../extraction/types';
+import type {
+  BoundingBox,
+  ExtractedApplicationForm,
+  FieldPath,
+} from '../extraction/types';
 
 /**
  * Deterministic AcroForm widget rectangles for TTB Form 5100.31 page 1.
@@ -150,4 +154,55 @@ export function snapApplicationProvenance<T extends ProvenanceLike>(
     };
   }
   return next as T;
+}
+
+/**
+ * Build application-side provenance from scratch, using the extracted form
+ * values to decide which paths to populate and FORM_WIDGET_RECTS for the
+ * deterministic coordinates.
+ *
+ * Used when EXTRACT_PROVENANCE is disabled: the model returned no provenance,
+ * but we still want app-side click-to-highlight to work in the UI. Label-side
+ * provenance stays empty in that mode — those clicks become inert.
+ */
+export function synthesizeApplicationProvenance(
+  form: ExtractedApplicationForm,
+): ProvenanceLike {
+  const isPresent = (v: string | null | undefined): boolean =>
+    typeof v === 'string' && v.trim().length > 0;
+
+  // FieldPath → predicate that decides whether the corresponding form value
+  // is populated enough to deserve a provenance entry.
+  const populated: Partial<Record<FieldPath, boolean>> = {
+    'application.brandName': isPresent(form.brandName),
+    'application.fancifulName': isPresent(form.fancifulName),
+    'application.classType': form.productType != null,
+    'application.productType': form.productType != null,
+    'application.source': form.source != null,
+    'application.phone': isPresent(form.phone),
+    'application.email': isPresent(form.email),
+    'application.applicationType': isPresent(form.applicationType),
+    'application.applicant.name': isPresent(form.applicant.name),
+    'application.applicant.address': isPresent(form.applicant.addressLine1),
+    'application.applicant.city': isPresent(form.applicant.city),
+    'application.applicant.state': isPresent(form.applicant.state),
+    'application.grapeVarietals': isPresent(form.grapeVarietals),
+    'application.wineAppellation': isPresent(form.wineAppellation),
+    'application.serialNumber': isPresent(form.serialNumber),
+    'application.plantRegistryNumber': isPresent(form.plantRegistryNumber),
+    'application.applicationDate': isPresent(form.applicationDate),
+    'application.applicantSignatureName': isPresent(form.applicantSignatureName),
+  };
+
+  const out: ProvenanceLike = {};
+  for (const [path, present] of Object.entries(populated) as [
+    FieldPath,
+    boolean,
+  ][]) {
+    if (!present) continue;
+    const widgetBox = FORM_WIDGET_RECTS[path];
+    if (!widgetBox) continue;
+    out[path] = { page: 0, bbox: widgetBox, confidence: 'high' };
+  }
+  return out;
 }

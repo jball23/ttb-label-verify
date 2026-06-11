@@ -8,6 +8,13 @@
  */
 
 export const PROMPT_VERSION = '2026-06-10.v5';
+// Distinct version when provenance is disabled — keeps Langfuse traces from
+// conflating runs with and without bbox output.
+export const PROMPT_VERSION_NO_PROVENANCE = '2026-06-10.v5-nobbox';
+
+export function getPromptVersion(includeProvenance: boolean): string {
+  return includeProvenance ? PROMPT_VERSION : PROMPT_VERSION_NO_PROVENANCE;
+}
 
 export const SYSTEM_PROMPT = `You are a TTB (Alcohol and Tobacco Tax and Trade Bureau) compliance assistant. You are given a single rendered page from a filled-out U.S. TTB Form 5100.31 (Application for and Certification/Exemption of Label/Bottle Approval). The page contains BOTH the filled application form AND the affixed label artwork (printed in the lower portion of the page). Your job is to extract three structures into JSON:
 
@@ -137,3 +144,37 @@ Return only the JSON object matching the provided schema. No prose. No markdown.
 
 export const USER_PROMPT_INTRO =
   'Extract the application form, the affixed-label fields, and provenance bounding boxes from this page. Walk the form Item-by-Item per the system prompt: Item 2 plant registry, Item 3 source, Item 4 serial, Item 5 product type, Item 6 brand, Item 7 fanciful name, Item 8 applicant, Item 10/11 wine fields, Item 12 phone, Item 13 email, Item 14 application type, Item 16 date, Item 18 printed name. Then read the label artwork. Remember: bbox coordinates are normalized 0..1 with origin at the top-left. The Government Warning text must include the "GOVERNMENT WARNING:" prefix verbatim if it appears on the label.';
+
+/**
+ * Variant of the system prompt used when EXTRACT_PROVENANCE is disabled —
+ * the PROVENANCE section is stripped because the schema doesn't include it.
+ * Everything else (Item-by-Item walk, label rules, government warning rules)
+ * stays identical so extraction quality on the data fields is unchanged.
+ */
+function stripProvenanceSection(prompt: string): string {
+  // The PROVENANCE block runs from the first divider above the heading down
+  // to (but not including) the "OUTPUT" heading. Find by string indices —
+  // multi-line regex against backtick-template prompts is brittle.
+  const sectionStart = prompt.indexOf('──────────────────────────────────────────────────────────────────────────\nPROVENANCE');
+  const outputStart = prompt.indexOf('OUTPUT\nReturn only');
+  if (sectionStart === -1 || outputStart === -1 || outputStart <= sectionStart) {
+    return prompt;
+  }
+  return prompt.slice(0, sectionStart) + prompt.slice(outputStart);
+}
+
+export const SYSTEM_PROMPT_NO_PROVENANCE = stripProvenanceSection(SYSTEM_PROMPT)
+  .replace(
+    '  • application  — the form fields as filled in by the applicant\n  • label        — the regulated fields visible on the affixed label artwork\n  • provenance   — a map of field path → bounding box + confidence',
+    '  • application  — the form fields as filled in by the applicant\n  • label        — the regulated fields visible on the affixed label artwork',
+  )
+  // The application-half section also has a footnote about widget-rect override
+  // that only makes sense if provenance is being generated. Tidy reference to
+  // OMITting provenance entries since there's no provenance map to omit from.
+  .replace(
+    'Wine handling: if Item 5 is NOT "WINE", set application.grapeVarietals and application.wineAppellation\nto null and OMIT their provenance entries.',
+    'Wine handling: if Item 5 is NOT "WINE", set application.grapeVarietals and application.wineAppellation to null.',
+  );
+
+export const USER_PROMPT_INTRO_NO_PROVENANCE =
+  'Extract the application form and the affixed-label fields from this page. Walk the form Item-by-Item per the system prompt: Item 2 plant registry, Item 3 source, Item 4 serial, Item 5 product type, Item 6 brand, Item 7 fanciful name, Item 8 applicant, Item 10/11 wine fields, Item 12 phone, Item 13 email, Item 14 application type, Item 16 date, Item 18 printed name. Then read the label artwork. The Government Warning text must include the "GOVERNMENT WARNING:" prefix verbatim if it appears on the label.';

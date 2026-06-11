@@ -73,7 +73,7 @@ const COUNTRY_ALIASES: Record<string, string> = {
   america: 'usa',
 };
 
-// Compact aliases for the class/type designation. Maps free-form label
+// Compact aliases for the Fanciful name. Maps free-form label
 // designations to the canonical TTB category text used on the COLA form.
 const CLASS_TYPE_ALIASES: Record<string, string[]> = {
   // Whiskey family — all reduce to "whiskey" so a "bourbon" label matches a
@@ -98,16 +98,7 @@ const CLASS_TYPE_ALIASES: Record<string, string[]> = {
 const CORPORATE_SUFFIX_RE =
   /\b(l\.?l\.?c\.?|inc\.?|corp\.?|co\.?|ltd\.?|company|incorporated|llp)\b\.?/g;
 
-const PRODUCER_NOISE_TOKENS = new Set([
-  'the',
-  'of',
-  'and',
-  'by',
-  'a',
-  'an',
-  '·',
-  '-',
-]);
+const PRODUCER_NOISE_TOKENS = new Set(['the', 'of', 'and', 'by', 'a', 'an', '·', '-']);
 
 const PRODUCER_PROCESS_TOKENS = new Set([
   'distilled',
@@ -146,9 +137,7 @@ function stripCorporateSuffix(s: string): string {
  */
 export function normalizedExact(value: string | null | undefined): string {
   if (value == null) return '';
-  return collapseWhitespace(
-    stripCorporateSuffix(stripDiacritics(casefold(value))),
-  );
+  return collapseWhitespace(stripCorporateSuffix(stripDiacritics(casefold(value))));
 }
 
 /**
@@ -201,10 +190,7 @@ function jaccard(a: Set<string>, b: Set<string>): number {
  *   "Bottled by Tropical Spirits LLC · San Juan, Puerto Rico"
  * is a mismatch.
  */
-export function producerMatches(
-  applicationValue: string,
-  labelValue: string,
-): boolean {
+export function producerMatches(applicationValue: string, labelValue: string): boolean {
   const appTokens = tokenize(applicationValue);
   const labelTokens = tokenize(labelValue);
   return jaccard(appTokens, labelTokens) >= PRODUCER_MATCH_THRESHOLD;
@@ -213,12 +199,12 @@ export function producerMatches(
 /**
  * Country match: normalized exact with USA aliases.
  */
-export function countryMatches(
-  applicationValue: string,
-  labelValue: string,
-): boolean {
-  const appNorm = COUNTRY_ALIASES[normalizedExact(applicationValue)] ?? normalizedExact(applicationValue);
-  const labelNorm = COUNTRY_ALIASES[normalizedExact(labelValue)] ?? normalizedExact(labelValue);
+export function countryMatches(applicationValue: string, labelValue: string): boolean {
+  const appNorm =
+    COUNTRY_ALIASES[normalizedExact(applicationValue)] ??
+    normalizedExact(applicationValue);
+  const labelNorm =
+    COUNTRY_ALIASES[normalizedExact(labelValue)] ?? normalizedExact(labelValue);
   return appNorm === labelNorm;
 }
 
@@ -227,10 +213,7 @@ export function countryMatches(
  * token containment (label's tokens ⊆ app's tokens or vice versa, after
  * normalization).
  */
-export function classTypeMatches(
-  applicationValue: string,
-  labelValue: string,
-): boolean {
+export function classTypeMatches(applicationValue: string, labelValue: string): boolean {
   const appNorm = normalizedExact(applicationValue);
   const labelNorm = normalizedExact(labelValue);
   if (appNorm === labelNorm) return true;
@@ -261,7 +244,8 @@ function expandTokens(tokens: Set<string>): Set<string> {
   const out = new Set(tokens);
   for (const t of tokens) {
     for (const family of Object.values(CLASS_TYPE_ALIASES)) {
-      if (family.includes(t)) for (const m of family) for (const word of m.split(/\s+/)) out.add(word);
+      if (family.includes(t))
+        for (const m of family) for (const word of m.split(/\s+/)) out.add(word);
     }
   }
   return out;

@@ -12,6 +12,9 @@ function setEnv(): void {
   process.env.DEMO_PASSWORD_COOKIE_SECRET = 'a'.repeat(32);
   process.env.LABEL_EXTRACTOR = 'openai';
   process.env.OPENAI_API_KEY = 'sk-test';
+  // Default flipped to 'false' app-wide; these tests assert the bbox=on path,
+  // so explicitly enable it here.
+  process.env.EXTRACT_PROVENANCE = 'true';
   resetEnvForTesting();
   resetObservabilityForTesting();
 }

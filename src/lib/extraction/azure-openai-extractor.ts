@@ -24,8 +24,11 @@ export interface AzureOpenAIExtractorOptions {
  */
 export class AzureOpenAIExtractor implements DocumentExtractor {
   readonly providerName = 'azure-openai';
+  readonly modelId: string;
 
-  constructor(private readonly options: AzureOpenAIExtractorOptions) {}
+  constructor(private readonly options: AzureOpenAIExtractorOptions) {
+    this.modelId = `azure:${options.deployment ?? 'unknown'}`;
+  }
 
   async extract(_pngBuffer: Buffer): Promise<ExtractedDocument> {
     throw new NotImplementedError(
