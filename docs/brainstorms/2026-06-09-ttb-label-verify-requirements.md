@@ -9,7 +9,7 @@
 
 TTB (Alcohol and Tobacco Tax and Trade Bureau) reviewers manually check alcohol beverage labels for compliance with federal label requirements. The brief asks for a standalone prototype that uses AI to extract the regulated fields from a label image and validate them against TTB rules. The previous vendor's scanner took 30–40s per label and was blocked by government network firewalls during pilot.
 
-This is a take-home project. The evaluation rewards (1) shipping a usable demo, (2) correctly handling the firewall / sovereignty constraint in the *narrative* even if the prototype itself uses cloud, (3) honest documentation of trade-offs.
+This is a take-home project. The evaluation rewards (1) shipping a usable demo, (2) correctly handling the firewall / sovereignty constraint in the _narrative_ even if the prototype itself uses cloud, (3) honest documentation of trade-offs.
 
 ## Users
 
@@ -28,7 +28,7 @@ A reviewer drops in one or more label images, gets a per-label pass/fail report 
    - Alcohol by volume (present, format valid: `X.X% ALC/VOL` or equivalent)
    - **Government warning** (exact text match against the canonical TTB string)
    - Net contents (present, valid unit)
-   - Class/type designation (present)
+   - Fanciful name (present)
    - Producer information + country of origin (present)
 3. **Results UI.** For each label: thumbnail, overall pass/fail, per-field extracted value, per-field status (pass/fail/uncertain), failure reasons in plain language.
 4. **Downloadable report.** JSON and CSV of the batch results.
@@ -47,16 +47,19 @@ A reviewer drops in one or more label images, gets a per-label pass/fail report 
 ## Verification rules (the actual TTB checks)
 
 ### Government warning — the high-stakes one
+
 Canonical text (27 CFR §16.21):
 
 > GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.
 
 Three sub-checks:
+
 - **Exact text** — deterministic string comparison after extraction; whitespace-normalized
 - **"GOVERNMENT WARNING:" prefix in all caps** — checked on the extracted text directly
 - **Visually bold rendering** — the vision LLM is asked for a judgment field (`warningAppearsBold: true/false/unsure`). This is a known weak spot; we document it as a limitation.
 
 ### Other fields
+
 - **ABV:** regex for `\d{1,2}(\.\d{1,2})?%\s*(ALC/VOL|ALCOHOL\s+BY\s+VOLUME)` (case-insensitive)
 - **Brand name:** presence check; optional fuzzy-match against user-provided expected brand
 - **Net contents:** presence + unit in {mL, L, fl oz}
@@ -115,6 +118,7 @@ The provider abstraction already enforces DIP/ISP. Hold the rest of the codebase
 - **DIP:** route handler depends on the `LabelExtractor` interface, never on `OpenAIExtractor` directly. Wire via a factory keyed by env var.
 
 Plus the table stakes that catch quality slippage:
+
 - TypeScript strict mode, no `any`, no `@ts-ignore`
 - ESLint + Prettier, zero warnings on commit
 - One-screen functions — if it exceeds the screen, it needs a split

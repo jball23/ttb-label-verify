@@ -1,6 +1,6 @@
 ---
-title: "feat: TTB Label Verification Prototype"
-status: active
+title: 'feat: TTB Label Verification Prototype'
+status: completed
 created: 2026-06-09
 plan_type: feat
 origin: docs/brainstorms/2026-06-09-ttb-label-verify-requirements.md
@@ -247,6 +247,7 @@ ttb-label-verify/
 **Dependencies:** None.
 
 **Files:**
+
 - `package.json` (create)
 - `tsconfig.json` (create — `strict: true`, `noUncheckedIndexedAccess: true`)
 - `next.config.mjs` (create — Sass options for USWDS include paths)
@@ -260,6 +261,7 @@ ttb-label-verify/
 - `README.md` (create — skeleton)
 
 **Approach:**
+
 - `npm create next-app@latest` style scaffold but write the files by hand to keep them minimal — no example boilerplate, no `src/app/favicon.ico` clutter, no Tailwind.
 - Install: `next@15`, `react@19`, `react-dom@19`, `@trussworks/react-uswds`, `@uswds/uswds`, `sass`, `openai`, `zod`, `p-limit`, `jose` (for signed cookies), `vitest`, `@vitest/coverage-v8`, `@types/react`, `@types/node`, `typescript`, `eslint`, `eslint-config-next`, `prettier`.
 - `next.config.mjs` sets `sassOptions.includePaths` to `['./node_modules/@uswds/uswds/packages']` so USWDS SCSS imports resolve.
@@ -269,6 +271,7 @@ ttb-label-verify/
 **Patterns to follow:** Standard Next.js 15 App Router conventions. USWDS Sass setup per the trussworks/react-uswds README.
 
 **Test scenarios:**
+
 - Covers env contract. `env.ts` throws when `OPENAI_API_KEY` is missing. Passes when all required vars are set. `LABEL_EXTRACTOR=azure-openai` without `AZURE_OPENAI_ENDPOINT` throws with a clear message.
 
 **Verification:** `npm run dev` boots without errors, `localhost:3000` shows the placeholder page styled in USWDS Public Sans. `npm run build` succeeds. `npm run lint` passes with zero warnings. `npm test` runs the env test and passes.
@@ -284,6 +287,7 @@ ttb-label-verify/
 **Dependencies:** U1.
 
 **Files:**
+
 - `src/lib/extraction/types.ts` (create)
 - `src/lib/extraction/prompt.ts` (create — the system + user prompt template)
 - `src/lib/extraction/openai-extractor.ts` (create)
@@ -293,6 +297,7 @@ ttb-label-verify/
 - `src/lib/extraction/openai-extractor.test.ts` (create — schema-validation tests only, no live LLM)
 
 **Approach:**
+
 - `types.ts` exports the `LabelExtractor` interface (`extract(image: Buffer, mimeType: string): Promise<ExtractedFields>`), the `ExtractedFieldsSchema` Zod schema, and the inferred `ExtractedFields` type.
 - `ExtractedFields` shape: `{ brandName, abv, governmentWarning: { text, appearsAllCaps, appearsBold }, netContents, classType, producer, countryOfOrigin }`. Each is nullable + has an `extractionConfidence: 'high' | 'medium' | 'low'` sibling so rules can flag uncertainty.
 - `prompt.ts` exports a `buildPrompt()` function that returns the system + user message structure. Prompt instructs the model to (a) read the label, (b) return JSON matching the schema, (c) return `null` for any field that's genuinely missing from the label (don't hallucinate), (d) judge the warning's visual styling honestly.
@@ -303,6 +308,7 @@ ttb-label-verify/
 **Patterns to follow:** OpenAI structured outputs (json_schema response format) — current SDK pattern as of mid-2026. Zod for runtime validation. Provider-pattern (factory + interface) standard.
 
 **Test scenarios:**
+
 - `ExtractedFieldsSchema` accepts a fully-populated valid object.
 - `ExtractedFieldsSchema` accepts an object with all fields nulled (label was unreadable).
 - `ExtractedFieldsSchema` rejects when a required string field is a number.
@@ -323,9 +329,10 @@ ttb-label-verify/
 
 **Dependencies:** U2 (extractor + factory).
 
-**Execution note:** Add observability *before* writing the rule engine in U3 so that during U3+U4 development, every extractor call is already producing traces — useful for debugging the prompt iteratively.
+**Execution note:** Add observability _before_ writing the rule engine in U3 so that during U3+U4 development, every extractor call is already producing traces — useful for debugging the prompt iteratively.
 
 **Files:**
+
 - `src/lib/observability/langfuse.ts` (create — singleton client + `observeOpenAI()` wrap, no-op when keys absent)
 - `src/lib/observability/spans.ts` (create — helpers: `withRequestSpan(name, fn)`, `withLabelSpan(filename, fn)`)
 - `src/lib/observability/langfuse.test.ts` (create — verifies no-op behavior when keys absent; doesn't hit network)
@@ -368,6 +375,7 @@ ttb-label-verify/
 **Test scenarios:**
 
 **`field-extraction-accuracy.ts`** (pure):
+
 - All fields match expected → aggregate score = 1.0, every field score = 1.0.
 - One field differs → that field scores 0.0, others 1.0, aggregate reflects mean.
 - Expected has `null`, actual has `null` → that field scored 1.0 (correctly absent).
@@ -377,6 +385,7 @@ ttb-label-verify/
 - Empty expected object → aggregate is `null` (no fields to score), not 0 or NaN.
 
 **`government-warning-match.ts`** (pure):
+
 - Exact canonical text in both → score 1, no reason.
 - Whitespace-different but textually identical → score 1.
 - Missing prefix in actual → score 0, reason names the missing prefix.
@@ -385,14 +394,13 @@ ttb-label-verify/
 - Reason text is identical to the corresponding `government-warning` rule's reason text (verified via shared helper).
 
 **`observability/langfuse.ts`:**
+
 - With no env vars set, `getObservedOpenAI()` returns a working OpenAI client (no-op wrap), `withLabelSpan` invokes its callback and returns the result, no network calls are made.
 - With env vars set, the returned client is the observed wrapper (verified by checking SDK class identity, not by hitting the network).
 
 **Verification:** `npm test evals/evaluators src/lib/observability` passes. `npm run eval` runs against the 5-case dataset, prints a table, posts traces to Langfuse Cloud, and exits 0 on a baseline run. Run the verify endpoint once after wiring — the Langfuse UI shows a `verify-request` trace with one `extract-label` child per uploaded image, each containing the prompt, model response, token usage, and the rule verdict counts as metadata.
 
 ---
-
-
 
 **Goal:** Deterministic verification layer. Each TTB rule is a self-contained module. The Government Warning rule does the character-exact comparison that the brief makes high-stakes.
 
@@ -403,6 +411,7 @@ ttb-label-verify/
 **Execution note:** Test-first. The validation logic is the most important correctness surface in the app and the easiest to get wrong. Write the test scenarios for each rule before the rule.
 
 **Files:**
+
 - `src/lib/validation/types.ts` (create)
 - `src/lib/validation/ttb-constants.ts` (create)
 - `src/lib/validation/engine.ts` (create)
@@ -426,7 +435,7 @@ ttb-label-verify/
   - `abv.ts`: pass if `abv` matches `/^\d{1,2}(\.\d{1,2})?%?\s*(ALC\/VOL|ALCOHOL\s+BY\s+VOLUME)?$/i` OR if it's a parseable number. Reason on fail: "ABV missing or not in a recognized format."
   - `government-warning.ts`: normalize whitespace (`text.replace(/\s+/g, ' ').trim()` on both sides), then character-exact compare. On fail, compute a diff: detect missing prefix, missing sentence 1, missing sentence 2, or substantive text drift, and return a specific reason. Also surfaces `appearsBold === false` as an `uncertain` warning ("Warning text is correct, but may not be in bold as required.").
   - `net-contents.ts`: pass if `netContents` matches a unit pattern (`mL`, `L`, `fl oz`, `FL OZ`, `ml`, `l`). Reason on fail: "Net contents missing or unit not recognized."
-  - `class-type.ts`: pass if `classType` is non-empty. (We don't validate against the TTB class catalogue in the prototype — out of scope.) Reason on fail: "Class/type designation not detected."
+  - `class-type.ts`: pass if `classType` is non-empty. (We don't validate against the TTB class catalogue in the prototype — out of scope.) Reason on fail: "Fanciful name not detected."
   - `producer-origin.ts`: pass if `producer` is non-empty AND `countryOfOrigin` is non-empty. Reason on fail names which side is missing.
 
 **Patterns to follow:** Each rule is a single file, default export, no shared state. Engine has no knowledge of specific rules beyond the import list — Open/Closed.
@@ -434,6 +443,7 @@ ttb-label-verify/
 **Test scenarios:**
 
 **Government Warning rule** (the high-stakes one):
+
 - Exact canonical text → `pass`.
 - Canonical text with extra whitespace between sentences → `pass` (whitespace normalized).
 - Missing `GOVERNMENT WARNING:` prefix → `fail` with reason `"The 'GOVERNMENT WARNING:' prefix is missing."`.
@@ -444,6 +454,7 @@ ttb-label-verify/
 - `null` extracted text → `fail` with reason `"Government Warning not detected on the label."`.
 
 **ABV rule:**
+
 - `"40% ALC/VOL"` → `pass`.
 - `"40.0% Alcohol by Volume"` → `pass`.
 - `"40"` (just the number) → `pass`.
@@ -451,11 +462,13 @@ ttb-label-verify/
 - `"forty percent"` → `fail`.
 
 **Brand rule:**
+
 - Non-empty string → `pass`.
 - `null` → `fail`.
 - Non-empty but `extractionConfidence: 'low'` → `uncertain`.
 
 **Net contents rule:**
+
 - `"750 mL"` → `pass`.
 - `"1.75 L"` → `pass`.
 - `"25.4 fl oz"` → `pass`.
@@ -463,16 +476,19 @@ ttb-label-verify/
 - `null` → `fail`.
 
 **Class/type rule:**
+
 - `"STRAIGHT BOURBON WHISKEY"` → `pass`.
 - `null` → `fail`.
 
 **Producer + origin rule:**
+
 - Both non-empty → `pass`.
 - Producer non-empty, country `null` → `fail` with reason naming "country of origin".
 - Producer `null`, country non-empty → `fail` with reason naming "producer".
 - Both `null` → `fail`.
 
 **Engine integration:**
+
 - All rules pass → report `overallStatus: 'compliant'`, all field statuses `pass`.
 - Government Warning fails, others pass → `overallStatus: 'needs_review'`.
 - All fields `uncertain`, none `fail` → `overallStatus: 'compliant'` (uncertain alone doesn't block — preserved per-field for the UI to surface).
@@ -491,11 +507,13 @@ ttb-label-verify/
 **Dependencies:** U2 (extractor), U2.5 (observability spans), U3 (engine).
 
 **Files:**
+
 - `src/lib/streaming/ndjson.ts` (create — utility for line-buffered NDJSON encode/decode)
 - `src/lib/streaming/ndjson.test.ts` (create)
 - `src/app/api/verify/route.ts` (create)
 
 **Approach:**
+
 - `ndjson.ts` exports `encodeNDJSON(obj): string` (JSON.stringify + `\n`) and a client-side `parseNDJSONStream(reader): AsyncIterable<unknown>` that handles partial-line buffering.
 - `route.ts` is a Next.js route handler with `export const runtime = 'nodejs'` (Edge doesn't support enough OpenAI SDK features yet) and `export const maxDuration = 60`.
 - POST handler:
@@ -513,11 +531,13 @@ ttb-label-verify/
 **Test scenarios:**
 
 **NDJSON utility:**
+
 - `encodeNDJSON({a:1})` returns `"{\"a\":1}\n"`.
 - `parseNDJSONStream` yields each complete JSON object from a stream split across chunk boundaries (e.g., a JSON object split across two chunks reassembles correctly).
 - `parseNDJSONStream` ignores empty lines at end of stream.
 
 **Route handler:**
+
 - POST with zero files → `400` with reason "At least one label image is required."
 - POST with 26 files → `400` with reason "Maximum 25 labels per batch."
 - POST with one valid image (extractor mocked) → response is `text/x-ndjson`, body contains one parseable line with the expected report shape.
@@ -539,11 +559,13 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 **Dependencies:** U1.
 
 **Files:**
+
 - `src/middleware.ts` (create)
 - `src/app/login/page.tsx` (create — USWDS form)
 - `src/app/api/auth/route.ts` (create)
 
 **Approach:**
+
 - Middleware matches all paths except `/login`, `/api/auth`, `/_next/*`, and static assets. Checks for a `demo-auth` cookie, verifies the signature with `jose` against `DEMO_PASSWORD_COOKIE_SECRET`, and either lets the request through or 307-redirects to `/login`.
 - `/login` is a server component rendering a USWDS form with a single password `<TextInput type="password">`, an `<ErrorMessage>` placeholder, and a `<Button>` submit. Posts to `/api/auth`.
 - `/api/auth` route: reads form data, constant-time compares the input to `env.DEMO_PASSWORD`, on match signs a JWT (1-week expiry) with `jose` and sets the cookie via `Set-Cookie` (HttpOnly, Secure, SameSite=Lax). On mismatch, redirects back to `/login?error=1`.
@@ -551,6 +573,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 **Patterns to follow:** Next.js middleware pattern. `jose` for JWT signing (works in Edge runtime — middleware runs in Edge).
 
 **Test scenarios:**
+
 - Middleware redirects an unauthenticated request to `/` to `/login`.
 - Middleware lets through a request with a valid cookie.
 - Middleware lets through `/login` and `/api/auth` unconditionally.
@@ -572,6 +595,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 **Dependencies:** U1, U5 (so the page is gated).
 
 **Files:**
+
 - `src/lib/upload/file-validation.ts` (create — pure validation: count, MIME type, size)
 - `src/lib/upload/file-validation.test.ts` (create)
 - `src/lib/upload/phase-reducer.ts` (create — pure reducer for empty/staged/processing/done state machine)
@@ -587,6 +611,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 - `src/components/staged-files-list.tsx` (create — file chips + remove buttons + primary Verify button)
 
 **Approach:**
+
 - `layout.tsx` renders `<GovBanner>` at the very top, a skip-to-content link, `<PageHeader>`, then `<main id="main-content">{children}</main>`.
 - `page.tsx` is a client component (`'use client'`) holding state: `stagedFiles: File[]`, `results: ResultLine[]`, `phase: 'empty' | 'staged' | 'processing' | 'done'`. Conditionally renders `<UploadZone>` (empty) or `<StagedFilesList>` (staged) or `<ResultsGrid>` (processing/done — built in U7).
 - `<UploadZone>`: centers a large container with the USWDS `<FileInput>` inside. Wraps it with a `<div>` that listens for `onDragOver` and `onDrop` to accept files dropped anywhere over the container. Includes the sample-label link below ("Try a sample label" → fetches `/samples/compliant-bourbon.jpg`, creates a `File` object, calls the same `onFilesSelected` handler).
@@ -600,6 +625,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 **Test scenarios:**
 
 **`file-validation.ts`** (pure logic, fully tested):
+
 - `validateBatch([])` → `{ ok: false, reason: 'At least one label image is required.' }`.
 - `validateBatch(arrayOf26)` → `{ ok: false, reason: 'Maximum 25 labels per batch.' }`.
 - `validateBatch([validJpeg])` → `{ ok: true, files: [validJpeg], rejected: [] }`.
@@ -608,6 +634,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 - MIME-type allowlist matches what the verify route in U4 expects (test asserts shared constant).
 
 **`phase-reducer.ts`** (pure reducer):
+
 - Initial state is `{ phase: 'empty', files: [], results: [] }`.
 - `dispatch('FILES_STAGED', [f1, f2])` from empty → `phase: 'staged', files: [f1, f2]`.
 - `dispatch('FILES_STAGED', [f3])` from staged with `[f1, f2]` → appends to `[f1, f2, f3]` (drag-drop more files into a staged list).
@@ -620,6 +647,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 - Invalid transitions (e.g., `RESULT_RECEIVED` from `empty`) leave state unchanged — reducer never throws, never silently corrupts state.
 
 **`format-bytes.ts`** (pure):
+
 - `formatBytes(512)` → `'512 B'`.
 - `formatBytes(1500)` → `'1.5 KB'`.
 - `formatBytes(2_500_000)` → `'2.4 MB'`.
@@ -640,6 +668,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 **Dependencies:** U4 (the streaming endpoint), U6 (the host page).
 
 **Files:**
+
 - `src/lib/results/result-types.ts` (create — `ResultLine` Zod schema shared between server and client)
 - `src/lib/results/stream-consumer.ts` (create — pure async generator that turns a `ReadableStream` into a typed `ResultLine` iterable; wraps `parseNDJSONStream` from U4 with Zod validation)
 - `src/lib/results/stream-consumer.test.ts` (create)
@@ -658,6 +687,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 - `src/app/page.tsx` (modify — wire results state through to ResultsGrid)
 
 **Approach:**
+
 - `<ResultsGrid>` is a client component. Receives `stagedFiles: File[]`. On mount, POSTs them as multipart to `/api/verify`, reads the streaming body with `parseNDJSONStream` from `src/lib/streaming/ndjson.ts`, and appends each parsed line to state. Renders one `<ResultCard>` per staged file — cards start in a `pending` skeleton state and transition to `done` (or `error`) as their result arrives. The grid uses a CSS-grid layout, one card per row on mobile, two on desktop.
 - `<ResultCard>`: USWDS `<SummaryBox>`. Top row: thumbnail (left), filename + verdict tag (right). Verdict tag uses USWDS `success` background ("Compliant") or `warning` background ("Needs review") with an icon. Below: field rows as a USWDS `<IconList>`. Each row: icon (check / exclamation-circle / question-circle for uncertain), label, extracted value (or "Not detected"). Failed rows are expandable on click — when expanded, show the failure `reason` in plain text.
 - Government Warning failed-row expansion specifically renders `<WarningDiff>` instead of plain text.
@@ -673,6 +703,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 **Test scenarios:**
 
 **`stream-consumer.ts`** (pure async generator over a `ReadableStream`):
+
 - Stream containing two complete NDJSON lines → yields exactly two `ResultLine` objects, both Zod-validated.
 - Stream where a JSON object is split across two chunks → reassembles and yields one valid object (buffering correctness).
 - Stream containing an invalid JSON line → yields a typed `{ kind: 'parse-error', raw, error }` entry rather than throwing, so one bad line doesn't kill the whole batch.
@@ -681,6 +712,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 - Trailing newline at end of stream → handled (no empty yield).
 
 **`aggregate.ts`** (pure functions):
+
 - `countByStatus([])` → `{ compliant: 0, needsReview: 0, error: 0 }`.
 - `countByStatus(threeCompliantOneNeedsReview)` → `{ compliant: 3, needsReview: 1, error: 0 }`.
 - `liveRegionMessage(3, 10)` → `'3 of 10 labels checked.'`.
@@ -689,6 +721,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 - `isBatchComplete(results, total)` → true when `results.length === total`.
 
 **`warning-diff.ts`** (pure character/word diff):
+
 - `diffWarning(canonical, canonical)` → single segment, kind `equal`, full text.
 - `diffWarning(canonical, missingPrefix)` → leading segment kind `missing` containing `'GOVERNMENT WARNING: '`, rest `equal`.
 - `diffWarning(canonical, missingSecondSentence)` → segments preserve sentence 1 as `equal`, sentence 2 as `missing`.
@@ -698,6 +731,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 - Output is always reconstructible: concatenating `equal` + `extra` segments equals the extracted input; concatenating `equal` + `missing` segments equals the canonical input.
 
 **Export formatters:**
+
 - `formatJSON([])` → `"[]"` (or the shape we picked; pinned by test).
 - `formatJSON([oneResult])` → parseable JSON with the expected keys.
 - `formatCSV` header row contains the expected column names in the expected order.
@@ -721,6 +755,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 **Dependencies:** U1–U7.
 
 **Files:**
+
 - `public/samples/compliant-bourbon.jpg` (create — sourced or generated)
 - `public/samples/missing-warning.jpg` (create)
 - `public/samples/wrong-abv-format.jpg` (create)
@@ -728,6 +763,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 - `vercel.json` (create — function timeout config if needed; otherwise skip)
 
 **Approach:**
+
 - **Sample labels**: source 3 sample images — at minimum (1) a fully-compliant label, (2) a label with a deliberately mangled Government Warning, (3) a label with a non-conforming ABV format. Public-domain product photography is usually fine; if not, generate with an image model. Document the source in a `public/samples/README.md`.
 - **README structure**:
   1. **What this is** — one paragraph product summary
@@ -749,7 +785,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
      - No human-in-the-loop override UI
      - Test coverage scoped to deterministic layers
   8. **Testing** — `npm test`, what's covered, what's manually verified, the Lighthouse + axe results
-  8a. **Evals** — `npm run eval`, the dataset, the two evaluators, a sample run output, how we treat the LLM as a versioned dependency, the CI gate, link to the Langfuse traces (or screenshot)
+     8a. **Evals** — `npm run eval`, the dataset, the two evaluators, a sample run output, how we treat the LLM as a versioned dependency, the CI gate, link to the Langfuse traces (or screenshot)
   9. **What we'd do with another week** — Azure OpenAI implementation; HITL review UI; queue worker for true-scale batch; annotation overlays on the label image; expanded test corpus; CI with axe-core integration
   10. **Tech stack** — versioned dependency list
 - **Accessibility audit**:
@@ -767,9 +803,11 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 **Patterns to follow:** Standard Vercel deploy. axe-DevTools browser extension for the audit.
 
 **Test scenarios:**
+
 - Test expectation: none — this unit is polish, audit, and documentation. Verification is manual.
 
 **Verification:**
+
 - Deployed URL is reachable and gated by the demo password.
 - All three sample labels round-trip end-to-end and produce the expected verdicts (compliant / needs-review / needs-review).
 - A batch of all three streams in progressively.
@@ -796,7 +834,7 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 
 **Langfuse outage breaks the demo.** If we depend on Langfuse for any user-visible behavior. Mitigation: U2.5's client is a no-op when env vars are absent and span helpers swallow SDK failures silently. A Langfuse outage produces missing traces, never a 500 to the user. Verified by the `observability/langfuse.test.ts` no-env-var test.
 
-**Eval dataset drift.** If we update the prompt or model and forget to regenerate expected values. Mitigation: `evals/README.md` documents that expected values come from human review of the *label*, not from past extractor output — they're ground truth, not regression baselines. The CI gate at `evals/run.ts` catches accidental regressions; intentional ground-truth corrections require updating the JSON files explicitly, which shows in the diff.
+**Eval dataset drift.** If we update the prompt or model and forget to regenerate expected values. Mitigation: `evals/README.md` documents that expected values come from human review of the _label_, not from past extractor output — they're ground truth, not regression baselines. The CI gate at `evals/run.ts` catches accidental regressions; intentional ground-truth corrections require updating the JSON files explicitly, which shows in the diff.
 
 ---
 
@@ -804,38 +842,38 @@ Mock the `LabelExtractor` interface for these tests (DIP pays off — we inject 
 
 Origin: `docs/brainstorms/2026-06-09-ttb-label-verify-requirements.md`
 
-| Origin requirement | Covered by |
-|---|---|
-| Single + batch upload (≤25) | U6 (UI), U4 (API validates count) |
-| Brand name verification | U2 (extracted), U3 (`rules/brand.ts`) |
-| ABV verification | U2, U3 (`rules/abv.ts`) |
-| Government Warning exact-text check | U3 (`rules/government-warning.ts`, `ttb-constants.ts`) |
-| Government Warning bold/caps judgment | U2 (LLM judgment fields), U3 (`uncertain` status), U7 (expansion shows diff + reason) |
-| Net contents verification | U3 (`rules/net-contents.ts`) |
-| Class/type verification | U3 (`rules/class-type.ts`) |
-| Producer + country of origin | U3 (`rules/producer-origin.ts`) |
-| Per-label streaming results | U4 (route), U7 (client) |
-| Progressive results (no waiting on slowest) | U4 (concurrency + per-label NDJSON line) |
-| 5s per label warm | U4 (`maxDuration: 60`, GPT-4o latency budget) |
-| JSON + CSV download | U7 (export formatters + summary bar) |
-| Plain-English failure reasons | U3 (every fail has a `reason`), U7 (rendered in card expansion) |
-| Sample-label affordance | U6 (link), U8 (assets) |
-| Password gate via env var | U5 |
-| Provider abstraction (OpenAI swap to Azure) | U2 |
-| Azure OpenAI stub (not implemented, documented) | U2 |
-| USWDS throughout, official banner | U6, U7 |
-| WCAG 2.1 AA / Lighthouse ≥ 95 / axe clean | U8 (audit), U6+U7 (implementation discipline) |
-| Light mode only | U1 (no theme toggle), U8 (verified in audit) |
-| TS strict, no `any`, ESLint zero warnings | U1 (config), enforced throughout |
-| SOLID: validation rules as Rule objects | U3 |
-| SOLID: route depends on LabelExtractor interface | U2, U4 |
-| Tests on validation rules + export formatters | U3, U7 |
-| Tests on streaming, aggregation, diff, file validation, phase reducer | U6, U7 (extracted modules) |
-| Observability on every extraction call | U2.5 (Langfuse wrap), U4 (span wiring) |
-| Eval suite for the LLM layer with CI gate | U2.5 (dataset, evaluators, runner) |
-| Sovereignty narrative extends to observability stack | U2.5 (Langfuse self-host path documented) |
-| README: setup, assumptions, trade-offs, Azure path, "with more time" | U8 |
-| Public Vercel URL | U8 |
+| Origin requirement                                                    | Covered by                                                                            |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Single + batch upload (≤25)                                           | U6 (UI), U4 (API validates count)                                                     |
+| Brand name verification                                               | U2 (extracted), U3 (`rules/brand.ts`)                                                 |
+| ABV verification                                                      | U2, U3 (`rules/abv.ts`)                                                               |
+| Government Warning exact-text check                                   | U3 (`rules/government-warning.ts`, `ttb-constants.ts`)                                |
+| Government Warning bold/caps judgment                                 | U2 (LLM judgment fields), U3 (`uncertain` status), U7 (expansion shows diff + reason) |
+| Net contents verification                                             | U3 (`rules/net-contents.ts`)                                                          |
+| Class/type verification                                               | U3 (`rules/class-type.ts`)                                                            |
+| Producer + country of origin                                          | U3 (`rules/producer-origin.ts`)                                                       |
+| Per-label streaming results                                           | U4 (route), U7 (client)                                                               |
+| Progressive results (no waiting on slowest)                           | U4 (concurrency + per-label NDJSON line)                                              |
+| 5s per label warm                                                     | U4 (`maxDuration: 60`, GPT-4o latency budget)                                         |
+| JSON + CSV download                                                   | U7 (export formatters + summary bar)                                                  |
+| Plain-English failure reasons                                         | U3 (every fail has a `reason`), U7 (rendered in card expansion)                       |
+| Sample-label affordance                                               | U6 (link), U8 (assets)                                                                |
+| Password gate via env var                                             | U5                                                                                    |
+| Provider abstraction (OpenAI swap to Azure)                           | U2                                                                                    |
+| Azure OpenAI stub (not implemented, documented)                       | U2                                                                                    |
+| USWDS throughout, official banner                                     | U6, U7                                                                                |
+| WCAG 2.1 AA / Lighthouse ≥ 95 / axe clean                             | U8 (audit), U6+U7 (implementation discipline)                                         |
+| Light mode only                                                       | U1 (no theme toggle), U8 (verified in audit)                                          |
+| TS strict, no `any`, ESLint zero warnings                             | U1 (config), enforced throughout                                                      |
+| SOLID: validation rules as Rule objects                               | U3                                                                                    |
+| SOLID: route depends on LabelExtractor interface                      | U2, U4                                                                                |
+| Tests on validation rules + export formatters                         | U3, U7                                                                                |
+| Tests on streaming, aggregation, diff, file validation, phase reducer | U6, U7 (extracted modules)                                                            |
+| Observability on every extraction call                                | U2.5 (Langfuse wrap), U4 (span wiring)                                                |
+| Eval suite for the LLM layer with CI gate                             | U2.5 (dataset, evaluators, runner)                                                    |
+| Sovereignty narrative extends to observability stack                  | U2.5 (Langfuse self-host path documented)                                             |
+| README: setup, assumptions, trade-offs, Azure path, "with more time"  | U8                                                                                    |
+| Public Vercel URL                                                     | U8                                                                                    |
 
 ---
 
@@ -845,3 +883,21 @@ Origin: `docs/brainstorms/2026-06-09-ttb-label-verify-requirements.md`
 - **Diff library vs hand-rolled**: try the `diff` npm package first for the warning diff; fall back to a hand-rolled LCS if the package bloats the bundle.
 - **Final CSV column order**: subject to fit; the test scenarios pin the columns, not their order.
 - **Whether `vercel.json` is needed**: depends on whether `maxDuration` export is honored as expected in Next.js 15 — verify at deploy time.
+
+---
+
+## What shipped beyond the plan
+
+Captured 2026-06-11 when the plan was marked completed. The original plan
+shipped end-to-end; the items below were added during implementation as
+the product target sharpened.
+
+- **DB-backed queue UX (replaces single-page batch-list).** Home page is a 3-tab queue (Queue / Approved / Rejected) backed by Neon Postgres via Drizzle ORM. AI verdict auto-routes each upload into Approved or Rejected; reviewer finalizes (terminal status) and the row moves to the `/applications` archive. The original plan had a session-local results grid — this is durable, sharable, and resumable across sessions.
+- **Neon + Drizzle persistence.** `applications` (with `pdf_bytes` bytea) and `reviews` tables. `current_status` enum is `pending_approval | pending_rejection | approved | rejected`. Drizzle migrations in `drizzle/0000-0002`. `DATABASE_URL` is optional — verify route still works DB-less.
+- **Finalize flow.** Dedicated `/api/finalize` route writes the terminal status + Review row. Double-finalize rejected with 409. Detail page in `/applications` is read-only.
+- **PDF byte storage + on-demand stream.** PDFs persisted as bytea on the application row. `GET /api/applications/[id]/pdf` streams the bytes; list queries deliberately skip the column to dodge Neon's `Buffer()` deprecation.
+- **Cache-by-hash on the verify route.** Re-uploading an identical PDF returns the stored verdict — saves ~10s and a real GPT-4o call.
+- **`EXTRACT_PROVENANCE` feature flag.** Default `false`. When off, the model skips the provenance map (~30-40% of response tokens) and app-side bboxes are synthesized from AcroForm widget rects. Measured ~4x faster end-to-end. Toggle to `true` to demo click-to-highlight.
+- **Model swap experiment.** `gpt-4o-mini` was tried and reverted. On this workload with `EXTRACT_PROVENANCE=true`, mini ran ~27s vs `gpt-4o-2024-11-20`'s ~10s and made more mistakes on filled-in cells. Locked back to 4o.
+- **Two-tier header redesign.** Top tier holds About + theme toggle; main tier holds logo, Applications link, and a primary Queue CTA. Both tiers width-matched at `max-w-[1500px]` to suit the wider queue tables.
+- **`needs_more_info` decision removed.** Originally a third verdict; dropped in favor of binary approve/reject.

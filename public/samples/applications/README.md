@@ -10,33 +10,34 @@ Each scenario folder contains:
 
 - `application.json` — the filled-out COLA form (TTB F 5100.31), structured as the system will ingest it. Includes `crossCheckExpectations`, `labelOnlyExpectations`, `intentionalMismatches`, and `expectedVerdict` so it doubles as a fixture for the eval harness.
 - `label-prompt.md` — the prompt to paste into Google Nano Banana, OpenAI `gpt-image-1`, or another image-gen tool to produce the corresponding `label.jpg`. Each prompt encodes the scenario's intentional mismatches verbatim.
-- `label.jpg` — *not yet generated.* Drop the image-gen output here once produced.
+- `label.jpg` — _not yet generated._ Drop the image-gen output here once produced.
 
 ## Scenario truth table
 
-| # | Slug | Product type | Cross-check failures | Label-only rule failures | Expected verdict |
-|---|------|--------------|----------------------|---------------------------|------------------|
-| 1 | `01-ridge-creek-bourbon` | Distilled Spirits | — | — | **COMPLIANT** |
-| 2 | `02-silver-birch-vodka` | Distilled Spirits | brand name drift ("Silver Birch" vs "Silver Birch Premium") | — | NEEDS_REVIEW |
-| 3 | `03-hawthorne-cabernet` | Wine | varietal (Cab Sauv → Merlot) + appellation (Napa → Sonoma) | — | NEEDS_REVIEW |
-| 4 | `04-ironwood-ipa` | Malt Beverage | — | Government Warning missing | NEEDS_REVIEW |
-| 5 | `05-calypso-rum` | Distilled Spirits | producer mismatch (different bottler entity) | ABV shown as "80 PROOF" only, no % ABV | NEEDS_REVIEW |
+| #   | Slug                     | Product type      | Cross-check failures                                        | Label-only rule failures               | Expected verdict |
+| --- | ------------------------ | ----------------- | ----------------------------------------------------------- | -------------------------------------- | ---------------- |
+| 1   | `01-ridge-creek-bourbon` | Distilled Spirits | —                                                           | —                                      | **COMPLIANT**    |
+| 2   | `02-silver-birch-vodka`  | Distilled Spirits | brand name drift ("Silver Birch" vs "Silver Birch Premium") | —                                      | NEEDS_REVIEW     |
+| 3   | `03-hawthorne-cabernet`  | Wine              | varietal (Cab Sauv → Merlot) + appellation (Napa → Sonoma)  | —                                      | NEEDS_REVIEW     |
+| 4   | `04-ironwood-ipa`        | Malt Beverage     | —                                                           | Government Warning missing             | NEEDS_REVIEW     |
+| 5   | `05-calypso-rum`         | Distilled Spirits | producer mismatch (different bottler entity)                | ABV shown as "80 PROOF" only, no % ABV | NEEDS_REVIEW     |
 
 Coverage:
+
 - All three product types (wine, distilled spirits, malt beverage)
 - A clean pass, a cross-check-only failure, a label-only failure, and a combined failure
 - Both wine-only fields (varietal + appellation) exercised in scenario 3
 
 ## Field mapping (form Item → label / extracted field)
 
-| COLA Form Item | Label field | Schema field on `ExtractedFields` |
-|----------------|-------------|------------------------------------|
-| Item 5 — Type of product | Class/type designation | `classType` |
-| Item 6 — Brand Name (required) | Brand mark | `brandName` |
-| Item 7 — Fanciful Name (if any) | Fanciful name / product line | (part of `classType` or absent on label) |
-| Item 8 — Applicant name + address | Producer/bottler statement | `producer` |
-| Item 10 — Grape Varietal (wine only) | Varietal designation | (cross-check only — not on `ExtractedFields` yet) |
-| Item 11 — Wine Appellation (wine only) | Appellation | (cross-check only — not on `ExtractedFields` yet) |
+| COLA Form Item                         | Label field                  | Schema field on `ExtractedFields`                 |
+| -------------------------------------- | ---------------------------- | ------------------------------------------------- |
+| Item 5 — Type of product               | Fanciful name                | `classType`                                       |
+| Item 6 — Brand Name (required)         | Brand mark                   | `brandName`                                       |
+| Item 7 — Fanciful Name (if any)        | Fanciful name / product line | (part of `classType` or absent on label)          |
+| Item 8 — Applicant name + address      | Producer/bottler statement   | `producer`                                        |
+| Item 10 — Grape Varietal (wine only)   | Varietal designation         | (cross-check only — not on `ExtractedFields` yet) |
+| Item 11 — Wine Appellation (wine only) | Appellation                  | (cross-check only — not on `ExtractedFields` yet) |
 
 Form items 1–4, 9, 12–13, 14, 16–18 are administrative — they do not appear on a label and are not cross-checked.
 
