@@ -91,14 +91,18 @@ export default function ScenarioPicker({
           <DropdownTrigger
             disabled={loading}
             aria-label="Choose demo scenarios"
+            // Fixed width so the trigger never reflows as the label changes
+            // ("Choose scenarios…" → "3 selected" → "Cointreau Spicy Margarita").
+            // w-52 (208px) comfortably fits the placeholder; longer single-
+            // scenario labels truncate via the inner span.
             className={cn(
-              'gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs',
+              'w-52 justify-between gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
               'disabled:cursor-not-allowed disabled:opacity-60',
             )}
           >
-            <span>{triggerLabel}</span>
-            <ChevronDown className="size-3 text-muted-foreground" />
+            <span className="truncate">{triggerLabel}</span>
+            <ChevronDown className="size-3 shrink-0 text-muted-foreground" />
           </DropdownTrigger>
           <DropdownContent
             align="start"
