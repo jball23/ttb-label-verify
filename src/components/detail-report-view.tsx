@@ -34,16 +34,23 @@ export default function DetailReportView({ report }: Props) {
     setSelectedFieldId((current) => (current === path ? null : path));
   }
 
+  // Order matters: the TTB Label Rules drive the verdict — Government
+  // Warning (§16.21), ABV format, brand presence, etc. — so they sit at the
+  // top of the report. The cross-check section is informational; it
+  // surfaces side-by-side comparisons the reviewer's eye does anyway
+  // ("matching" work, per the stakeholder interviews), but TTB approves
+  // plenty of labels with applicant-vs-producer or country phrasing drift,
+  // so we don't let it drive the verdict.
   return (
     <div className="space-y-4">
-      <CrossCheckSection
-        report={report.crossCheck}
+      <RulesSection
+        fields={report.fields}
         selectedFieldId={selectedFieldId}
         onSelect={select}
         provenance={provenance}
       />
-      <RulesSection
-        fields={report.fields}
+      <CrossCheckSection
+        report={report.crossCheck}
         selectedFieldId={selectedFieldId}
         onSelect={select}
         provenance={provenance}

@@ -94,17 +94,20 @@ function statusToDotColor(status: FieldStatus | null): string {
   }
 }
 
+// Cross-check is informational, not a verdict driver — no red anywhere.
+// Reviewers use this section the way Sarah Chen described in the stakeholder
+// interview ("looks at the label artwork and checks that what's on the label
+// matches what's in the application") but TTB approves plenty of labels with
+// applicant-vs-producer or country-phrasing drift, so the colors reflect
+// "look at this" not "this is a problem."
 function crossCheckStatusToDot(status: CrossCheckStatus): string {
   switch (status) {
     case 'match':
       return 'bg-emerald-500';
     case 'mismatch':
-      return 'bg-rose-500';
     case 'not_on_label':
       return 'bg-amber-500';
     case 'not_on_application':
-      // Informational only — label declares a value the application didn't.
-      // Common for Item 7 (fanciful name), which is optional on the form.
       return 'bg-sky-500';
     default:
       return 'bg-muted';
@@ -128,9 +131,12 @@ export function CrossCheckSection({
     <section className="rounded-xl border border-border bg-card">
       <header className="flex items-start justify-between gap-3 border-b border-border px-3 py-2">
         <div>
-          <h2 className="text-sm font-semibold">Cross-check (application vs label)</h2>
+          <h2 className="text-sm font-semibold">Side-by-side (application vs label)</h2>
           <p className="text-[11px] text-muted-foreground">
-            Click the App or Label side of any row to highlight that source on the PDF.
+            Informational. Differences here don&apos;t reject the application
+            (e.g. importer-of-record vs producer-of-record are legitimately
+            different on imports). Click the App or Label side to highlight
+            that source on the PDF.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 pt-0.5">
@@ -184,7 +190,9 @@ export function CrossCheckSection({
                 />
               </div>
               {field.reason && (
-                <p className="mt-1 pl-6 text-[11px] text-rose-600">{field.reason}</p>
+                <p className="mt-1 pl-6 text-[11px] text-muted-foreground">
+                  {field.reason}
+                </p>
               )}
             </li>
           );
@@ -522,7 +530,11 @@ export function ApplicationFieldsSection({
 
 function CrossCheckIcon({ status }: { status: CrossCheckStatus }) {
   if (status === 'match') return <Check className="size-3.5 text-emerald-600" />;
-  if (status === 'mismatch') return <X className="size-3.5 text-rose-600" />;
+  // mismatch and not_on_label are both informational warnings — they pull
+  // the reviewer's eye but they don't reject the application. TTB
+  // legitimately approves labels with differences on either side (importer
+  // vs producer, fanciful vs class, etc.).
+  if (status === 'mismatch') return <AlertTriangle className="size-3.5 text-amber-600" />;
   if (status === 'not_on_label') return <AlertTriangle className="size-3.5 text-amber-600" />;
   if (status === 'not_on_application') return <Info className="size-3.5 text-sky-600" />;
   return <HelpCircle className="size-3.5 text-muted-foreground" />;

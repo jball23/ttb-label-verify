@@ -149,10 +149,11 @@ describe('runVerification', () => {
     expect(report.overallStatus).toBe('compliant');
   });
 
-  it('non_compliant when the brand-name cross-check mismatches (scenario 02)', () => {
-    // Brand name is the COLA's anchor — a mismatch means the application was
-    // filed against a different product than the label shows. Treated as a
-    // critical failure.
+  it('needs_review when only the cross-check mismatches (scenario 02)', () => {
+    // Brand drift is judgment work for the reviewer (Dave Morrison's
+    // "STONE'S THROW vs Stone's Throw" example) — it never rejects on its
+    // own. The label rule still passes (the brand name IS on the label),
+    // so this routes to needs_review (Approved tab, reviewer can flip).
     const application = loadApplication('02-silver-birch-vodka');
     const extracted: ExtractedFields = {
       brandName: 'Silver Birch Premium',
@@ -172,7 +173,7 @@ describe('runVerification', () => {
       extractionConfidence: 'high',
     };
     const report = runVerification(application, extracted);
-    expect(report.overallStatus).toBe('non_compliant');
+    expect(report.overallStatus).toBe('needs_review');
     expect(report.crossCheck.overallStatus).toBe('mismatch');
     expect(report.crossCheck.fields.brandName.status).toBe('mismatch');
     expect(report.fields.brand?.status).toBe('pass');

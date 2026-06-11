@@ -307,10 +307,11 @@ const SCENARIOS: ReadonlyArray<{
   },
   {
     slug: '02-silver-birch-vodka',
-    // Brand mismatch is critical — the COLA is anchored on the brand name,
-    // so a label-vs-application mismatch on it is a hard reject.
+    // Brand drift is a judgment call for the human reviewer (see Dave
+    // Morrison's "STONE'S THROW" example in the stakeholder interviews) —
+    // never an auto-reject. Cross-check surfaces it, verdict stays soft.
     makeDocument: silverBirch,
-    expectedVerdict: 'non_compliant',
+    expectedVerdict: 'needs_review',
     assertOutcome(report) {
       expect(report.crossCheck.overallStatus).toBe('mismatch');
       expect(report.crossCheck.fields.brandName?.status).toBe('mismatch');

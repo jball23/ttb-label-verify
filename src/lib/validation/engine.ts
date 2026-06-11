@@ -58,17 +58,21 @@ function runRulesInternal(extracted: ExtractedFields): {
  *
  * Verdict tiers (matching how TTB actually decides):
  *   - non_compliant: a critical compliance failure that a human reviewer
- *     would also fail. Currently means EITHER (a) the Government Warning
- *     rule failed — the highest-stakes label requirement under 27 CFR
- *     §16.21 — OR (b) the brand-name cross-check is a true mismatch, which
- *     means the COLA was filed against a different product than the label
- *     shows.
- *   - needs_review: there's *something* off — a cross-check mismatch on a
- *     non-critical field (producer drift, country variation, class-type
- *     phrasing), a format quirk on ABV/net-contents, or asymmetric data
- *     where the label declares something the application didn't. A reviewer
- *     should glance, but the default disposition is approve.
- *   - compliant: everything matches, no rule failures.
+ *     would also fail. Currently means the Government Warning rule failed —
+ *     the highest-stakes label requirement under 27 CFR §16.21. Per Jenny
+ *     Park: "It has to be exact. Like, word-for-word..." Everything else
+ *     requires judgment a human reviewer is expected to apply.
+ *   - needs_review: any other rule failed (ABV format, brand presence,
+ *     net contents, class-type, producer/origin) OR the cross-check
+ *     surfaced any difference between the application and the label. The
+ *     reviewer should glance, but the default disposition is approve.
+ *   - compliant: every rule passed and the cross-check is clean.
+ *
+ * Cross-check differences (brand-name drift, producer mismatch, country
+ * phrasing, etc.) NEVER push the verdict past needs_review — TTB approves
+ * plenty of labels with surface drift on either side (see the stakeholder
+ * interviews on judgment calls like "STONE'S THROW" vs "Stone's Throw" or
+ * importer-vs-producer).
  *
  * `uncertain` rules do NOT trip the verdict (preserves existing behavior).
  */
@@ -82,10 +86,9 @@ export function runVerification(
   const { fields, anyFail } = runRulesInternal(extracted);
 
   const govWarningFailed = fields['governmentWarning']?.status === 'fail';
-  const brandMismatch = crossCheck.fields.brandName?.status === 'mismatch';
 
   let overallStatus: VerificationReport['overallStatus'];
-  if (govWarningFailed || brandMismatch) {
+  if (govWarningFailed) {
     overallStatus = 'non_compliant';
   } else if (crossCheck.overallStatus === 'mismatch' || anyFail) {
     overallStatus = 'needs_review';
