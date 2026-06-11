@@ -1,4 +1,4 @@
-import { createRequire } from 'node:module';
+import path from 'node:path';
 import {
   createCanvas,
   DOMMatrix,
@@ -8,7 +8,21 @@ import {
   type Canvas,
 } from '@napi-rs/canvas';
 
-const req = createRequire(import.meta.url);
+// Webpack's static analyzer rewrites createRequire(...).resolve(...) calls
+// into webpack module IDs at build time (e.g. "(rsc)/./node_modules/..."),
+// which then fail at runtime when pdfjs hands them to fs.readFile. Compute
+// pdfjs-dist's location from process.cwd() so webpack stays out of it.
+// pdfjs-dist is listed in next.config's serverExternalPackages, so its files
+// live in the standard node_modules/ tree at runtime.
+const PDFJS_ROOT = path.join(process.cwd(), 'node_modules', 'pdfjs-dist');
+const PDFJS_WORKER_SRC = path.join(
+  PDFJS_ROOT,
+  'legacy',
+  'build',
+  'pdf.worker.mjs',
+);
+// Trailing slash matters — pdfjs concatenates `baseUrl + filename`.
+const STANDARD_FONT_DATA_URL = path.join(PDFJS_ROOT, 'standard_fonts') + '/';
 
 const TARGET_DPI = 200;
 const PDF_DEFAULT_DPI = 72;
@@ -66,19 +80,8 @@ export async function renderPageOne(pdfBuffer: Uint8Array | Buffer): Promise<Buf
   // point GlobalWorkerOptions at the worker bundle so it can be loaded
   // synchronously. The legacy build ships the worker at a known location.
   if (!pdfjs.GlobalWorkerOptions.workerSrc) {
-    pdfjs.GlobalWorkerOptions.workerSrc = req.resolve(
-      'pdfjs-dist/legacy/build/pdf.worker.mjs',
-    );
+    pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_SRC;
   }
-  // Without standardFontDataUrl, pdfjs has no way to draw Helvetica/Times/etc.
-  // — every glyph in a Helvetica-rendered form drops to a blank, so the
-  // rasterized page looks like an empty template. pdfjs ships the standard
-  // fonts under standard_fonts/ in the package; point at them on disk. The
-  // Node factory does fs.promises.readFile(baseUrl + filename), so a plain
-  // path with trailing slash works — no file:// URL wrapping needed.
-  const standardFontDataUrl = req
-    .resolve('pdfjs-dist/package.json')
-    .replace(/package\.json$/, 'standard_fonts/');
 
   let doc;
   try {
@@ -88,7 +91,7 @@ export async function renderPageOne(pdfBuffer: Uint8Array | Buffer): Promise<Buf
       disableFontFace: true,
       useSystemFonts: false,
       useWorkerFetch: false,
-      standardFontDataUrl,
+      standardFontDataUrl: STANDARD_FONT_DATA_URL,
       // `canvasFactory` is supported on the pdfjs runtime but not in its public
       // type — cast to bypass the gap rather than ship a misleading type for it.
       canvasFactory: new NodeCanvasFactory(),
