@@ -39,7 +39,7 @@ export function SiteHeader() {
             href="/applications"
             className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent/40 hover:text-foreground"
           >
-            Applications
+            Archive
           </Link>
           <Link
             href="/"
