@@ -326,7 +326,7 @@ function QueueTab({
 
         <div className="mt-6">
           <ScenarioPicker
-            onScenarioLoaded={(file) => onFilesPicked([file])}
+            onScenariosLoaded={(files) => onFilesPicked(files)}
             onError={() => undefined}
           />
         </div>
