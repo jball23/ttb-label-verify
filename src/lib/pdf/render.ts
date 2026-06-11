@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import {
   createCanvas,
   DOMMatrix,
@@ -6,6 +7,8 @@ import {
   Path2D,
   type Canvas,
 } from '@napi-rs/canvas';
+
+const req = createRequire(import.meta.url);
 
 const TARGET_DPI = 200;
 const PDF_DEFAULT_DPI = 72;
@@ -59,10 +62,6 @@ export async function renderPageOne(pdfBuffer: Uint8Array | Buffer): Promise<Buf
   ensurePolyfills();
 
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const { createRequire } = (await import('node:module')) as unknown as {
-    createRequire: (url: string) => { resolve: (p: string) => string };
-  };
-  const req = createRequire(import.meta.url);
   // pdfjs spawns a Web Worker by default to do parsing; in Node we have to
   // point GlobalWorkerOptions at the worker bundle so it can be loaded
   // synchronously. The legacy build ships the worker at a known location.
