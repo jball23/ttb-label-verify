@@ -30,8 +30,8 @@ export default function ScenarioPicker({ onScenarioLoaded, onError }: Props) {
     }
   }
 
-  const description = loadingSlug
-    ? DEMO_SCENARIOS.find((s) => s.slug === loadingSlug)?.description
+  const loadingLabel = loadingSlug
+    ? DEMO_SCENARIOS.find((s) => s.slug === loadingSlug)?.label
     : null;
 
   return (
@@ -66,9 +66,9 @@ export default function ScenarioPicker({ onScenarioLoaded, onError }: Props) {
           ))}
         </select>
       </div>
-      {description && (
+      {loadingLabel && (
         <p className="text-[11px] text-muted-foreground" aria-live="polite">
-          Loading: {description}
+          Loading: {loadingLabel}
         </p>
       )}
     </div>

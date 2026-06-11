@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Check,
   X,
@@ -246,16 +247,16 @@ export function RulesSection({
   const [openTooltipId, setOpenTooltipId] = useState<string | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
 
-  // Close the open tooltip on outside click or Escape.
+  // Close the open tooltip on outside click or Escape. The dialog is rendered
+  // via a portal (to escape ancestor `overflow:clip`/stacking contexts), so
+  // it lives outside `sectionRef`'s DOM subtree — `[data-cfr-tooltip]` is the
+  // only marker we can rely on for "is this click inside the tooltip system."
   useEffect(() => {
     if (!openTooltipId) return;
     function onDown(e: MouseEvent): void {
-      if (!sectionRef.current) return;
-      const target = e.target as Node;
-      const tooltipRoot = (target as Element).closest?.('[data-cfr-tooltip]');
-      if (!tooltipRoot || !sectionRef.current.contains(tooltipRoot)) {
-        setOpenTooltipId(null);
-      }
+      const target = e.target as Element | null;
+      const inside = target?.closest?.('[data-cfr-tooltip]');
+      if (!inside) setOpenTooltipId(null);
     }
     function onKey(e: KeyboardEvent): void {
       if (e.key === 'Escape') setOpenTooltipId(null);
@@ -358,9 +359,11 @@ function CfrTooltip({
   open: boolean;
   onToggle(): void;
 }) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
   return (
-    <div className="relative inline-block" data-cfr-tooltip>
+    <span className="inline-block" data-cfr-tooltip>
       <button
+        ref={triggerRef}
         type="button"
         aria-label={`Show CFR citation: ${cfr.section}`}
         aria-expanded={open}
@@ -369,20 +372,75 @@ function CfrTooltip({
       >
         {open ? <ChevronUp className="size-3" /> : <Info className="size-3" />}
       </button>
-      {open && (
-        <div
-          role="dialog"
-          aria-label={cfr.section}
-          className="absolute right-0 z-30 mt-1 w-80 max-w-[80vw] rounded-md border border-border bg-popover p-3 text-[11px] shadow-md"
-        >
-          <p className="font-semibold text-foreground">{cfr.section}</p>
-          <p className="mt-1 text-foreground/80">{cfr.summary}</p>
-          <p className="mt-2 border-l-2 border-border pl-2 italic text-muted-foreground">
-            {cfr.quote}
-          </p>
-        </div>
-      )}
-    </div>
+      {open && <CfrTooltipDialog cfr={cfr} anchor={triggerRef} />}
+    </span>
+  );
+}
+
+/**
+ * The popover dialog itself, rendered via a portal to document.body so it
+ * escapes any ancestor `overflow:clip` and stacking contexts (the queue row
+ * uses overflow:clip for rounded-card clipping; without the portal the
+ * dialog gets cut off below the row). Positioned with `fixed` coordinates
+ * derived from the trigger's bounding rect.
+ */
+function CfrTooltipDialog({
+  cfr,
+  anchor,
+}: {
+  cfr: import('@/lib/validation/types').CfrCitation;
+  anchor: React.RefObject<HTMLButtonElement | null>;
+}) {
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(
+    null,
+  );
+
+  // Width must match the dialog's rendered width — used both as a Tailwind
+  // class below and as the clamping constant here. 320 = w-80.
+  const DIALOG_WIDTH = 320;
+  const VIEWPORT_MARGIN = 8;
+
+  // useLayoutEffect so the dialog never paints at (0,0) before being moved.
+  useLayoutEffect(() => {
+    function reposition(): void {
+      const rect = anchor.current?.getBoundingClientRect();
+      if (!rect) return;
+      // Prefer right-aligning the dialog with the trigger's right edge (so
+      // it visually "hangs" from the ⓘ icon). Then clamp to the viewport so
+      // the panel never disappears off the left/right edges.
+      const idealLeft = rect.right - DIALOG_WIDTH;
+      const maxLeft = window.innerWidth - DIALOG_WIDTH - VIEWPORT_MARGIN;
+      const clampedLeft = Math.max(
+        VIEWPORT_MARGIN,
+        Math.min(idealLeft, maxLeft),
+      );
+      setCoords({ top: rect.bottom + 4, left: clampedLeft });
+    }
+    reposition();
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+    return () => {
+      window.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition);
+    };
+  }, [anchor]);
+
+  if (!coords) return null;
+  return createPortal(
+    <div
+      role="dialog"
+      aria-label={cfr.section}
+      data-cfr-tooltip
+      style={{ position: 'fixed', top: coords.top, left: coords.left }}
+      className="z-50 w-80 rounded-md border border-border bg-popover p-3 text-[11px] shadow-md"
+    >
+      <p className="font-semibold text-foreground">{cfr.section}</p>
+      <p className="mt-1 text-foreground/80">{cfr.summary}</p>
+      <p className="mt-2 border-l-2 border-border pl-2 italic text-muted-foreground">
+        {cfr.quote}
+      </p>
+    </div>,
+    document.body,
   );
 }
 
