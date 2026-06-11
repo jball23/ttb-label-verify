@@ -31,18 +31,29 @@ const governmentWarningRule: Rule = {
     }
 
     const normalized = normalizeWhitespace(text);
+    // §16.21 actually REQUIRES the warning to "appear in capital letters" on
+    // the label, and most real TTB-approved labels print the whole statement
+    // in ALL CAPS. Compare case-insensitively against the canonical so the
+    // model's all-caps extraction (matching the printed label) doesn't trip
+    // a false mismatch. We retain canonical case in the constants so error
+    // messages still read naturally.
+    const normalizedLower = normalized.toLowerCase();
+    const canonicalLower = NORMALIZED_CANONICAL.toLowerCase();
+    const prefixLower = GOVERNMENT_WARNING_PREFIX.toLowerCase();
+    const s1Lower = GOVERNMENT_WARNING_SENTENCE_1.toLowerCase();
+    const s2Lower = GOVERNMENT_WARNING_SENTENCE_2.toLowerCase();
 
-    if (normalized !== NORMALIZED_CANONICAL) {
+    if (normalizedLower !== canonicalLower) {
       // Identify the most specific drift cause we can surface.
-      if (!normalized.includes(GOVERNMENT_WARNING_PREFIX)) {
+      if (!normalizedLower.includes(prefixLower)) {
         return {
           status: 'fail',
           reason: `The "${GOVERNMENT_WARNING_PREFIX}" prefix is missing from the warning text.`,
           extractedValue: text,
         };
       }
-      const hasS1 = normalized.includes(GOVERNMENT_WARNING_SENTENCE_1);
-      const hasS2 = normalized.includes(GOVERNMENT_WARNING_SENTENCE_2);
+      const hasS1 = normalizedLower.includes(s1Lower);
+      const hasS2 = normalizedLower.includes(s2Lower);
       if (!hasS1 && hasS2) {
         return {
           status: 'fail',

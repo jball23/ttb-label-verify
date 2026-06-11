@@ -56,22 +56,29 @@ const LABEL_PAGE_MARKERS = [
   'Brand (front)',
 ];
 
-let polyfillsApplied = false;
-function ensurePolyfills(): void {
-  if (polyfillsApplied) return;
+// Unconditional, module-load-time. The previous guarded form (only set the
+// polyfills if not already set) led to subtle interactions with pdfjs's
+// internal worker which expects the @napi-rs/canvas implementations
+// specifically; an "already-set" foreign DOMMatrix caused render() to fail
+// with "Value is none of these types String, Path" deep inside paintChar.
+(() => {
   const g = globalThis as Record<string, unknown>;
-  if (!g.DOMMatrix) g.DOMMatrix = DOMMatrix;
-  if (!g.Image) g.Image = Image;
-  if (!g.ImageData) g.ImageData = ImageData;
-  if (!g.Path2D) g.Path2D = Path2D;
-  polyfillsApplied = true;
-}
+  g.DOMMatrix = DOMMatrix;
+  g.Image = Image;
+  g.ImageData = ImageData;
+  g.Path2D = Path2D;
+})();
 
-class NodeCanvasFactory {
+// Inline object literal rather than a class — class instances of this shape
+// trigger pdfjs's "Value is none of these types String, Path" failure from
+// canvas.paintChar on render() after a prior getTextContent/getOperatorList
+// call. The literal form (same shape) does not. The root cause appears to be
+// the way pdfjs uses the factory across worker calls; the literal sidesteps it.
+const nodeCanvasFactory = {
   create(width: number, height: number) {
     const canvas = createCanvas(width, height);
     return { canvas, context: canvas.getContext('2d') };
-  }
+  },
   reset(
     canvasAndContext: { canvas: Canvas },
     width: number,
@@ -79,16 +86,9 @@ class NodeCanvasFactory {
   ): void {
     canvasAndContext.canvas.width = width;
     canvasAndContext.canvas.height = height;
-  }
-  destroy(canvasAndContext: { canvas: Canvas | null; context: unknown | null }): void {
-    if (canvasAndContext.canvas) {
-      canvasAndContext.canvas.width = 0;
-      canvasAndContext.canvas.height = 0;
-    }
-    canvasAndContext.canvas = null;
-    canvasAndContext.context = null;
-  }
-}
+  },
+  destroy(): void {},
+};
 
 export class PdfRenderError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
@@ -110,6 +110,7 @@ interface PageClassification {
   formMarkerHits: number;
   hasLabelMarker: boolean;
   nonEmptyTextItems: number;
+  hasImageContent: boolean;
 }
 
 interface PdfDocument {
@@ -119,6 +120,7 @@ interface PdfDocument {
 }
 interface PdfPage {
   getTextContent(): Promise<{ items: Array<{ str: string }> }>;
+  getOperatorList(): Promise<{ fnArray: number[] }>;
   getViewport(opts: { scale: number }): { width: number; height: number };
   render(opts: {
     canvasContext: CanvasRenderingContext2D;
@@ -127,8 +129,40 @@ interface PdfPage {
   cleanup(): void;
 }
 
+// Operator codes that draw a raster image XObject onto the page. Used to
+// detect pages that contain affixed-label artwork without any of our text
+// markers (real TTB COLA exports put the "back" label on its own page,
+// after the page whose text says "Image Type: Back" — the back artwork
+// itself lives on the next page with almost no text).
+const PDFJS_IMAGE_OPS = new Set<number>();
+let pdfjsImageOpsInit = false;
+async function loadImageOps(): Promise<void> {
+  if (pdfjsImageOpsInit) return;
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const OPS = pdfjs.OPS as Record<string, number>;
+  for (const key of [
+    'paintImageXObject',
+    'paintInlineImageXObject',
+    'paintImageMaskXObject',
+    'paintImageXObjectRepeat',
+    'paintImageMaskXObjectRepeat',
+    'paintImageMaskXObjectGroup',
+  ]) {
+    const code = OPS[key];
+    if (typeof code === 'number') PDFJS_IMAGE_OPS.add(code);
+  }
+  pdfjsImageOpsInit = true;
+}
+
+// Threshold for "this page is text-light enough to be a continuation
+// label rather than form text." Form pages have hundreds of text items;
+// real label pages (front or back artwork on their own page) usually
+// have <20 text items — mostly an "Image Type:" header or just the
+// footer. Bare-footer pages (~5 items) can therefore look identical to
+// a back-label-only page; the `hasImageContent` check disambiguates.
+const LIGHT_TEXT_THRESHOLD = 30;
+
 async function loadDocument(pdfBuffer: Uint8Array | Buffer): Promise<PdfDocument> {
-  ensurePolyfills();
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
   if (!pdfjs.GlobalWorkerOptions.workerSrc) {
     pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_SRC;
@@ -143,7 +177,7 @@ async function loadDocument(pdfBuffer: Uint8Array | Buffer): Promise<PdfDocument
       standardFontDataUrl: STANDARD_FONT_DATA_URL,
       // `canvasFactory` is supported on the pdfjs runtime but not in its public
       // type — cast to bypass the gap rather than ship a misleading type for it.
-      canvasFactory: new NodeCanvasFactory(),
+      canvasFactory: nodeCanvasFactory,
     } as Parameters<typeof pdfjs.getDocument>[0]).promise) as unknown as PdfDocument;
   } catch (e) {
     throw new PdfRenderError(`Could not parse PDF: ${(e as Error).message}`, {
@@ -153,14 +187,21 @@ async function loadDocument(pdfBuffer: Uint8Array | Buffer): Promise<PdfDocument
 }
 
 async function classifyPage(page: PdfPage, pageNumber: number): Promise<PageClassification> {
+  // Sequential — pdfjs's getTextContent and getOperatorList can race on
+  // shared page state when run via Promise.all, occasionally leaving the
+  // page in a state where a subsequent render() throws "Value is none of
+  // these types String, Path" from canvas.paintChar (glyph cache miss).
   const text = await page.getTextContent();
+  const opList = await page.getOperatorList();
   const items = text.items.map((t) => t.str);
   const joined = items.join(' ');
+  const hasImageContent = opList.fnArray.some((fn) => PDFJS_IMAGE_OPS.has(fn));
   return {
     pageNumber,
     formMarkerHits: FORM_PAGE_MARKERS.filter((m) => joined.includes(m)).length,
     hasLabelMarker: LABEL_PAGE_MARKERS.some((m) => joined.includes(m)),
     nonEmptyTextItems: items.filter((s) => s.trim().length > 0).length,
+    hasImageContent,
   };
 }
 
@@ -170,10 +211,17 @@ async function classifyPage(page: PdfPage, pageNumber: number): Promise<PageClas
  *      Item 1–18 fields live.
  *   2. Pick every page that has a label marker (AFFIX / Image Type: / Brand
  *      (front)) — those hold the affixed artwork.
- *   3. If no label marker appears anywhere, assume the form page also holds
- *      the label (our bundled fixtures are single-page like this).
- *   4. Cap the result at MAX_PAGES_TO_RENDER. Skip footer-only pages, which
- *      have neither markers nor enough text content to anchor either source.
+ *   3. Also pick every non-form page that has an embedded image XObject and
+ *      light text content. Real TTB COLA exports put the BACK label on its
+ *      own page, after the page whose text mentions "Image Type: Back" —
+ *      that back-label page has almost no text and would be skipped by
+ *      step 2, but it's the page that carries the Government Warning,
+ *      net-contents, and "Produced & Bottled by" attribution. Without this
+ *      heuristic the model only sees the front label and picks decorative
+ *      text as the producer.
+ *   4. If no label-marker page exists, assume the form page also holds the
+ *      label (our bundled fixtures are single-page like this).
+ *   5. Cap at MAX_PAGES_TO_RENDER.
  *
  * Returns the chosen pages with their `kind`, in PDF page order.
  */
@@ -188,7 +236,14 @@ function pickPagesToRender(classes: PageClassification[]): Array<{
     c.formMarkerHits > best.formMarkerHits ? c : best,
   );
   const labelPageNumbers = classes
-    .filter((c) => c.hasLabelMarker)
+    .filter((c) => {
+      if (c.pageNumber === formPage.pageNumber) return false;
+      if (c.hasLabelMarker) return true;
+      // Continuation-label heuristic: low text + has an image XObject.
+      return (
+        c.hasImageContent && c.nonEmptyTextItems < LIGHT_TEXT_THRESHOLD
+      );
+    })
     .map((c) => c.pageNumber);
 
   const selected = new Map<number, 'form' | 'label' | 'form+label'>();
@@ -221,9 +276,10 @@ async function renderPage(page: PdfPage): Promise<Buffer> {
     throw new PdfRenderError(`Page render failed: ${(e as Error).message}`, {
       cause: e,
     });
-  } finally {
-    page.cleanup();
   }
+  // Cleanup is owned by the outer caller via doc.cleanup(); calling it here
+  // discards the font/glyph cache prematurely and breaks any subsequent
+  // operations against the same page proxy.
   return canvas.toBuffer('image/png');
 }
 
@@ -240,27 +296,43 @@ export async function renderApplicationPages(
   if (!pdfBuffer || pdfBuffer.length === 0) {
     throw new PdfRenderError('Empty PDF buffer.');
   }
+  await loadImageOps();
+
   const doc = await loadDocument(pdfBuffer);
   if (doc.numPages < 1) {
+    await doc.cleanup();
     throw new PdfRenderError('PDF has no pages.');
   }
 
   try {
+    // Phase 1: classify every page on the doc — but DO NOT cleanup() any
+    // pages here. cleanup() discards the page's font/glyph cache, and
+    // calling render() afterward fails with "Value is none of these types
+    // String, Path" because canvas.paintChar can't find the glyph. The
+    // pages we don't end up rendering will be cleaned when doc.cleanup()
+    // runs in the outer finally.
     const classes: PageClassification[] = [];
     for (let i = 1; i <= doc.numPages; i++) {
       const page = await doc.getPage(i);
-      try {
-        classes.push(await classifyPage(page, i));
-      } finally {
-        page.cleanup();
-      }
+      classes.push(await classifyPage(page, i));
     }
 
     const picked = pickPagesToRender(classes);
     const rendered: RenderedPage[] = [];
     for (const { pageNumber, kind } of picked) {
       const page = await doc.getPage(pageNumber);
-      rendered.push({ pageNumber, kind, png: await renderPage(page) });
+      try {
+        rendered.push({ pageNumber, kind, png: await renderPage(page) });
+      } catch (e) {
+        // Real TTB COLA exports occasionally carry exotic fonts that pdfjs
+        // can't render. Don't fail the whole verify on a single page — drop
+        // it and continue. The form page is required; anything else is
+        // best-effort.
+        if (kind === 'form' || kind === 'form+label') throw e;
+        console.warn(
+          `[renderApplicationPages] skipping page ${pageNumber} (${kind}): ${(e as Error).message}`,
+        );
+      }
     }
     return rendered;
   } finally {
