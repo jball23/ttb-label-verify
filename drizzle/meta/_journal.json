@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1781136013871,
+      "tag": "0000_plain_ulik",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781137556256,
+      "tag": "0001_massive_captain_marvel",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781191335836,
+      "tag": "0002_zippy_onslaught",
+      "breakpoints": true
+    }
+  ]
+}

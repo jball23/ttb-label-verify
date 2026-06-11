@@ -1,0 +1,1 @@
+ALTER TABLE "applications" ADD COLUMN "pdf_bytes" "bytea";

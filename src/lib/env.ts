@@ -22,6 +22,17 @@ const baseSchema = z.object({
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
   LANGFUSE_SECRET_KEY: z.string().optional(),
   LANGFUSE_HOST: z.string().url().optional(),
+  DATABASE_URL: z.string().url().optional(),
+  // Feature flag: when 'false'/'0', the extractor stops asking the model for a
+  // provenance map (bounding boxes + confidence per field). The application-side
+  // bboxes are then synthesized from the deterministic AcroForm widget rects,
+  // and label-side click-to-highlight becomes inert. Default 'true' preserves
+  // the existing behavior. Toggle to measure the latency impact of the
+  // provenance output (~30-40% of the model's response tokens).
+  EXTRACT_PROVENANCE: z
+    .enum(['true', 'false', '1', '0'])
+    .default('false')
+    .transform((v) => v === 'true' || v === '1'),
 });
 
 const envSchema = baseSchema.superRefine((data, ctx) => {
