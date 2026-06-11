@@ -4,12 +4,17 @@ import { getExtractor } from '@/lib/extraction/factory';
 import { runVerification } from '@/lib/validation/engine';
 import { encodeNDJSON } from '@/lib/streaming/ndjson';
 import { withRequestSpan, withLabelSpan } from '@/lib/observability/spans';
-import { PROMPT_VERSION } from '@/lib/extraction/prompt';
+import { getPromptVersion } from '@/lib/extraction/prompt';
 import { type ResultLine } from '@/lib/results/result-types';
 import { scrubError } from '@/lib/safety/scrub-error';
 import { synthesizeExpectations } from '@/lib/application/loader';
 import { renderPageOne, PdfRenderError } from '@/lib/pdf/render';
 import { snapApplicationProvenance } from '@/lib/pdf/form-widgets';
+import { persistVerification } from '@/db/persist-verification';
+import { findApplicationByHash } from '@/db/applications';
+import { tryGetDb } from '@/db/client';
+import { getEnv } from '@/lib/env';
+import type { ProvenanceMap } from '@/lib/extraction/types';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -65,25 +70,53 @@ export async function POST(req: NextRequest): Promise<Response> {
         controller.enqueue(encoder.encode(encodeNDJSON(line)));
       };
 
+      const includeProvenance = getEnv().EXTRACT_PROVENANCE;
+      const promptVersion = getPromptVersion(includeProvenance);
+
       const wrappedWork = withRequestSpan(
         'verify-request',
         {
           labelCount: 1,
-          promptVersion: PROMPT_VERSION,
+          promptVersion,
         },
         async () => {
           const start = Date.now();
+          const timings: Record<string, number> = {};
+          const mark = (label: string, since: number): void => {
+            timings[label] = Date.now() - since;
+          };
           try {
             const arrayBuffer = await pdfField.arrayBuffer();
             const pdfBuffer = Buffer.from(arrayBuffer);
-            const pdfSha = crypto
+            const pdfShaFull = crypto
               .createHash('sha256')
               .update(pdfBuffer)
-              .digest('hex')
-              .slice(0, 16);
+              .digest('hex');
+            const pdfSha = pdfShaFull.slice(0, 16);
 
+            // Cache hit: if we've already processed this exact PDF, return the
+            // stored result immediately — saves the GPT-4o call (real money +
+            // ~10s) and keeps re-uploads of the same file deterministic.
+            if (tryGetDb()) {
+              const existing = await findApplicationByHash(pdfShaFull);
+              if (existing) {
+                enqueue({
+                  status: 'ok',
+                  index: 0,
+                  filename: pdfField.name,
+                  durationMs: Date.now() - start,
+                  report: existing.validationReport,
+                  applicationId: existing.id,
+                });
+                return;
+              }
+            }
+
+            const renderStart = Date.now();
             const pngBuffer = await renderPageOne(pdfBuffer);
+            mark('render', renderStart);
 
+            const llmStart = Date.now();
             const extracted = await withLabelSpan(
               {
                 filename: pdfField.name,
@@ -93,24 +126,47 @@ export async function POST(req: NextRequest): Promise<Response> {
               },
               () => extractor.extract(pngBuffer),
             );
+            mark('llm', llmStart);
 
             const application = synthesizeExpectations(extracted.application);
-            // Override the model's application-side bboxes with deterministic
-            // AcroForm widget rects; label-side bboxes stay vision-LLM.
-            const snappedProvenance = snapApplicationProvenance(extracted.provenance);
+            // Provenance branch:
+            //   • EXTRACT_PROVENANCE=true  → the model returned bboxes; snap
+            //     the application-side ones to deterministic widget rects.
+            //   • EXTRACT_PROVENANCE=false → the feature is OFF. No bboxes
+            //     anywhere; click-to-highlight is fully disabled in the UI.
+            const provenance: ProvenanceMap = includeProvenance
+              ? snapApplicationProvenance(extracted.provenance)
+              : {};
             const report = runVerification(
               application,
               extracted.label,
-              snappedProvenance,
+              provenance,
               extracted.application,
             );
+
+            const latencyMs = Date.now() - start;
+            console.log(
+              `[verify] ${pdfField.name} model=${extractor.modelId} bbox=${includeProvenance ? 'on' : 'off'} total=${latencyMs}ms render=${timings.render ?? 0}ms llm=${timings.llm ?? 0}ms`,
+            );
+            const applicationId = await persistVerification({
+              sourceFilename: pdfField.name,
+              contentHash: pdfShaFull,
+              byteSize: pdfField.size,
+              promptVersion,
+              extractorModel: extractor.modelId,
+              latencyMs,
+              extracted: { ...extracted, provenance },
+              report,
+              pdfBytes: pdfBuffer,
+            });
 
             enqueue({
               status: 'ok',
               index: 0,
               filename: pdfField.name,
-              durationMs: Date.now() - start,
+              durationMs: latencyMs,
               report,
+              applicationId,
             });
           } catch (e) {
             enqueue({
