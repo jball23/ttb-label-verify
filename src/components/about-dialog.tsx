@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Info, ShieldCheck, X } from 'lucide-react';
+import { ShieldCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -22,7 +22,6 @@ export function AboutDialog() {
         onClick={() => setOpen(true)}
         className="text-muted-foreground hover:text-foreground"
       >
-        <Info className="size-4" />
         About
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
