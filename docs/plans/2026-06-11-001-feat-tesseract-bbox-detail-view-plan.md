@@ -68,10 +68,12 @@ Carried from origin doc:
 
 ## Key Technical Decisions
 
-### KD1. Form-side OCR strategy: region-based for v1
-TTB Form 5100.31 has stable item locations across COLA Online exports. Crop the rendered form page into per-item rects (Item 1: serial number, Item 2: plant registry, Item 3: source, …), run Tesseract on each crop, assign the recognized text to the corresponding form field. Simple, deterministic, and easy to reason about.
+### KD1. Form-side OCR strategy: full-page OCR + bbox-containment field assignment
+> **Revised 2026-06-11 after U2 spike.** The previous version of KD1 called for 18 separate region crops, each `worker.recognize()`-ed individually. The Tesseract.js spike (`scripts/spike-output/findings.md`) showed that a single full-page OCR returns every word with its own bbox in ~2.5s for the form page, with mean confidence 92. Region-by-region cropping would have cost 18× the per-call setup overhead AND would have lost cross-region context (an item value that bleeds across a printed rect boundary still gets caught by the full-page pass). The doc-review's scope-guardian flagged this; the spike confirmed it.
 
-Trade-off: fragile to non-standard exports (different form versions, scanned vs digital). Mitigation: the VLM fallback catches anything the region-based path misses. Adaptive (landmark-relative) extraction is deferred to v2.
+One Tesseract pass per rendered page returns the complete word list with bboxes. The form-side assigner then filters words by **bbox containment** within the TTB Form 5100.31 item rectangles (Item 1: serial number, Item 7: fanciful name, etc.) and assembles each item's text by reading-order sort. Pure function over the word list — no second OCR pass.
+
+Trade-off: still fragile to non-standard exports if the form layout shifts (different form versions, scanned vs digital — the item rects are coordinates at 200 DPI against TTB Form 5100.31 06-2016). Mitigation: the VLM fallback catches anything the rect-containment path misses. Adaptive (landmark-relative) extraction is deferred to v2.
 
 ### KD2. Per-field bbox shape: list of word rects
 Each extracted field stores a list of `{x, y, w, h, confidence, text}` per matched word, not a single union rect. The Government Warning spans multiple lines on real labels and would render as one huge box covering decorative artwork between its tokens if we used union rects. List-of-word-rects lets the overlay component render N tight highlights that hug the actual glyphs.
@@ -87,25 +89,43 @@ Trade-off: more API calls if many fields fall back. If profiling shows fallback 
 Tesseract returns 0–100 confidence per word. Initial threshold for "trigger fallback" is **<60 mean confidence across the words assigned to a field**, OR **zero words assigned**. The threshold is recorded in `src/lib/ocr/config.ts` so it can be tuned against the 20 cola samples during U5 baseline parity validation without code-touching downstream paths.
 
 ### KD5. Single shared selection state at the page level
-The click-to-bbox routing uses one `selectedField: { fieldId, source: 'form' | 'front' | 'back', words: WordRect[] } | null` state owned by the `/applications/[id]` page. Left panel rows are clickable and dispatch `onSelect(fieldId)`; right panel viewer subscribes to `selectedField`. No global store needed; React `useState` + props.
+The click-to-bbox routing uses one `selectedField: { fieldPath: FieldPath, source: 'form' | 'front' | 'back', words: WordRect[] | null } | null` state owned by the `/applications/[id]` page. **`FieldPath` is the existing typed key** (`'application.brandName'`, `'label.governmentWarning.text'`, etc.) already used by `src/components/report-sections.tsx`. The new system stays on FieldPath — no parallel `fieldId` namespace, no string-vs-typed-key conversion layer. `SideRow`'s two clickable buttons remain — clicking the application-side row selects the form-side bbox, clicking the label-side row selects the label-side bbox. `words: null` signals VLM-fallback fields (UI renders the "source not available" overlay). Left panel rows are clickable and dispatch `onSelect(fieldPath)`; right panel viewer subscribes to `selectedField`. No global store needed; React `useState` + props.
 
 ### KD6. Replace, don't dual-run
 The new Tesseract extractor *replaces* the GPT-4o provenance code path entirely. No feature flag for parallel pipelines, no `EXTRACT_PROVENANCE`. One source of truth for bboxes. The risk this incurs (regression on label quality if Tesseract underperforms) is gated by U5 (baseline parity) before any merge.
 
-### KD7. Tesseract.js worker init: lazy + cached
-Tesseract.js's `createWorker()` loads `eng.traineddata` (~10 MB) on first call. Cache the worker instance at module scope so each `/api/verify` request after the first reuses it; Vercel lambdas reuse warm instances across requests. Cold start adds ~1–2s; warm requests pay no init cost.
+### KD7. Tesseract.js worker init: lazy + cached, single instance, sequential OCR
+Tesseract.js's `createWorker('eng')` loads `eng.traineddata` (~10 MB) on first call. Cache the worker instance at module scope so each `/api/verify` request after the first reuses it; Vercel lambdas reuse warm instances across requests. Cold start adds ~500ms (measured) on the spike, much less than the ~10 MB filesize suggests.
+
+**Single-worker sequential OCR is the v1 model.** `worker.recognize()` queues internally — concurrent calls on one worker serialize. The spike measured Bouchard at ~3.6s total for 4 pages of sequential OCR (form 2.5s + label 1.0s + label 0.4s + label 0.9s), well under the current GPT-4o baseline of ~21s for the same file. Provisioning two workers to run form + label in parallel would shave maybe 2s but doubles the `eng.traineddata` memory footprint and the cold-start cost. Deferred unless U5 surfaces a latency regression.
+
+Tesseract API note: use `worker.recognize(image, {}, { blocks: true, text: true })` — the top-level convenience `Tesseract.recognize(image)` does not return the blocks > paragraphs > lines > words hierarchy needed for per-word bboxes in v6.
+
+### KD8. Renderer Front/Back distinction via `Image Type:` markers
+The current `src/lib/pdf/render.ts` page classifier emits only `kind: 'form' | 'label' | 'form+label'` — no Front/Back distinction. The U2 spike found that real COLA exports follow a stable pattern: a form page contains the text marker `"Image Type: Brand (front) or keg collar"` and the actual front-label artwork is on the **next** page; the form contains `"Image Type: Back"` and the back-label artwork follows. The classifier needs to detect those text markers and tag the **following** page as `'label-front'` / `'label-back'`. Pages containing the markers themselves are form chrome — kept as `'form'`.
+
+Resolves doc-review decision D1. See U11 for the implementation.
+
+### KD9. DB migration for archived `validation_report.provenance`: graceful degradation
+Existing `applications.validation_report` jsonb rows carry the old shape — `provenance: ProvenanceMap` keyed by field path. After the swap, the new shape carries per-field `words: WordRect[]` instead. Rather than a destructive migration:
+- New writes use the new shape unconditionally.
+- The detail-view loader at `src/app/(app)/applications/[id]/page.tsx` detects shape: if `report.fields[id].words` is missing and `report.provenance` is present, render the archive view as read-only (no click-to-bbox interactivity) with a banner: "This application was verified before the Tesseract pipeline shipped — re-verify to enable source highlighting."
+- No data backfill. No destructive migration. The shape divergence narrows naturally as users re-verify or as old records age out via the archive lifecycle.
+
+Resolves doc-review decision D2.
 
 ---
 
 ## System-Wide Impact
 
-- **`/api/verify` route handler:** payload shape changes — `provenance` field on the result line is replaced by per-field `words: WordRect[]`. NDJSON stream contract bumps version.
-- **DB persistence:** `applications.report_json` schema changes (one new column or schema-bump). Existing applications stay readable via a one-time migration that drops the legacy `provenance` field.
-- **Detail-view consumers:** `report-sections.tsx`, `detail-report-view.tsx`, `finalize-form.tsx`, `pdf-viewer.tsx`, `pdf-modal.tsx` all touched. `pdf-modal.tsx` is deleted.
-- **Vercel lambda bundle:** Tesseract WASM (~3 MB) + `eng.traineddata` (~10 MB) added to `/api/verify` via `outputFileTracingIncludes` — same pattern as the pdfjs worker fix today.
+- **`/api/verify` route handler:** payload shape changes — `provenance` field on the result line is replaced by per-field `words: WordRect[] | null` (null = VLM fallback). NDJSON stream contract Zod validator at `src/lib/results/result-types.ts` must update in lock-step or the client rejects every line.
+- **DB persistence:** `applications.validation_report` jsonb column stops carrying `provenance`. **No destructive migration** — the loader detects shape and falls back to read-only archive rendering on old-shape rows (KD9). The shape divergence narrows naturally as users re-verify.
+- **Page classifier (`src/lib/pdf/render.ts`):** `RenderedPage.kind` union grows from `'form' | 'label' | 'form+label'` to include `'label-front'` and `'label-back'` (KD8 / U11). Existing single-page synthetic fixtures use `'form+label-front'`.
+- **Detail-view consumers:** `report-sections.tsx`, `detail-report-view.tsx`, `finalize-form.tsx`, `pdf-viewer.tsx`, `pdf-modal.tsx`, `queue-page.tsx` all touched. `pdf-modal.tsx` is deleted. `public/pdf.worker.min.mjs` stays in place — react-pdf still needs it on the client viewer; only the modal goes.
+- **Vercel lambda bundle:** Tesseract WASM (~3 MB) + `eng.traineddata` (~10 MB) + tesseract.js worker script + WASM wrappers added to `/api/verify` via `outputFileTracingIncludes` — same pattern as the pdfjs worker fix today, but the include list is longer than just two files (see U3 file list).
 - **Cost surface:** extraction cost drops from ~$0.02–0.05 per verify to near-zero for Tesseract-handled fields; only fallback fields pay LLM cost. Vercel function CPU-seconds rise modestly (Tesseract is CPU-bound).
-- **Latency surface:** form half + label half OCR can run in parallel. Expected: ~3–6s on a typical 3-page export, faster than current.
-- **Tests:** ~5 new test files; existing extraction tests retarget the new module.
+- **Latency surface:** single-worker sequential OCR per page (KD7); measured at ~3.6s total for a 4-page export in U2 spike vs ~17s mean GPT-4o baseline. Real win.
+- **Tests:** ~5 new test files; existing extraction + render tests retarget the new module + new kind tags.
 
 ---
 
@@ -210,31 +230,69 @@ Wire the worker init to load from a filesystem path computed via `path.join(proc
 
 ---
 
+### U11. Extend page classifier to distinguish front-label and back-label artwork
+
+**Goal:** Update `src/lib/pdf/render.ts` so the page classifier emits `'label-front'` and `'label-back'` for the actual artwork pages, separating them from form chrome pages that merely contain `"Image Type:"` markers. Without this, U4's field assigner can't tell which side of the label a word came from, and U7's `[Form][Front][Back]` tabs don't know which page to display in each tab. Added 2026-06-11 after the U2 spike confirmed D1 as a real renderer change, not a docs tweak.
+
+**Requirements:** KD8. Resolves doc-review decision D1.
+
+**Dependencies:** U2 (spike findings inform the marker detection).
+
+**Files:**
+- `src/lib/pdf/render.ts` — modify; extend `PageClassification` + `pickPagesToRender` + the `RenderedPage.kind` union
+- `src/lib/pdf/render.test.ts` — modify; add cases against the chacewater + bouchard cola fixtures
+
+**Approach:**
+- Extend the existing `PageClassification` with two new flags: `hasFrontImageMarker` (line text includes `"Image Type: Brand (front)"` or `"Image Type: Brand"` or `"or keg collar"`) and `hasBackImageMarker` (line text includes `"Image Type: Back"`).
+- In `pickPagesToRender`, after the form page is chosen, walk pages in order. Each time a page carries `hasFrontImageMarker`, tag the **next** page as `'label-front'`. Each time a page carries `hasBackImageMarker`, tag the **next** page as `'label-back'`. The marker-bearing pages themselves stay tagged as form chrome — they're not surfaced as a viewer tab.
+- If a marker has no following page (rare — multi-back-label exports where the marker is on the last page), tag the marker page itself.
+- If a single page carries both Front and Back markers (a tightly-packed export), the following two pages get `'label-front'` and `'label-back'` respectively.
+- Extend the `RenderedPage.kind` union: `'form' | 'label-front' | 'label-back' | 'form+label-front' | 'form+label-back' | 'label'`. The legacy `'label'` tag stays for back-compat in tests but the new pipeline prefers the explicit Front/Back tags.
+
+**Patterns to follow:** the existing `FORM_PAGE_MARKERS` + `LABEL_PAGE_MARKERS` constants and `classifyPage()` function show the established pattern — extend with two more marker arrays.
+
+**Test scenarios:**
+- **Chacewater fixture (3 pages):** classify; expect Page 1 = `'form'`, Page 2 = `'form'` (marker-bearing chrome, not artwork itself), Page 3 = `'label-back'` if the marker on Page 2 says "Image Type: Back". Assert `pickPagesToRender` excludes Page 2 from the viewer-visible page list.
+- **Bouchard fixture (4 pages):** Page 1 = `'form'`, Page 2 = `'form'`, Page 3 = `'label-front'` (the front-marker on Page 2 points to Page 3 artwork), Page 4 = `'label-back'`.
+- **Single-page synthetic fixture (form + label on one page):** kind stays `'form+label-front'` so the viewer still has a Front tab.
+- **Marker on last page (synthetic):** `'label-back'` tag falls back to the marker page itself (graceful — better to show that page as Back than to show nothing).
+- **No markers anywhere (legacy synthetic fixture):** classifier falls back to the existing heuristic — tag any image-bearing low-text page as `'label-back'` by default since that's where the GW lives.
+
+**Verification:**
+- `src/lib/pdf/render.test.ts` passes with the new fixtures.
+- Re-running `scripts/tesseract-spike.ts` against bouchard shows the Page 4 GW falling under `'label-back'`, not just `'label'`.
+
+---
+
 ### U4. OCR-first extractor with per-field VLM fallback
 
 **Goal:** Build the new extractor that orchestrates Tesseract OCR + field-assignment + VLM fallback, replacing the GPT-4o provenance path. Delete the `EXTRACT_PROVENANCE` flag and the provenance prompt variant.
 
 **Requirements:** In-scope items 1, 2, 3; KD1, KD2, KD3, KD4, KD6.
 
-**Dependencies:** U1 (baseline to compare against), U2 (findings inform region rects + threshold), U3 (worker available).
+**Dependencies:** U1 (baseline to compare against), U2 (findings inform region rects + threshold), U3 (worker available), **U11 (renderer emits `'label-front'` / `'label-back'` tags this unit consumes)**.
 
-**Files:**
-- `src/lib/ocr/config.ts` — new; exports `OCR_CONFIDENCE_THRESHOLD = 60`, region rect tables for TTB form items
-- `src/lib/ocr/tesseract.ts` — new; runs Tesseract on a page, returns words with bboxes
-- `src/lib/extraction/tesseract-extractor.ts` — new; orchestrates OCR → field assignment → fallback
-- `src/lib/extraction/field-assigners/form.ts` — new; region-based assigner for TTB Form 5100.31 items
-- `src/lib/extraction/field-assigners/label.ts` — new; pattern-based assigner (regex for ABV, canonical-text for GW, fuzzy for brand)
-- `src/lib/extraction/field-assigners/types.ts` — new; `WordRect`, `FieldExtraction`, `AssignerResult`
+**Files** (expanded after doc review found provenance touches at least 19 files, not the 6 originally listed):
+- `src/lib/ocr/config.ts` — new; exports `OCR_CONFIDENCE_THRESHOLD = 60`, region rect tables for TTB form items (per-item `{x, y, width, height}` at 200 DPI against TTB Form 5100.31 06-2016)
+- `src/lib/ocr/tesseract.ts` — new; one full-page OCR call per page, returns `{ words: WordRect[] }` (KD1, KD7)
+- `src/lib/extraction/tesseract-extractor.ts` — new; orchestrates OCR → field assignment → fallback. Per scope-guardian's review the field-assigners can be inlined here for v1; we won't pre-emptively decompose into a subdirectory with shared types until a second extractor implementation needs them
 - `src/lib/extraction/factory.ts` — modify; route to `tesseract-extractor` as the default
-- `src/lib/extraction/types.ts` — modify; `ExtractedFields` carries `WordRect[]` per field instead of `ProvenanceMap`
-- `src/lib/extraction/prompt.ts` — modify; remove `PROMPT_VERSION_NO_PROVENANCE`, keep one fallback prompt for single-field re-extraction
+- `src/lib/extraction/types.ts` — modify; `ExtractedFields` carries `words: WordRect[] | null` per field (null = VLM-fallback). Drop `ProvenanceMap` from this module
+- `src/lib/extraction/prompt.ts` — modify; remove `PROMPT_VERSION_NO_PROVENANCE`, add `PROMPT_VERSION_TESSERACT_FALLBACK_V1` for the single-field re-extraction prompt the fallback uses (preserves audit-trail continuity — see doc review's FYI on prompt version naming)
 - `src/lib/env.ts` — modify; remove `EXTRACT_PROVENANCE`
 - `src/lib/env.test.ts` — modify; remove EXTRACT_PROVENANCE assertions
 - `.env.example` — modify; remove `EXTRACT_PROVENANCE` block
-- `src/lib/extraction/openai-extractor.ts` — modify or delete (kept only if used by the fallback; otherwise delete)
+- `src/lib/extraction/openai-extractor.ts` — modify; kept as the VLM fallback caller (one-field-at-a-time path). The provenance-prompt code path goes away
+- `src/lib/extraction/openai-extractor.test.ts` — modify; update for the single-field fallback contract
+- **`src/lib/validation/types.ts` — modify; `VerificationReport.provenance: ProvenanceMap` removed, bboxes flow through `ExtractedFields.words` instead**
+- **`src/lib/validation/engine.ts` — modify; `runVerification` no longer takes/returns `provenance`**
+- **`src/lib/results/result-types.ts` — modify; `VerificationReportSchema` Zod validator drops `provenance`. Wire-contract change — every NDJSON line through `/api/verify` validates against this; if it stays stale the client rejects every result**
+- **`src/db/schema.ts` — modify; the `validation_report` jsonb column's TS type (`$type<VerificationReport>()`) tracks the new shape**
+- **`src/db/persist-verification.ts` — modify; no functional change, but the input type narrows**
+- **`src/lib/pdf/form-widgets.ts` — modify or delete; the AcroForm `snapApplicationProvenance` / `synthesizeApplicationProvenance` path operated on the old `ProvenanceLike` shape. KD1 swap means form bboxes come from Tesseract bbox-containment, so AcroForm widget snap is no longer the source-of-truth — delete unless v2 adaptive extraction wants it back**
+- **`src/app/(app)/applications/[id]/page.tsx` — modify; the loader detects old-shape rows and surfaces the KD9 graceful-degradation banner**
+- **`src/components/queue-page.tsx` — modify; same shape-detection if it consumes `validationReport`**
 - `src/lib/extraction/tesseract-extractor.test.ts` — new
-- `src/lib/extraction/field-assigners/form.test.ts` — new
-- `src/lib/extraction/field-assigners/label.test.ts` — new
 
 **Approach:**
 
@@ -562,19 +620,23 @@ Things we will not pretend to know now:
 | Origin question | Resolution |
 |---|---|
 | Confidence threshold for fallback | KD4 — start at 60, tune in U5 |
-| Form-half strategy on flattened PDFs | KD1 — region-based v1, adaptive deferred |
+| Form-half strategy on flattened PDFs | KD1 — **full-page OCR + bbox-containment** (revised after U2 spike) |
 | Bbox shape per field | KD2 — word-rect list |
 | VLM fallback wire shape | KD3 — per-field, single-call |
 | All sections clickable or only some? | U8 — all sections (rules, side-by-side, form fields) are clickable rows |
 | `EXTRACT_PROVENANCE` flag fate | KD6 — deleted in U4 |
+| **D1 — Renderer Front/Back distinction** | **KD8 + U11 — `Image Type:` marker detection, tag next page** |
+| **D2 — DB migration for archived rows** | **KD9 — graceful degradation, no destructive migration** |
+| **D3 — U4 file list completeness** | **U4 Files: section expanded to cover all 19+ provenance call sites** |
+| **Selection key type (FieldPath vs new fieldId)** | **KD5 — FieldPath stays canonical, no parallel namespace** |
 
 ---
 
 ## Phased Delivery
 
-**Phase A — De-risk (U1, U2):** parallel-runnable; produces baseline JSON + Tesseract spike findings.
+**Phase A — De-risk (U1, U2):** parallel-runnable; produces baseline JSON + Tesseract spike findings. ✅ Complete as of 2026-06-11 (commits `d4e9f68`, `76831e1`).
 
-**Phase B — Extraction swap (U3, U4, U5):** sequential; U5's parity gate is the merge blocker.
+**Phase B — Extraction swap (U3, U11, U4, U5):** mostly sequential. **U11 (renderer Front/Back tagging) runs in parallel with U3 (WASM bundling) and blocks U4.** U5's parity gate is the merge blocker.
 
 **Phase C — UI redesign (U6, U7, U8, U9):** mostly sequential within the phase but parallel to Phase B. U6 can land before U4 if helpful; U7/U8/U9 layer on top.
 
