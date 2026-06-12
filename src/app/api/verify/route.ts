@@ -153,6 +153,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             const pagesLog = renderedPages
               .map((p) => `${p.pageNumber}:${p.kind}`)
               .join(',');
+            // eslint-disable-next-line no-console -- structured per-request observability marker; HANDOFF references the `[verify]` log line for diagnostics.
             console.log(
               `[verify] ${pdfField.name} model=${extractor.modelId} bbox=${includeProvenance ? 'on' : 'off'} pages=[${pagesLog}] total=${latencyMs}ms render=${timings.render ?? 0}ms llm=${timings.llm ?? 0}ms`,
             );

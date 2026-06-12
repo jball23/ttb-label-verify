@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { countByStatus, liveRegionMessage, isBatchComplete } from './aggregate';
 import { type ResultLine } from './result-types';
+import {
+  type ExtractedApplicationForm,
+  type ExtractedFields,
+} from '../extraction/types';
 
 function ok(overall: 'compliant' | 'needs_review', index = 0): ResultLine {
   return {
@@ -8,7 +12,7 @@ function ok(overall: 'compliant' | 'needs_review', index = 0): ResultLine {
     index,
     filename: 'a.jpg',
     durationMs: 100,
-    report: { overallStatus: overall, crossCheck: { overallStatus: 'match', fields: {} }, fields: {}, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as any, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as any, },
+    report: { overallStatus: overall, crossCheck: { overallStatus: 'match', fields: {} }, fields: {}, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as unknown as ExtractedApplicationForm, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as unknown as ExtractedFields, },
   };
 }
 

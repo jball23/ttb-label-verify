@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { formatCSV, CSV_COLUMNS } from './csv-formatter';
 import { type ResultLine } from '../results/result-types';
+import {
+  type ExtractedApplicationForm,
+  type ExtractedFields,
+} from '../extraction/types';
 
 describe('formatCSV', () => {
   it('returns just the header row for empty input', () => {
@@ -26,7 +30,7 @@ describe('formatCSV', () => {
         fields: {
           brand: { status: 'pass', extractedValue: 'Wild Acre' },
           abv: { status: 'pass', extractedValue: '40% ALC/VOL' },
-        }, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as any, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as any,
+        }, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as unknown as ExtractedApplicationForm, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as unknown as ExtractedFields,
       },
     };
     const csv = formatCSV([result]);
@@ -51,7 +55,7 @@ describe('formatCSV', () => {
             status: 'pass',
             extractedValue: 'Wild Acre, Louisville KY',
           },
-        }, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as any, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as any,
+        }, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as unknown as ExtractedApplicationForm, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as unknown as ExtractedFields,
       },
     };
     expect(formatCSV([result])).toContain('"Wild Acre, Louisville KY"');
@@ -68,7 +72,7 @@ describe('formatCSV', () => {
         crossCheck: { overallStatus: 'match', fields: {} },
         fields: {
           brand: { status: 'pass', extractedValue: 'Smith "Smithy" Co' },
-        }, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as any, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as any,
+        }, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as unknown as ExtractedApplicationForm, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as unknown as ExtractedFields,
       },
     };
     expect(formatCSV([result])).toContain('"Smith ""Smithy"" Co"');
@@ -88,7 +92,7 @@ describe('formatCSV', () => {
             status: 'fail',
             reason: 'line one\nline two',
           },
-        }, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as any, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as any,
+        }, provenance: {}, extractedForm: {  plantRegistryNumber: null,  source: null,  serialNumber: null,  productType: null,  brandName: null,  fancifulName: null,  applicant: { name: null, addressLine1: null, city: null, state: null, postalCode: null },  grapeVarietals: null,  wineAppellation: null,  phone: null,  email: null,  applicationType: null,  applicationDate: null,  applicantSignatureName: null, } as unknown as ExtractedApplicationForm, extractedLabel: {  brandName: null, abv: null,  governmentWarning: { text: null, appearsAllCaps: null, appearsBold: null },  netContents: null, classType: null, producer: null, countryOfOrigin: null,  wineVarietal: null, wineAppellation: null, extractionConfidence: 'high', } as unknown as ExtractedFields,
       },
     };
     expect(formatCSV([result])).toMatch(/"line one\nline two"/);
