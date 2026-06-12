@@ -42,3 +42,10 @@ next-env.d.ts
 .claude/
 scripts/.cola-template-*.pdf
 .playwright-mcp/
+
+# Tesseract.js working artifacts. eng.traineddata is auto-downloaded by
+# tesseract.js at first run; U3 will move it to a committed lambda-bundle
+# path. Spike PNGs and per-word JSONs are reproducible via the spike script.
+eng.traineddata
+scripts/spike-output/*.png
+scripts/spike-output/*-words.json

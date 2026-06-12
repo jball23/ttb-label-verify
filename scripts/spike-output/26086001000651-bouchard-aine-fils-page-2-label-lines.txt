@@ -1,0 +1,51 @@
+[conf= 96] INFORMATION RETRIEVED FROM THE QR CODE, MICROSOFT TAG OR NEAR-FIELD
+
+[conf= 96] COMMUNICATION TAG MUST BE IN COMPLIANCE WITH ALL ADVERTISING REGULATIONS.
+
+[conf= 96] The blank space on the label may only be replaced with items outlined in the list of Allowable Revisions.
+
+[conf= 96] TTB has not reviewed this label for type size, characters per inch or contrasting background. The responsible
+
+[conf= 96] industry member must continue to ensure that the mandatory information on the actual labels is displayed in
+
+[conf= 95] the correct type size, number of characters per inch, and on a contrasting background in accordance with the
+
+[conf= 96] TTB labeling regulations, 27 CFR parts 4, 5, 7, and 16, as applicable.
+
+[conf= 95] STATUS
+
+[conf= 94] THE STATUS IS APPROVED.
+
+[conf= 92] CLASS/TYPE DESCRIPTION
+
+[conf= 96] TABLE WHITE WINE
+
+[conf= 95] AFFIX COMPLETE SET OF LABELS BELOW
+
+[conf= 95] Image Type:
+
+[conf= 96] Brand (front) or keg collar
+
+[conf= 93] Actual Dimensions: 4.25 inches W X 3.15 inches H
+
+[conf= 35] &
+
+[conf= 53] Gf
+
+[conf= 56] FONDEE er EN 1750
+
+[conf= 64] Appellation d'Origine Contrdlée
+
+[conf= 36] = > |
+
+[conf= 45] i = \| " J J
+
+[conf= 63] BoucharD AINE & FiLs
+
+[conf= 61] *BEAUNE - H
+
+[conf= 96] Image Type:
+
+[conf= 96] Neck
+
+[conf= 94] Actual Dimensions: 2.05 inches W X 6.97 inches H

@@ -1,0 +1,109 @@
+[conf= 96] OMB No. 1513-0020
+
+[conf= 96] FOR TTB USE ONLY DEPARTMENT OF THE TREASURY
+
+[conf= 96] ALCOHOL AND TOBACCO TAX AND TRADE BUREAU
+
+[conf= 93] TTB ID APPLICATION FOR AND
+
+[conf= 91] 26086001000651 CERTIFICATION/EXEMPTION OF LABEL/BOTTLE
+
+[conf= 96] APPROVAL
+
+[conf= 96] (See Instructions and Paperwork Reduction Act Notice on Back)
+
+[conf= 59] 1. REP. ID. NO. (If any) |CT OR
+
+[conf= 82] 81 Sil
+
+[conf= 94] PART | - APPLICATION
+
+[conf= 95] 2. PLANT 3. SOURCE OF 8. NAME AND ADDRESS OF APPLICANT AS SHOWN ON PLANT REGISTRY,
+
+[conf= 91] REGISTRY/BASIC PRODUCT (Required) | BASIC PERMIT OR BREWER'S NOTICE. INCLUDE APPROVED DBA OR
+
+[conf= 85] PERMIT/BREWER'S Domest TRADENAME IF USED ON LABEL (Required)
+
+[conf= 82] NO. (Required) omestie
+
+[conf= 87] CA-1-2156 Imported JEAN CLAUDE BOISSET WINES, JEAN CLAUDE BOISSET WINES USA,
+
+[conf= 95] INC.
+
+[conf= 63] 4.SERIALNUMBER  |5. TYPE OF PRODUCT || 849 ZINFANDEL LN
+
+[conf= 96] (Required) (Required) SAINT HELENA CA 94574
+
+[conf= 91] 26M024 WINE
+
+[conf= 95] BOISSET COLLECTION (Used on label)
+
+[conf= 95] DISTILLED SPIRITS
+
+[conf= 96] MALT BEVERAGE
+
+[conf= 96] 6. BRAND NAME (Required) 8a. MAILING ADDRESS, IF DIFFERENT
+
+[conf= 94] BOUCHARD AINE & FILS
+
+[conf= 96] 7. FANCIFUL NAME (If any)
+
+[conf= 93] 9. FORMULA 10. GRAPE VARIETAL(S) (Wine Only) [14. TYPE OF APPLICATION (Check applicable box(es))
+
+[conf= 95] Chardonnay
+
+[conf= 93] a CERTIFICATE OF LABEL APPROVAL
+
+[conf= 94] 11. WINE APPELLATION (If on label) CERTIFICATE OF EXEMPTION FROM LABEL APPROVAL
+
+[conf= 93] BOURGOGNE b. For sale in only" (Fill in State abbreviation.)
+
+[conf= 96] DISTINCTIVE LIQUOR BOTTLE APPROVAL. TOTAL BOTTLE
+
+[conf= 75] . ORE CLOS! ill i
+
+[conf= 74] 15. PHONE NUMBER 03. EMAIL ADDRESS [ CAPACITY BEFORE CLOSURE ___ (Fill in amount)
+
+[conf= 95] (707) 967-7620 RESUBMISSION AFTER REJECTION
+
+[conf= 90] d. TTB ID. NO.
+
+[conf= 94] 15. SHOW ANY INFORMATION THAT IS BLOWN, BRANDED, OR EMBOSSED ON THE CONTAINER (e.g., net contents) ONLY IF
+
+[conf= 96] IT DOES NOT APPEAR ON THE LABELS AFFIXED BELOW. ALSO, SHOW TRANSLATIONS OF FOREIGN LANGUAGE TEXT
+
+[conf= 96] APPEARING ON LABELS.
+
+[conf= 90] PART Il - APPLICANT'S CERTIFICATION
+
+[conf= 96] Under the penalties of perjury, | declare; that all statements appearing on this application are true and correct to the best of my
+
+[conf= 96] knowledge and belief; and, that the representations on the labels attached to this form, including supplemental documents, truly and
+
+[conf= 96] correctly represent the content of the containers to which these labels will be applied. | also certify that | have read, understood and
+
+[conf= 95] complied with the conditions and instructions which are attached to an original TTB F 5100.31, Certificate/Exemption of Label/Bottle
+
+[conf= 96] Approval.
+
+[conf= 88] 16. DATE OF | 17. SIGNATURE OF APPLICANT OR AUTHORIZED AGENT 18. PRINT NAME OF APPLICANT OR
+
+[conf= 92] APPLICATION (Application was e-filed) AUTHORIZED AGENT
+
+[conf= 96] 03/27/2026 Marissa Brown
+
+[conf= 88] PART Ill - TTB CERTIFICATE
+
+[conf= 96] This certificate is issued subject to applicable laws, regulations and conditions as set forth in the instructions portion of this
+
+[conf= 95] form.
+
+[conf= 90] 19. DATE ISSUED 20. AUTHORIZED SIGNATURE, ALCOHOL AND TOBACCO TAX AND TRADE BUREAU
+
+[conf= 43] 04/28/2026 z —
+
+[conf= 96] FOR TTB USE ONLY
+
+[conf= 94] QUALIFICATIONS EXPIRATION DATE (If
+
+[conf= 96] any)
