@@ -94,7 +94,7 @@ function FinalStatusBadge({ status }: { status: string }) {
   // a graceful pill if it does.
   const pending = status === 'pending_approval' ? 'Pending approval' : 'Pending rejection';
   return (
-    <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+    <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
       {pending}
     </span>
   );

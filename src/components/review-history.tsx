@@ -58,5 +58,5 @@ function decisionLabel(d: string): string {
 function DecisionIcon({ decision }: { decision: string }) {
   if (decision === 'approved') return <Check className={cn('size-3.5 text-emerald-600')} />;
   if (decision === 'rejected') return <X className="size-3.5 text-rose-600" />;
-  return <HelpCircle className="size-3.5 text-amber-600" />;
+  return <HelpCircle className="size-3.5 text-amber-600 dark:text-amber-400" />;
 }

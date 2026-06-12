@@ -88,7 +88,7 @@ export default function FinalizeForm({
             </span>
           )}
           {aiVerdict === 'needs_review' && (
-            <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+            <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
               Needs review · AI suggests Approve
             </span>
           )}
@@ -101,7 +101,7 @@ export default function FinalizeForm({
 
         <div>
           <p className="mb-1 text-[11px] font-medium text-muted-foreground">
-            Decision {flippedFromAi && <span className="text-amber-600">(flipped from AI)</span>}
+            Decision {flippedFromAi && <span className="text-amber-600 dark:text-amber-400">(flipped from AI)</span>}
           </p>
           <div className="flex gap-2">
             <DecisionButton
