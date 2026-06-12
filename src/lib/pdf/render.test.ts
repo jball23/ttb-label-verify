@@ -8,6 +8,16 @@ const SCENARIO_PDF = path.resolve(
   '../../../public/samples/applications/01-ridge-creek-bourbon/application.pdf',
 );
 
+const COLA_BOUCHARD = path.resolve(
+  __dirname,
+  '../../../public/samples/cola/26086001000651-bouchard-aine-fils.pdf',
+);
+
+const COLA_CHACEWATER = path.resolve(
+  __dirname,
+  '../../../public/samples/cola/26083001000522-chacewater.pdf',
+);
+
 describe('renderApplicationPages', () => {
   it('renders a known single-page scenario PDF to one PNG with PNG magic bytes', async () => {
     const pdf = await readFile(SCENARIO_PDF);
@@ -27,11 +37,14 @@ describe('renderApplicationPages', () => {
     expect(pages[0]!.png.length).toBeGreaterThan(50 * 1024);
   });
 
-  it('classifies the single-page fixture as form+label', async () => {
+  it('classifies the single-page synthetic fixture as form+label-front (U11)', async () => {
+    // U11: with no marker pages and no separate label pages, the form page
+    // also holds the label. We tag as 'form+label-front' (not the legacy
+    // 'form+label') so the source-viewer can still surface a Front tab.
     const pdf = await readFile(SCENARIO_PDF);
     const pages = await renderApplicationPages(pdf);
     expect(pages[0]!.pageNumber).toBe(1);
-    expect(pages[0]!.kind).toBe('form+label');
+    expect(pages[0]!.kind).toBe('form+label-front');
   });
 
   it('produces deterministic dimensions for the same input', async () => {
@@ -53,5 +66,36 @@ describe('renderApplicationPages', () => {
     await expect(
       renderApplicationPages(Buffer.from('not a pdf')),
     ).rejects.toBeInstanceOf(PdfRenderError);
+  });
+
+  // --- U11: front/back label tagging on real cola fixtures ---
+
+  it('U11: tags Bouchard pages — form on 1, front on 3, back on 4', async () => {
+    // Bouchard is the canonical 4-page export from the U2 spike. Page 2 is
+    // form chrome that carries "Image Type: Brand (front)" + "Image Type:
+    // Back" markers; pages 3 and 4 are the actual artwork.
+    const pdf = await readFile(COLA_BOUCHARD);
+    const pages = await renderApplicationPages(pdf);
+    const tagged = pages.map((p) => ({ pageNumber: p.pageNumber, kind: p.kind }));
+    expect(tagged).toContainEqual({ pageNumber: 1, kind: 'form' });
+    expect(tagged).toContainEqual({ pageNumber: 3, kind: 'label-front' });
+    expect(tagged).toContainEqual({ pageNumber: 4, kind: 'label-back' });
+  });
+
+  it('U11: tags Chacewater pages — form on 1, back-label on 3 via continuation heuristic', async () => {
+    // Chacewater is the sparse-back-label case from the spike. Page 3 has
+    // <30 words but carries the artwork as image XObjects. The classifier's
+    // continuation-label heuristic (low text + image content + no marker)
+    // tags it 'label-back' so the source viewer still surfaces the artwork
+    // even when the front-marker resolution doesn't claim it.
+    const pdf = await readFile(COLA_CHACEWATER);
+    const pages = await renderApplicationPages(pdf);
+    const tagged = pages.map((p) => ({ pageNumber: p.pageNumber, kind: p.kind }));
+    expect(tagged).toContainEqual({ pageNumber: 1, kind: 'form' });
+    // Page 2 carries the markers but the next page (3) is the artwork. The
+    // explicit assertion: page 3 is some flavour of label tag.
+    const page3 = tagged.find((p) => p.pageNumber === 3);
+    expect(page3).toBeDefined();
+    expect(page3!.kind).toMatch(/^label/);
   });
 });

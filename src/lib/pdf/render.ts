@@ -56,6 +56,20 @@ const LABEL_PAGE_MARKERS = [
   'Brand (front)',
 ];
 
+// Markers that announce the FRONT label artwork. Real TTB COLA Online
+// exports place these on the form page; the actual front-label artwork is
+// on the *next* page in PDF order. KD8 / U11 — the classifier tags the
+// following page as 'label-front' rather than tagging the marker-bearing
+// page itself.
+const FRONT_LABEL_MARKERS = [
+  'Brand (front) or keg collar',
+  'Brand (front)',
+  'or keg collar',
+];
+
+// Markers that announce the BACK label artwork. Same next-page convention.
+const BACK_LABEL_MARKERS = ['Image Type: Back'];
+
 // Unconditional, module-load-time. The previous guarded form (only set the
 // polyfills if not already set) led to subtle interactions with pdfjs's
 // internal worker which expects the @napi-rs/canvas implementations
@@ -97,11 +111,27 @@ export class PdfRenderError extends Error {
   }
 }
 
+/**
+ * What kind of source content lives on a rendered page. The Tesseract-bbox
+ * pipeline (U11 / KD8) emits the front/back-distinguished variants so the
+ * detail-view source viewer can tab between them. The legacy `'label'` /
+ * `'form+label'` tags remain for synthetic fixtures and as a fallback when
+ * the classifier can't tell which side a label page belongs to.
+ */
+export type RenderedPageKind =
+  | 'form'
+  | 'label'
+  | 'label-front'
+  | 'label-back'
+  | 'form+label'
+  | 'form+label-front'
+  | 'form+label-back';
+
 export interface RenderedPage {
   /** 1-indexed page number in the original PDF. */
   pageNumber: number;
   /** Why this page was selected — form fields, label artwork, or both. */
-  kind: 'form' | 'label' | 'form+label';
+  kind: RenderedPageKind;
   png: Buffer;
 }
 
@@ -109,6 +139,10 @@ interface PageClassification {
   pageNumber: number;
   formMarkerHits: number;
   hasLabelMarker: boolean;
+  /** How many Front-label markers appear on this page's text. >0 => the NEXT page is the front artwork. */
+  frontMarkerHits: number;
+  /** Same for Back markers. */
+  backMarkerHits: number;
   nonEmptyTextItems: number;
   hasImageContent: boolean;
 }
@@ -200,34 +234,42 @@ async function classifyPage(page: PdfPage, pageNumber: number): Promise<PageClas
     pageNumber,
     formMarkerHits: FORM_PAGE_MARKERS.filter((m) => joined.includes(m)).length,
     hasLabelMarker: LABEL_PAGE_MARKERS.some((m) => joined.includes(m)),
+    frontMarkerHits: FRONT_LABEL_MARKERS.filter((m) => joined.includes(m)).length,
+    backMarkerHits: BACK_LABEL_MARKERS.filter((m) => joined.includes(m)).length,
     nonEmptyTextItems: items.filter((s) => s.trim().length > 0).length,
     hasImageContent,
   };
 }
 
 /**
- * Pick which pages to render. Strategy:
+ * Pick which pages to render and tag them with their content kind. Strategy:
  *   1. Pick the single page with the most form markers — that's where the
- *      Item 1–18 fields live.
- *   2. Pick every page that has a label marker (AFFIX / Image Type: / Brand
- *      (front)) — those hold the affixed artwork.
- *   3. Also pick every non-form page that has an embedded image XObject and
- *      light text content. Real TTB COLA exports put the BACK label on its
- *      own page, after the page whose text mentions "Image Type: Back" —
- *      that back-label page has almost no text and would be skipped by
- *      step 2, but it's the page that carries the Government Warning,
- *      net-contents, and "Produced & Bottled by" attribution. Without this
- *      heuristic the model only sees the front label and picks decorative
- *      text as the producer.
- *   4. If no label-marker page exists, assume the form page also holds the
- *      label (our bundled fixtures are single-page like this).
- *   5. Cap at MAX_PAGES_TO_RENDER.
+ *      Item 1–18 fields live (tagged 'form').
+ *   2. **U11 / KD8 — front/back resolution.** For each page that carries a
+ *      Front-marker ("Brand (front) or keg collar", "Image Type: Brand"),
+ *      tag the *next* page as 'label-front'. For each page that carries a
+ *      Back-marker ("Image Type: Back"), tag the *next* page as 'label-back'.
+ *      The marker-bearing page itself stays form chrome and is not surfaced
+ *      to the viewer. If a marker lives on the last page (no next page),
+ *      the marker page itself is tagged as the artwork — better to show
+ *      something than nothing.
+ *   3. Legacy fallback for pages that have a label marker but no explicit
+ *      Front/Back classification (older synthetic fixtures, weird exports):
+ *      tag as 'label'. The new Tesseract pipeline can still OCR these;
+ *      the source-viewer just doesn't get an explicit Front/Back tab.
+ *   4. Continuation-label heuristic: a non-form page with an embedded image
+ *      XObject and light text content is probably back-label artwork even
+ *      without a marker, so tag as 'label-back' by default (Government
+ *      Warning + producer info traditionally live on the back).
+ *   5. If no label tags get assigned, the form page also holds the label —
+ *      single-page synthetic fixture path, tag as 'form+label-front'.
+ *   6. Cap at MAX_PAGES_TO_RENDER, preserving PDF page order.
  *
  * Returns the chosen pages with their `kind`, in PDF page order.
  */
 function pickPagesToRender(classes: PageClassification[]): Array<{
   pageNumber: number;
-  kind: 'form' | 'label' | 'form+label';
+  kind: RenderedPageKind;
 }> {
   if (classes.length === 0) return [];
 
@@ -235,32 +277,98 @@ function pickPagesToRender(classes: PageClassification[]): Array<{
   const formPage = classes.reduce((best, c) =>
     c.formMarkerHits > best.formMarkerHits ? c : best,
   );
-  const labelPageNumbers = classes
-    .filter((c) => {
-      if (c.pageNumber === formPage.pageNumber) return false;
-      if (c.hasLabelMarker) return true;
-      // Continuation-label heuristic: low text + has an image XObject.
-      return (
-        c.hasImageContent && c.nonEmptyTextItems < LIGHT_TEXT_THRESHOLD
-      );
-    })
-    .map((c) => c.pageNumber);
+  const lastPageNumber = classes[classes.length - 1]!.pageNumber;
 
-  const selected = new Map<number, 'form' | 'label' | 'form+label'>();
+  // Map pageNumber → classification for O(1) lookup.
+  const byNumber = new Map<number, PageClassification>();
+  for (const c of classes) byNumber.set(c.pageNumber, c);
+
+  const selected = new Map<number, RenderedPageKind>();
   selected.set(formPage.pageNumber, 'form');
-  if (labelPageNumbers.length === 0) {
-    // Single-page fixture path — same page is the label too.
-    selected.set(formPage.pageNumber, 'form+label');
-  } else {
-    for (const n of labelPageNumbers) {
-      selected.set(n, selected.has(n) ? 'form+label' : 'label');
+
+  // Step 2 — Front/Back marker resolution. Walk pages in PDF order; for each
+  // marker hit, tag the next page as the corresponding artwork kind.
+  for (const c of classes) {
+    if (c.frontMarkerHits > 0) {
+      const target = c.pageNumber + 1 <= lastPageNumber ? c.pageNumber + 1 : c.pageNumber;
+      assignArtwork(selected, target, formPage.pageNumber, 'label-front');
     }
+    if (c.backMarkerHits > 0) {
+      // If front and back markers share a page, the front already claimed
+      // c.pageNumber + 1 — give back the page after that.
+      let target = c.pageNumber + 1;
+      if (selected.get(target) === 'label-front' || selected.get(target) === 'form+label-front') {
+        target = target + 1;
+      }
+      if (target > lastPageNumber) target = c.pageNumber;
+      assignArtwork(selected, target, formPage.pageNumber, 'label-back');
+    }
+  }
+
+  // Step 4 — Continuation-label heuristic for image-bearing low-text pages
+  // that haven't been claimed yet. Tag as 'label-back' by default (the
+  // back label is where the Government Warning + producer attribution
+  // traditionally live).
+  for (const c of classes) {
+    if (selected.has(c.pageNumber)) continue;
+    if (c.pageNumber === formPage.pageNumber) continue;
+    if (c.hasImageContent && c.nonEmptyTextItems < LIGHT_TEXT_THRESHOLD) {
+      selected.set(c.pageNumber, 'label-back');
+    }
+  }
+
+  // Step 3 — Pages with a generic label marker (AFFIX / Image Type:) that
+  // we couldn't classify as front or back specifically. Catch-all fallback.
+  for (const c of classes) {
+    if (selected.has(c.pageNumber)) continue;
+    if (c.pageNumber === formPage.pageNumber) continue;
+    if (c.hasLabelMarker) {
+      selected.set(c.pageNumber, 'label');
+    }
+  }
+
+  // Step 5 — Single-page synthetic fixture path: nothing was tagged as
+  // artwork. The form page also holds the label.
+  const hasAnyArtwork = Array.from(selected.values()).some(
+    (k) => k !== 'form',
+  );
+  if (!hasAnyArtwork) {
+    selected.set(formPage.pageNumber, 'form+label-front');
   }
 
   return Array.from(selected.entries())
     .map(([pageNumber, kind]) => ({ pageNumber, kind }))
     .sort((a, b) => a.pageNumber - b.pageNumber)
     .slice(0, MAX_PAGES_TO_RENDER);
+}
+
+/**
+ * Assigns a `label-front` / `label-back` kind to the target page, merging
+ * cleanly with any prior tag. If the target is the form page, upgrades the
+ * form tag to `'form+label-front'` / `'form+label-back'`.
+ */
+function assignArtwork(
+  selected: Map<number, RenderedPageKind>,
+  target: number,
+  formPageNumber: number,
+  artwork: 'label-front' | 'label-back',
+): void {
+  const existing = selected.get(target);
+  if (target === formPageNumber) {
+    // Front/back marker on or pointing back to the form page — single-page
+    // synthetic fixture or otherwise weird input. Upgrade to form+label-*.
+    selected.set(target, artwork === 'label-front' ? 'form+label-front' : 'form+label-back');
+    return;
+  }
+  if (existing === 'label-front' && artwork === 'label-back') {
+    // Same page got tagged as both — unusual. Keep as label-front since
+    // it landed first; back goes to the next slot.
+    return;
+  }
+  if (existing === 'label-back' && artwork === 'label-front') {
+    return;
+  }
+  selected.set(target, artwork);
 }
 
 async function renderPage(page: PdfPage): Promise<Buffer> {
