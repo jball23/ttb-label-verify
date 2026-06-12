@@ -123,8 +123,8 @@ describe('runRules', () => {
 
   it('returns an empty crossCheck section so the report shape stays consistent', () => {
     const report = runRules(compliant());
-    expect(report.crossCheck.overallStatus).toBe('match');
-    expect(report.crossCheck.fields.brandName.status).toBe('not_applicable');
+    expect(report.crossCheck!.overallStatus).toBe('match');
+    expect(report.crossCheck!.fields.brandName.status).toBe('not_applicable');
   });
 });
 
@@ -177,8 +177,8 @@ describe('runVerification', () => {
     };
     const report = runVerification(application, extracted);
     expect(report.overallStatus).toBe('needs_review');
-    expect(report.crossCheck.overallStatus).toBe('mismatch');
-    expect(report.crossCheck.fields.brandName.status).toBe('mismatch');
+    expect(report.crossCheck!.overallStatus).toBe('mismatch');
+    expect(report.crossCheck!.fields.brandName.status).toBe('mismatch');
     expect(report.fields.brand?.status).toBe('pass');
   });
 
@@ -199,7 +199,7 @@ describe('runVerification', () => {
     };
     const report = runVerification(application, extracted);
     expect(report.overallStatus).toBe('non_compliant');
-    expect(report.crossCheck.overallStatus).toBe('match');
+    expect(report.crossCheck!.overallStatus).toBe('match');
     expect(report.fields.governmentWarning?.status).toBe('fail');
   });
 

@@ -20,9 +20,8 @@ import {
   X,
 } from 'lucide-react';
 import ScenarioPicker from '@/components/scenario-picker';
-import DetailReportView from '@/components/detail-report-view';
+import DetailPageShell from '@/components/detail-page-shell';
 import FinalizeForm from '@/components/finalize-form';
-import PdfModal from '@/components/pdf-modal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { consumeResultStream } from '@/lib/results/stream-consumer';
@@ -490,34 +489,26 @@ function DecisionTab({
             </button>
             {expanded && (
               <div className="border-t border-border bg-background p-2 sm:p-3">
-                <div className="mx-auto w-full max-w-[1500px] px-2 sm:px-4">
-                  <header className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="text-base font-semibold tracking-tight sm:text-lg">
-                        {card.sourceFilename}
-                      </h2>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        Processed {card.createdAt.toLocaleString()} ·{' '}
-                        {card.extractorModel} · prompt {card.promptVersion}
-                      </p>
-                    </div>
-                    <PdfModal
-                      filename={card.sourceFilename}
-                      source={{
-                        kind: 'stored',
-                        applicationId: card.id,
-                        hasStoredPdf: card.hasPdfBytes,
-                      }}
-                    />
+                <div className="mx-auto w-full px-2 sm:px-4">
+                  <header className="mb-4">
+                    <h2 className="text-base font-semibold tracking-tight sm:text-lg">
+                      {card.sourceFilename}
+                    </h2>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Processed {card.createdAt.toLocaleString()} ·{' '}
+                      {card.extractorModel} · prompt {card.promptVersion}
+                    </p>
                   </header>
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-                    <DetailReportView report={card.validationReport} />
-                    <div className="space-y-4">
-                      <FinalizeForm
-                        applicationId={card.id}
-                        aiVerdict={aiVerdict}
-                      />
-                    </div>
+                  <DetailPageShell
+                    report={card.validationReport}
+                    applicationId={card.id}
+                    hasStoredPdf={card.hasPdfBytes}
+                  />
+                  <div className="mt-4">
+                    <FinalizeForm
+                      applicationId={card.id}
+                      aiVerdict={aiVerdict}
+                    />
                   </div>
                 </div>
               </div>

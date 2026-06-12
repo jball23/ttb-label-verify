@@ -70,16 +70,23 @@ describe('renderApplicationPages', () => {
 
   // --- U11: front/back label tagging on real cola fixtures ---
 
-  it('U11: tags Bouchard pages — form on 1, front on 3, back on 4', async () => {
-    // Bouchard is the canonical 4-page export from the U2 spike. Page 2 is
-    // form chrome that carries "Image Type: Brand (front)" + "Image Type:
-    // Back" markers; pages 3 and 4 are the actual artwork.
+  it('Layout B: Bouchard — caption + image share the same page', async () => {
+    // Bouchard is a 4-page export. Page 2 carries the "Brand (front)" caption
+    // PLUS the actual front-label artwork (Bouchard Aîné & Fils Bourgogne
+    // Chardonnay). Page 3 carries the "Image Type: Back" caption PLUS the
+    // back/neck artwork. Page 4 is just the TTB form footer (no label).
+    //
+    // The earlier classifier assumed Layout A (caption on N, image on N+1)
+    // and incorrectly mapped page 3 = front, page 4 = back. That meant the
+    // source viewer showed the form footer to users clicking the Back tab.
+    // Layout B detection (caption page with image content → that page IS the
+    // artwork) corrects the mapping.
     const pdf = await readFile(COLA_BOUCHARD);
     const pages = await renderApplicationPages(pdf);
     const tagged = pages.map((p) => ({ pageNumber: p.pageNumber, kind: p.kind }));
     expect(tagged).toContainEqual({ pageNumber: 1, kind: 'form' });
-    expect(tagged).toContainEqual({ pageNumber: 3, kind: 'label-front' });
-    expect(tagged).toContainEqual({ pageNumber: 4, kind: 'label-back' });
+    expect(tagged).toContainEqual({ pageNumber: 2, kind: 'label-front' });
+    expect(tagged).toContainEqual({ pageNumber: 3, kind: 'label-back' });
   });
 
   it('U11: tags Chacewater pages — form on 1, back-label on 3 via continuation heuristic', async () => {

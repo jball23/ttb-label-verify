@@ -20,7 +20,11 @@ import {
   CROSS_CHECK_FIELD_LABELS,
 } from '@/lib/cross-check/types';
 import { RULES } from '@/lib/validation/engine';
-import { type FieldPath, type ProvenanceMap } from '@/lib/extraction/types';
+import {
+  type FieldBboxes,
+  type FieldPath,
+  type ProvenanceMap,
+} from '@/lib/extraction/types';
 import { cn } from '@/lib/utils';
 
 type OkResultLine = Extract<ResultLine, { status: 'ok' }>;
@@ -52,6 +56,21 @@ const RULE_TO_LABEL_PATH: Record<string, FieldPath | null> = {
   classType: 'label.classType',
   producerOrigin: 'label.producer',
 };
+
+// Display order for the rules section — reading order on the actual label
+// (top-to-bottom: brand mark, fanciful name, ABV, net contents, producer +
+// country, then the small-print government warning at the bottom). This
+// is separate from the engine's `RULES` array which controls verdict
+// computation order (governmentWarning before netContents etc. so the
+// non_compliant verdict is decided early).
+const RULE_DISPLAY_ORDER: ReadonlyArray<string> = [
+  'brand',
+  'classType', // surfaces fanciful name + class/type designation
+  'abv',
+  'netContents',
+  'producerOrigin',
+  'governmentWarning',
+];
 
 type FormField = {
   key: string;
@@ -137,16 +156,105 @@ function crossCheckStatusToReasonText(status: CrossCheckStatus): string {
 
 // ---------------------------------------------------------------------------
 
+/**
+ * A field is "navigable" (clickable to highlight in the PDF) when EITHER
+ * source has an entry for its path:
+ *  - the legacy GPT-4o provenance map (single union bbox + confidence), OR
+ *  - the new Tesseract FieldBbox sidecar (per-word rects + meanConfidence).
+ *
+ * Under the Tesseract pipeline `provenance` is always `{}`, so this OR is
+ * what keeps the rows live during the swap.
+ */
+function isFieldNavigable(
+  path: FieldPath | null,
+  provenance: ProvenanceMap,
+  bboxes: FieldBboxes | undefined,
+): boolean {
+  if (!path) return false;
+  if (provenance[path]) return true;
+  if (bboxes && bboxes[path]) return true;
+  return false;
+}
+
+/**
+ * Surface the "low confidence" badge from whichever source has it. Legacy
+ * provenance uses a coarse 'low' enum; Tesseract carries a numeric
+ * meanConfidence and we treat <70 as low (matches the OCR threshold in
+ * src/lib/ocr/config.ts plus a small visual buffer).
+ */
+function isFieldLowConfidence(
+  path: FieldPath | null,
+  provenance: ProvenanceMap,
+  bboxes: FieldBboxes | undefined,
+): boolean {
+  if (!path) return false;
+  if (provenance[path]?.confidence === 'low') return true;
+  const bb = bboxes?.[path];
+  if (bb && bb.meanConfidence !== null && bb.meanConfidence < 70) return true;
+  return false;
+}
+
+/**
+ * Source-of-truth indicator for a single field: was the value pulled by
+ * Tesseract OCR (with a real bbox on the page), filled by the VLM fallback
+ * (text-only, no bbox coordinates), or missing entirely. Drives the
+ * per-row "OCR" vs "AI" badge so the reviewer knows what to trust before
+ * clicking.
+ */
+type FieldSource = 'tesseract' | 'vlm' | 'none';
+
+function fieldSource(
+  path: FieldPath | null,
+  provenance: ProvenanceMap,
+  bboxes: FieldBboxes | undefined,
+): FieldSource {
+  if (!path) return 'none';
+  const bb = bboxes?.[path];
+  if (bb?.source === 'tesseract' && bb.words.length > 0) return 'tesseract';
+  if (bb?.source === 'vlm') return 'vlm';
+  if (provenance[path]) return 'tesseract'; // legacy GPT-4o bbox path
+  return 'none';
+}
+
+function SourceBadge({ source, confidence }: { source: FieldSource; confidence?: number | null }) {
+  if (source === 'none') return null;
+  if (source === 'tesseract') {
+    return (
+      <span
+        title={
+          confidence != null
+            ? `Read by OCR with ${confidence}% confidence. Click the field to highlight on the label.`
+            : 'Read by OCR. Click the field to highlight on the label.'
+        }
+        className="inline-flex items-center gap-1 rounded-sm border border-emerald-700/40 bg-emerald-950/30 px-1 py-[1px] text-[9px] font-medium uppercase tracking-wide text-emerald-400"
+      >
+        OCR
+        {confidence != null && <span className="opacity-70">{confidence}</span>}
+      </span>
+    );
+  }
+  return (
+    <span
+      title="Filled by AI fallback. No exact location on the label — value was extracted from the full page image."
+      className="inline-flex items-center gap-1 rounded-sm border border-sky-700/40 bg-sky-950/30 px-1 py-[1px] text-[9px] font-medium uppercase tracking-wide text-sky-400"
+    >
+      AI
+    </span>
+  );
+}
+
 export function CrossCheckSection({
   report,
   selectedFieldId,
   onSelect,
   provenance,
+  bboxes,
 }: {
-  report: WireReport['crossCheck'];
+  report: NonNullable<WireReport['crossCheck']>;
   selectedFieldId: FieldPath | null;
   onSelect(path: FieldPath | null): void;
   provenance: ProvenanceMap;
+  bboxes?: FieldBboxes;
 }) {
   return (
     <section className="rounded-xl border border-border bg-card">
@@ -200,6 +308,7 @@ export function CrossCheckSection({
                   selectedFieldId={selectedFieldId}
                   onSelect={onSelect}
                   provenance={provenance}
+                  bboxes={bboxes}
                 />
                 <SideRow
                   side="Label"
@@ -208,6 +317,7 @@ export function CrossCheckSection({
                   selectedFieldId={selectedFieldId}
                   onSelect={onSelect}
                   provenance={provenance}
+                  bboxes={bboxes}
                 />
               </div>
               {field.reason && (
@@ -235,6 +345,7 @@ function SideRow({
   selectedFieldId,
   onSelect,
   provenance,
+  bboxes,
 }: {
   side: 'Application' | 'Label';
   value: string | null;
@@ -242,19 +353,21 @@ function SideRow({
   selectedFieldId: FieldPath | null;
   onSelect(path: FieldPath | null): void;
   provenance: ProvenanceMap;
+  bboxes?: FieldBboxes;
 }) {
-  const provenanceEntry = path ? provenance[path] : undefined;
+  const navigable = isFieldNavigable(path, provenance, bboxes);
+  const low = isFieldLowConfidence(path, provenance, bboxes);
   const selected = path !== null && path === selectedFieldId;
   const sideLabel = side === 'Application' ? 'App: ' : 'Label: ';
   return (
     <button
       type="button"
       onClick={() => path && onSelect(path)}
-      disabled={!path || !provenanceEntry}
+      disabled={!navigable}
       aria-pressed={selected}
       className={cn(
         'flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[11px] transition-colors',
-        path && provenanceEntry
+        navigable
           ? 'cursor-pointer hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
           : 'cursor-default text-muted-foreground',
         selected && 'bg-accent/60',
@@ -262,7 +375,7 @@ function SideRow({
     >
       <span className="w-16 shrink-0 text-muted-foreground">{sideLabel}</span>
       <span className="truncate text-foreground/90">{value ?? '—'}</span>
-      {provenanceEntry?.confidence === 'low' && (
+      {low && (
         <span className="ml-auto text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
           Low
         </span>
@@ -276,11 +389,13 @@ export function RulesSection({
   selectedFieldId,
   onSelect,
   provenance,
+  bboxes,
 }: {
   fields: Record<string, { status: FieldStatus; reason?: string; extractedValue?: string | null }>;
   selectedFieldId: FieldPath | null;
   onSelect(path: FieldPath | null): void;
   provenance: ProvenanceMap;
+  bboxes?: FieldBboxes;
 }) {
   const [openTooltipId, setOpenTooltipId] = useState<string | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
@@ -317,7 +432,9 @@ export function RulesSection({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 pt-0.5">
-          {RULES.map((rule) => {
+          {RULE_DISPLAY_ORDER.map((ruleId) => {
+            const rule = RULES.find((r) => r.id === ruleId);
+            if (!rule) return null;
             const status = fields[rule.id]?.status ?? null;
             return (
               <span
@@ -331,11 +448,16 @@ export function RulesSection({
         </div>
       </header>
       <ul className="divide-y divide-border">
-        {RULES.map((rule) => {
+        {RULE_DISPLAY_ORDER.map((ruleId) => {
+          const rule = RULES.find((r) => r.id === ruleId);
+          if (!rule) return null;
           const result = fields[rule.id];
           const path = RULE_TO_LABEL_PATH[rule.id] ?? null;
-          const provenanceEntry = path ? provenance[path] : undefined;
+          const navigable = isFieldNavigable(path, provenance, bboxes);
+          const low = isFieldLowConfidence(path, provenance, bboxes);
           const selected = path !== null && path === selectedFieldId;
+          const source = fieldSource(path, provenance, bboxes);
+          const tesseractConf = path ? bboxes?.[path]?.meanConfidence ?? null : null;
           return (
             <li key={rule.id} className="px-3 py-2">
               <div className="flex items-start gap-2">
@@ -345,11 +467,11 @@ export function RulesSection({
                     <button
                       type="button"
                       onClick={() => path && onSelect(path)}
-                      disabled={!path || !provenanceEntry}
+                      disabled={!navigable}
                       aria-pressed={selected}
                       className={cn(
                         'truncate text-xs font-medium',
-                        path && provenanceEntry
+                        navigable
                           ? 'cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-sm'
                           : 'cursor-default',
                         selected && 'text-foreground',
@@ -357,6 +479,7 @@ export function RulesSection({
                     >
                       {rule.label}
                     </button>
+                    <SourceBadge source={source} confidence={tesseractConf} />
                     <CfrTooltip
                       cfr={rule.cfr}
                       open={openTooltipId === rule.id}
@@ -383,7 +506,7 @@ export function RulesSection({
                     </p>
                   )}
                 </div>
-                {provenanceEntry?.confidence === 'low' && (
+                {low && (
                   <span className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
                     Low
                   </span>
@@ -496,11 +619,13 @@ export function ApplicationFieldsSection({
   selectedFieldId,
   onSelect,
   provenance,
+  bboxes,
 }: {
   form: WireReport['extractedForm'];
   selectedFieldId: FieldPath | null;
   onSelect(path: FieldPath | null): void;
   provenance: ProvenanceMap;
+  bboxes?: FieldBboxes;
 }) {
   const [expanded, setExpanded] = useState(true);
   return (
@@ -526,18 +651,18 @@ export function ApplicationFieldsSection({
         <ul className="divide-y divide-border">
           {APP_FORM_FIELDS.map((field) => {
             const value = field.value(form);
-            const provenanceEntry = field.path ? provenance[field.path] : undefined;
+            const navigable = isFieldNavigable(field.path, provenance, bboxes);
             const selected = field.path !== null && field.path === selectedFieldId;
             return (
               <li key={field.key}>
                 <button
                   type="button"
                   onClick={() => field.path && onSelect(field.path)}
-                  disabled={!field.path || !provenanceEntry}
+                  disabled={!navigable}
                   aria-pressed={selected}
                   className={cn(
                     'flex w-full items-baseline gap-2 px-3 py-1.5 text-left transition-colors',
-                    field.path && provenanceEntry
+                    navigable
                       ? 'cursor-pointer hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
                       : 'cursor-default',
                     selected && 'bg-accent/60',

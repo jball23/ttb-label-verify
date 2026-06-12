@@ -51,7 +51,13 @@ const CrossCheckReportSchema = z.object({
 
 const VerificationReportSchema = z.object({
   overallStatus: z.enum(['compliant', 'needs_review', 'non_compliant']),
-  crossCheck: CrossCheckReportSchema,
+  /**
+   * Cross-check optional under the Phase A split: on the sync verify path
+   * the verdict ships without form-side OCR, so cross-check is absent until
+   * the Phase B patch endpoint fills it in. Older archived rows always
+   * carry a populated value.
+   */
+  crossCheck: CrossCheckReportSchema.optional(),
   fields: z.record(z.string(), RuleResultSchema),
   /** Legacy GPT-4o provenance map. Always `{}` under the Tesseract pipeline. */
   provenance: ProvenanceMapSchema,
@@ -59,6 +65,21 @@ const VerificationReportSchema = z.object({
   bboxes: FieldBboxesSchema.optional(),
   extractedForm: ExtractedApplicationFormSchema,
   extractedLabel: ExtractedFieldsSchema,
+  /**
+   * Page-render metadata (1-indexed page number + classifier-emitted kind:
+   * `form`, `label-front`, `label-back`, etc.). Drives the source-viewer tab
+   * strip independently of which pages had Tesseract bboxes — so a `Front`
+   * tab stays enabled even when the front-label artwork is decorative
+   * wordmarks the OCR rejected below the confidence floor.
+   */
+  pages: z
+    .array(
+      z.object({
+        pageNumber: z.number().int().positive(),
+        kind: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export const ResultLineSchema = z.discriminatedUnion('status', [

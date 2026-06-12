@@ -1,26 +1,32 @@
 /**
- * Tesseract-first extractor with per-field GPT-4o fallback (U4).
+ * Tesseract-first extractor with per-field GPT-4o fallback.
  *
- * Pipeline:
- *   1. OCR every rendered page (`src/lib/ocr/worker.ts`) — single full-page
- *      pass per page (KD1), sequential across pages (KD7).
- *   2. Form half — for each FORM_LANDMARK, locate the printed marker text
- *      on the form page and collect the value words in the indicated
- *      direction (landmark-based assignment, more robust than hand-tuned
- *      pixel rects).
- *   3. Label half — full-page OCR text + LABEL_PATTERNS regex match for
- *      ABV, net contents, producer, country. Government Warning uses a
- *      fuzzy line-by-line match against `GOVERNMENT_WARNING_CANONICAL`
- *      tokens so OCR misreads (IMPARS→IMPAIRS, T50→750) still match.
- *   4. Fallback — for any field where the assigner produced no words or
- *      meanConfidence < OCR_CONFIDENCE_THRESHOLD, make a single VLM call
- *      for that one field. Returns text only; bbox flagged unavailable.
+ * Phase A split: the public `extract()` path is **label-only and sync**. It
+ * runs label OCR in parallel via the worker pool, runs label-side assignment
+ * (without depending on form-side data), runs VLM fallback for label fields
+ * that Tesseract missed, and returns a document with a blank application
+ * form. Cross-check + verdict downstream skips application comparison when
+ * `application` is blank.
  *
- * Plan unit: U4. KDs: KD1, KD2, KD3, KD4, KD6.
+ * Form-side OCR is exposed separately as `extractFormFields(formPage)`,
+ * intended to be invoked by the Phase B async patch path. Splitting the two
+ * lets the verdict ship in ~6s on Tesseract.js WASM (label pages only),
+ * while the form-side cross-check patches in over polling once it finishes.
  *
- * Note: this module replaces the GPT-4o provenance code path on the
- * Tesseract side, but the legacy openai-extractor stays as the VLM
- * fallback caller. Factory routing flips in U4 step 3.
+ * Pipeline (sync path):
+ *   1. Parallel OCR on every label page (`runOcr` via pool — Promise.all,
+ *      KD7 promoted to a 2-slot pool in Phase A).
+ *   2. Label assignment — LABEL_PATTERNS for ABV / net contents / producer
+ *      / country + class type; GW canonical fuzzy match for the warning.
+ *      The brand cross-reference is OPTIONAL — when `application.brandName`
+ *      is unavailable (sync path) we skip it and let label.brandName fall
+ *      to VLM. Phase B can re-run assignment once form data lands to
+ *      upgrade label.brandName from VLM to a Tesseract bbox.
+ *   3. VLM fallback for any label field where the assigner produced no
+ *      words or meanConfidence < OCR_CONFIDENCE_THRESHOLD. Returns text
+ *      only; bbox flagged unavailable.
+ *
+ * Plan unit: U4 (original) + Phase A (form/label split).
  */
 import { runOcr, type WordRect } from '../ocr/worker';
 import { FORM_LANDMARKS, LABEL_PATTERNS, OCR_CONFIDENCE_THRESHOLD } from '../ocr/config';
@@ -72,7 +78,9 @@ export class TesseractExtractor implements DocumentExtractor {
   }
 
   /**
-   * Extract from a set of rendered pages with their classifier-emitted kinds.
+   * Sync label-only extraction. Pages may include the form page (it is
+   * harmlessly ignored on this path); only label pages are OCR'd.
+   *
    * U4 step 3 broadened DocumentExtractor.extract to take RenderedPage-shaped
    * input so kinds flow through to the field assigners.
    */
@@ -82,47 +90,38 @@ export class TesseractExtractor implements DocumentExtractor {
 
   /**
    * Internal entry point retained for direct tests that wire arbitrary pages.
+   * Form pages in the input set are skipped on the sync path — call
+   * `extractFormFields(formPage)` separately when form data is needed.
    */
   async extractFromPages(pages: RenderedPage[]): Promise<ExtractedDocument> {
     if (pages.length === 0) {
       throw new Error('TesseractExtractor.extractFromPages requires at least one page.');
     }
 
-    // 1. OCR every page sequentially (single cached worker, KD7).
-    const pageOcr: PageOcr[] = [];
-    for (const page of pages) {
-      const result = await runOcr(page.png);
-      pageOcr.push({
-        pageNumber: page.pageNumber,
-        kind: page.kind,
-        words: result.words,
-        meanConfidence: result.meanConfidence,
-      });
-    }
+    // 1. OCR every label page IN PARALLEL via the pool. A typical COLA has
+    //    3-4 label pages; with pool size 2 this halves wall-clock vs the
+    //    pre-Phase-A sequential pass.
+    const labelPages = pages.filter((p) => p.kind.includes('label'));
+    const labelPageOcr = await runOcrPages(labelPages);
 
-    // 2. Form assignment.
-    const formPage = pageOcr.find((p) => p.kind === 'form' || p.kind.startsWith('form+'));
-    const application = formPage
-      ? assignFormFields(formPage)
-      : blankApplication();
-    const formBboxes = formPage ? collectFormBboxes(formPage, application) : {};
+    // 2. Label assignment. We do NOT have form.brandName on the sync path,
+    //    so the brand cross-reference inside assignLabelFields is a no-op
+    //    here — label.brandName flows through to VLM fallback when no
+    //    pattern catches it.
+    const blank = blankApplication();
+    const { label, labelBboxes } = assignLabelFields(labelPageOcr, blank);
 
-    // 3. Label assignment.
-    const labelPages = pageOcr.filter((p) => p.kind.includes('label'));
-    const { label, labelBboxes } = assignLabelFields(labelPages);
+    let bboxes: FieldBboxes = { ...labelBboxes };
 
-    let bboxes: FieldBboxes = { ...formBboxes, ...labelBboxes };
-
-    // 4. Fallback pass for low-confidence / missing fields. Skip silently
-    //    when no fallback is wired.
+    // 3. Fallback pass — label fields only on this path. Skip silently when
+    //    no fallback is wired.
     if (this.fallback) {
       const fallbackPages = pages.map((p) => ({
         pageNumber: p.pageNumber,
         png: p.png,
         kind: p.kind,
       }));
-      bboxes = await runFallback({
-        application,
+      bboxes = await runLabelFallback({
         label,
         bboxes,
         pages: fallbackPages,
@@ -131,40 +130,102 @@ export class TesseractExtractor implements DocumentExtractor {
     }
 
     return {
-      application,
+      application: blank,
       label,
-      provenance: {}, // Legacy field; populated as empty until U4 step 3 removes it.
+      provenance: {},
       bboxes,
     };
   }
-}
 
-// ---------------------------------------------------------------------------
-// Form-side assigner (landmark-based)
-// ---------------------------------------------------------------------------
+  /**
+   * Phase B path: form-side extraction. Runs OCR on a single form page,
+   * applies landmark-based assignment, and falls back to VLM for fields
+   * the landmark loop missed. Returns the form fields + form-side bboxes
+   * separately so the caller can patch them into the report once it's
+   * computed.
+   */
+  async extractFormFields(formPage: RenderedPage): Promise<{
+    application: ExtractedApplicationForm;
+    formBboxes: FieldBboxes;
+  }> {
+    const [ocr] = await runOcrPages([formPage]);
+    if (!ocr) {
+      throw new Error('TesseractExtractor.extractFormFields received no usable page.');
+    }
+    const application = blankApplication();
+    let formBboxes = assignFormFields(ocr, application);
 
-function assignFormFields(page: PageOcr): ExtractedApplicationForm {
-  const result = blankApplication();
-  for (const landmark of FORM_LANDMARKS) {
-    const value = readValueAtLandmark(page.words, landmark.marker, landmark.valueDirection);
-    if (value === null) continue;
-    setApplicationField(result, landmark.field, value);
+    if (this.fallback) {
+      formBboxes = await runFormFallback({
+        application,
+        bboxes: formBboxes,
+        pages: [{ pageNumber: formPage.pageNumber, png: formPage.png, kind: formPage.kind }],
+        fallback: this.fallback,
+      });
+    }
+    return { application, formBboxes };
   }
-  return result;
 }
 
 /**
- * Find the landmark words on the page and collect value text in the
- * indicated direction. `right` returns words on the same line, to the
- * right of the landmark. `below` returns the next non-empty line below
- * the landmark.
+ * OCR a set of rendered pages concurrently. Pool size in
+ * `src/lib/ocr/worker.ts` caps real parallelism — extra calls queue
+ * automatically inside the pool.
+ */
+async function runOcrPages(pages: RenderedPage[]): Promise<PageOcr[]> {
+  return Promise.all(
+    pages.map(async (page) => {
+      const result = await runOcr(page.png);
+      return {
+        pageNumber: page.pageNumber,
+        kind: page.kind,
+        words: result.words,
+        meanConfidence: result.meanConfidence,
+      };
+    }),
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Form-side assigner (landmark-based with at-match bbox capture)
+// ---------------------------------------------------------------------------
+
+function assignFormFields(formPage: PageOcr, application: ExtractedApplicationForm): FieldBboxes {
+  const formBboxes: FieldBboxes = {};
+  for (const landmark of FORM_LANDMARKS) {
+    const result = readValueAtLandmark(
+      formPage.words,
+      landmark.marker,
+      landmark.valueDirection,
+      landmark.maxDistancePx,
+    );
+    if (result === null) continue;
+    setApplicationField(application, landmark.field, result.text);
+    const meanConfidence = Math.round(
+      result.words.reduce((a, w) => a + w.confidence, 0) / result.words.length,
+    );
+    formBboxes[landmark.field] = {
+      page: formPage.pageNumber,
+      source: 'tesseract',
+      words: result.words,
+      meanConfidence,
+    } satisfies FieldBbox;
+  }
+  return formBboxes;
+}
+
+/**
+ * Locate the landmark word run and return the value text PLUS the exact
+ * value words. The bbox words come from THIS function, never from a
+ * post-hoc page-wide token search — which is the bug that previously had
+ * "APPROVED DBA" highlight every "OR" / "for" on the page.
  */
 function readValueAtLandmark(
   words: WordRect[],
   marker: string,
   direction: 'right' | 'below',
   maxDistancePx = 250,
-): string | null {
+): { text: string; words: WordRect[] } | null {
   const markerTokens = marker
     .split(/\s+/)
     .map((t) => t.toLowerCase())
@@ -172,7 +233,6 @@ function readValueAtLandmark(
   if (markerTokens.length === 0) return null;
 
   const sorted = [...words].sort((a, b) => a.bbox.y0 - b.bbox.y0 || a.bbox.x0 - b.bbox.x0);
-  // Walk in reading order; find a contiguous run matching markerTokens.
   for (let i = 0; i <= sorted.length - markerTokens.length; i++) {
     if (!matchesRun(sorted, i, markerTokens)) continue;
     const lastIndex = i + markerTokens.length - 1;
@@ -187,7 +247,7 @@ function readValueAtLandmark(
           w.bbox.x0 - endWord.bbox.x1 < maxDistancePx,
       );
       if (valueWords.length === 0) continue;
-      return valueWords.map((w) => w.text).join(' ').trim();
+      return { text: valueWords.map((w) => w.text).join(' ').trim(), words: valueWords };
     }
     // direction === 'below'
     const lineHeight = endWord.bbox.y1 - endWord.bbox.y0;
@@ -199,10 +259,9 @@ function readValueAtLandmark(
         w.bbox.x0 > startWord.bbox.x0 - 80,
     );
     if (valueWords.length === 0) continue;
-    // Restrict to the first line below.
     const firstY = Math.min(...valueWords.map((w) => w.bbox.y0));
     const firstLine = valueWords.filter((w) => Math.abs(w.bbox.y0 - firstY) < 18);
-    return firstLine.map((w) => w.text).join(' ').trim();
+    return { text: firstLine.map((w) => w.text).join(' ').trim(), words: firstLine };
   }
   return null;
 }
@@ -215,42 +274,23 @@ function matchesRun(words: WordRect[], start: number, tokens: string[]): boolean
   return true;
 }
 
-function collectFormBboxes(page: PageOcr, application: ExtractedApplicationForm): FieldBboxes {
-  const bboxes: FieldBboxes = {};
-  for (const landmark of FORM_LANDMARKS) {
-    const value = getApplicationField(application, landmark.field);
-    if (!value || value.trim().length === 0) continue;
-    const words = findWordsInPage(page.words, value);
-    if (words.length === 0) continue;
-    const meanConfidence = Math.round(
-      words.reduce((a, w) => a + w.confidence, 0) / words.length,
-    );
-    bboxes[landmark.field] = {
-      page: page.pageNumber,
-      source: 'tesseract',
-      words,
-      meanConfidence,
-    } satisfies FieldBbox;
-  }
-  return bboxes;
-}
-
-function findWordsInPage(words: WordRect[], value: string): WordRect[] {
-  const valueTokens = value
-    .split(/\s+/)
-    .map((t) => t.toLowerCase().replace(/[^a-z0-9]/gi, ''))
-    .filter((t) => t.length > 0);
-  return words.filter((w) => {
-    const cleanText = w.text.toLowerCase().replace(/[^a-z0-9]/gi, '');
-    return valueTokens.some((vt) => vt.length > 0 && cleanText.includes(vt));
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Label-side assigner (pattern + GW fuzzy match)
 // ---------------------------------------------------------------------------
 
-function assignLabelFields(pages: PageOcr[]): {
+/**
+ * Label-side assignment. Side-agnostic — every label.* field other than
+ * `brandName` iterates all label pages with no front/back assumption.
+ *
+ * `brandName` keeps a soft cross-reference path: when `application.brandName`
+ * is provided (Phase B re-run after form OCR), we fuzzy-find it on the
+ * front-tagged pages. On the sync path `application.brandName` is null and
+ * the cross-reference is skipped — label.brandName falls to VLM fallback.
+ */
+function assignLabelFields(
+  pages: PageOcr[],
+  application: ExtractedApplicationForm,
+): {
   label: ExtractedFields;
   labelBboxes: FieldBboxes;
 } {
@@ -259,70 +299,126 @@ function assignLabelFields(pages: PageOcr[]): {
 
   if (pages.length === 0) return { label, labelBboxes };
 
-  // Search every label page; the back page is most likely to carry the
-  // verdict-driving text, but we don't gate by tag — every artwork page is
-  // a candidate.
-  for (const page of pages) {
-    const fullText = page.words.map((w) => w.text).join(' ');
-
-    // Brand name — first non-trivial line that isn't an obvious header.
-    if (!label.brandName) {
-      const firstStrong = page.words.find(
-        (w) => w.text.length >= 3 && w.confidence > 70 && !/^image|type/i.test(w.text),
-      );
-      if (firstStrong && page.kind.includes('front')) {
-        label.brandName = firstStrong.text;
-        labelBboxes['label.brandName'] = {
-          page: page.pageNumber,
-          source: 'tesseract',
-          words: [firstStrong],
-          meanConfidence: firstStrong.confidence,
-        };
+  // 3a. Brand-name cross-reference (Phase B only). On the sync path
+  // application.brandName is null, so this block no-ops and brandName flows
+  // to VLM fallback. When form data lands, this can run a second time to
+  // upgrade label.brandName from VLM to a Tesseract bbox.
+  const frontPages = pages.filter((p) => p.kind.includes('front'));
+  if (application.brandName && frontPages.length > 0) {
+    let best: { page: PageOcr; words: WordRect[]; score: number } | null = null;
+    for (const page of frontPages) {
+      const candidate = findBrandMatch(application.brandName, page.words);
+      if (candidate && (!best || candidate.score > best.score)) {
+        best = { page, words: candidate.words, score: candidate.score };
       }
     }
-
-    // Pattern matches.
-    for (const { field, pattern } of LABEL_PATTERNS) {
-      const existing = labelBboxes[field];
-      if (existing && existing.source === 'tesseract' && existing.words.length > 0) continue;
-      const match = pattern.exec(fullText);
-      if (!match) continue;
-      const matchWords = collectMatchWords(page.words, match[0]);
-      if (matchWords.length === 0) continue;
+    if (best) {
       const meanConfidence = Math.round(
-        matchWords.reduce((a, w) => a + w.confidence, 0) / matchWords.length,
+        best.words.reduce((a, w) => a + w.confidence, 0) / best.words.length,
       );
-      const fieldKey = stripLabelPrefix(field);
-      // Assign to the ExtractedFields shape:
-      assignLabelFieldValue(label, fieldKey, match[0]);
-      labelBboxes[field] = {
-        page: page.pageNumber,
+      label.brandName = best.words.map((w) => w.text).join(' ').trim();
+      labelBboxes['label.brandName'] = {
+        page: best.page.pageNumber,
         source: 'tesseract',
-        words: matchWords,
+        words: best.words,
         meanConfidence,
       };
     }
+  }
 
-    // Government Warning — fuzzy multi-line match against the canonical.
-    if (!label.governmentWarning.text) {
-      const gwMatch = findGovernmentWarning(page);
-      if (gwMatch) {
-        label.governmentWarning = {
-          text: gwMatch.text,
-          appearsAllCaps: /^[^a-z]*$/.test(gwMatch.text),
-          appearsBold: null, // Tesseract doesn't expose font weight reliably.
-        };
-        labelBboxes['label.governmentWarning'] = {
-          page: page.pageNumber,
-          source: 'tesseract',
-          words: gwMatch.words,
-          meanConfidence: gwMatch.meanConfidence,
-        };
-      }
+  // 3b. Label-field patterns. Pattern-first / page-second so the priority
+  // order in LABEL_PATTERNS is honored across all pages.
+  for (const { field, pattern } of LABEL_PATTERNS) {
+    const existing = labelBboxes[field];
+    if (existing && existing.source === 'tesseract' && existing.words.length > 0) continue;
+    for (const page of pages) {
+      const matched = findMatchedWords(page.words, pattern);
+      if (!matched) continue;
+      const meanConfidence = Math.round(
+        matched.words.reduce((a, w) => a + w.confidence, 0) / matched.words.length,
+      );
+      const fieldKey = stripLabelPrefix(field);
+      assignLabelFieldValue(label, fieldKey, matched.match[0]);
+      labelBboxes[field] = {
+        page: page.pageNumber,
+        source: 'tesseract',
+        words: matched.words,
+        meanConfidence,
+      };
+      break;
+    }
+  }
+
+  // 3c. Government Warning — fuzzy multi-line match against the canonical.
+  for (const page of pages) {
+    if (label.governmentWarning.text) break;
+    const gwMatch = findGovernmentWarning(page);
+    if (gwMatch) {
+      label.governmentWarning = {
+        text: gwMatch.text,
+        appearsAllCaps: /^[^a-z]*$/.test(gwMatch.text),
+        appearsBold: null,
+      };
+      labelBboxes['label.governmentWarning'] = {
+        page: page.pageNumber,
+        source: 'tesseract',
+        words: gwMatch.words,
+        meanConfidence: gwMatch.meanConfidence,
+      };
     }
   }
 
   return { label, labelBboxes };
+}
+
+/**
+ * Fuzzy-locate the application's brand-name token run on a front-label page.
+ * Walks consecutive-word windows up to 5 wide; scores each by the share of
+ * brand tokens it covers, allowing 4-char prefix or substring matches so
+ * OCR misreads ("BOULCHARD" vs "BOUCHARD") still land.
+ */
+function findBrandMatch(
+  brandValue: string,
+  words: WordRect[],
+): { words: WordRect[]; score: number } | null {
+  const brandTokens = brandValue
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length >= 2);
+  if (brandTokens.length === 0) return null;
+  const cleanWords = words.map((w) => w.text.toLowerCase().replace(/[^a-z0-9]/g, ''));
+  const maxWindow = Math.min(brandTokens.length + 1, 5);
+  let best: { start: number; end: number; score: number } | null = null;
+  for (let i = 0; i < words.length; i++) {
+    if (cleanWords[i]!.length < 2) continue;
+    for (let k = 1; k <= maxWindow && i + k <= words.length; k++) {
+      const windowClean = cleanWords.slice(i, i + k).filter((t) => t.length >= 2);
+      if (windowClean.length === 0) continue;
+      let matched = 0;
+      for (const wt of windowClean) {
+        if (brandTokens.some((bt) => tokensSimilar(wt, bt))) matched++;
+      }
+      const score = matched / Math.max(windowClean.length, brandTokens.length);
+      if (score >= 0.6 && (!best || score > best.score)) {
+        best = { start: i, end: i + k, score };
+      }
+    }
+  }
+  if (!best) return null;
+  return { words: words.slice(best.start, best.end), score: best.score };
+}
+
+function tokensSimilar(a: string, b: string): boolean {
+  if (a === b) return true;
+  if (a.length < 2 || b.length < 2) return false;
+  if (Math.min(a.length, b.length) >= 4 && (a.includes(b) || b.includes(a))) {
+    return true;
+  }
+  if (a.length >= 4 && b.length >= 4) {
+    if (a.slice(0, 4) === b.slice(0, 4)) return true;
+  }
+  return false;
 }
 
 function findGovernmentWarning(page: PageOcr): {
@@ -330,9 +426,6 @@ function findGovernmentWarning(page: PageOcr): {
   words: WordRect[];
   meanConfidence: number;
 } | null {
-  // Find the GOVERNMENT WARNING prefix; the canonical extends ~80 words
-  // after it on real labels. We collect words on the same and following
-  // lines until we hit a token outside the canonical token set.
   const prefixIdx = page.words.findIndex(
     (w, i) =>
       /^government$/i.test(w.text) &&
@@ -340,9 +433,6 @@ function findGovernmentWarning(page: PageOcr): {
   );
   if (prefixIdx === -1) return null;
 
-  // Canonical token set for cheap-but-effective fuzzy match. OCR misreads
-  // (IMPARS, ABLITY) still land in the canonical's word set if we match
-  // word-prefix or word-suffix.
   const canonicalTokens = new Set(
     normalizeWhitespace(GOVERNMENT_WARNING_CANONICAL)
       .toLowerCase()
@@ -352,13 +442,10 @@ function findGovernmentWarning(page: PageOcr): {
   );
 
   const collected: WordRect[] = [];
-  // The GW canonical is ~80 words; allow some slack.
   const window = page.words.slice(prefixIdx, prefixIdx + 130);
   for (const w of window) {
     const norm = w.text.toLowerCase().replace(/[^a-z]/g, '');
     if (norm.length === 0) continue;
-    // Accept the word if any 4-char prefix appears in a canonical token,
-    // OR vice versa — handles OCR drops like "IMPARS" vs "IMPAIRS".
     const matchesCanonical =
       canonicalTokens.has(norm) ||
       Array.from(canonicalTokens).some(
@@ -377,20 +464,39 @@ function findGovernmentWarning(page: PageOcr): {
   return { text, words: collected, meanConfidence };
 }
 
-function collectMatchWords(words: WordRect[], match: string): WordRect[] {
-  const matchTokens = match
-    .toLowerCase()
-    .split(/\s+/)
-    .map((t) => t.replace(/[^a-z0-9.]/g, ''))
-    .filter((t) => t.length > 0);
-  return words.filter((w) => {
-    const clean = w.text.toLowerCase().replace(/[^a-z0-9.]/g, '');
-    return matchTokens.some((mt) => clean.includes(mt));
-  });
+function findMatchedWords(
+  words: WordRect[],
+  pattern: RegExp,
+): { match: RegExpExecArray; words: WordRect[] } | null {
+  let joined = '';
+  const charToWord: number[] = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i > 0) {
+      joined += ' ';
+      charToWord.push(-1);
+    }
+    const text = words[i]!.text;
+    for (let c = 0; c < text.length; c++) charToWord.push(i);
+    joined += text;
+  }
+  pattern.lastIndex = 0;
+  const match = pattern.exec(joined);
+  if (!match) return null;
+  const start = match.index;
+  const end = match.index + match[0].length - 1;
+  const wordIndices = new Set<number>();
+  for (let i = start; i <= end; i++) {
+    const wi = charToWord[i];
+    if (wi !== undefined && wi >= 0) wordIndices.add(wi);
+  }
+  if (wordIndices.size === 0) return null;
+  const matchedWords = Array.from(wordIndices)
+    .sort((a, b) => a - b)
+    .map((i) => words[i]!);
+  return { match, words: matchedWords };
 }
 
 function stripLabelPrefix(field: FieldPath): keyof ExtractedFields | 'governmentWarning' {
-  // label.brandName → brandName, label.governmentWarning → governmentWarning
   return field.replace(/^label\./, '') as keyof ExtractedFields | 'governmentWarning';
 }
 
@@ -400,7 +506,6 @@ function assignLabelFieldValue(
   value: string,
 ): void {
   if (key === 'governmentWarning') return; // handled separately
-  // The other label fields are all string-nullable.
   (label as Record<string, unknown>)[key] = value;
 }
 
@@ -408,22 +513,28 @@ function assignLabelFieldValue(
 // Fallback (VLM single-field re-extraction)
 // ---------------------------------------------------------------------------
 
-async function runFallback(args: {
-  application: ExtractedApplicationForm;
+/**
+ * Label-side fallback targets: every LABEL_PATTERNS field, plus
+ * `label.brandName` (no regex pattern; only ever populated via brand
+ * cross-reference or VLM) and `label.governmentWarning` (handled separately
+ * because its bbox source is the fuzzy GW matcher, not LABEL_PATTERNS).
+ */
+async function runLabelFallback(args: {
   label: ExtractedFields;
   bboxes: FieldBboxes;
   pages: Array<{ pageNumber: number; png: Buffer; kind: RenderedPageKind }>;
   fallback: VlmSingleFieldExtractor;
 }): Promise<FieldBboxes> {
-  const { application, label, bboxes, pages, fallback } = args;
+  const { label, bboxes, pages, fallback } = args;
   const updated: FieldBboxes = { ...bboxes };
 
   const targets: FieldPath[] = [];
-  for (const landmark of FORM_LANDMARKS) {
-    const existing = bboxes[landmark.field];
-    const value = getApplicationField(application, landmark.field);
-    if (shouldFallback(existing, value)) targets.push(landmark.field);
+
+  // label.brandName has no regex — on the sync path it always falls back.
+  if (shouldFallback(bboxes['label.brandName'], label.brandName)) {
+    targets.push('label.brandName');
   }
+
   for (const { field } of LABEL_PATTERNS) {
     const existing = bboxes[field];
     const labelKey = stripLabelPrefix(field) as keyof ExtractedFields;
@@ -437,10 +548,111 @@ async function runFallback(args: {
     targets.push('label.governmentWarning');
   }
 
-  for (const fieldPath of targets) {
-    const value = await fallback.extractField({ fieldPath, pages });
+  // Dedup — LABEL_PATTERNS has multiple entries per field (e.g. ABV).
+  const unique = Array.from(new Set(targets));
+
+  // Fire every fallback call concurrently. Each VLM call is ~3-5s of
+  // network-bound wait — at 3-4 targets per request, sequential fan-out
+  // dominates the sync wall clock (Phase A latency profile). Parallel
+  // pays the same token cost (no extra spend) for a 3-5× wall-clock win.
+  // The OpenAI SDK is thread-safe and 4 concurrent calls comfortably fit
+  // inside the standard tier's rate limits.
+  const results = await Promise.all(
+    unique.map(async (fieldPath) => ({
+      fieldPath,
+      value: await fallback.extractField({ fieldPath, pages }),
+    })),
+  );
+  // Pick the page that's most likely to visually contain the field. VLM
+  // doesn't return coordinates, so the page is a routing hint, not a
+  // location claim — the UI renders NoSourceOverlay for vlm-source bboxes
+  // and the user knows the exact spot is unknown.
+  const vlmPage = pickVlmRoutingPage(updated, pages);
+  for (const { fieldPath, value } of results) {
     if (value !== null) {
-      applyFallbackValue(application, label, fieldPath, value);
+      applyFallbackLabelValue(label, fieldPath, value);
+    }
+    updated[fieldPath] = {
+      page: vlmPage,
+      source: 'vlm',
+      words: [],
+      meanConfidence: null,
+    } satisfies FieldBbox;
+  }
+  return updated;
+}
+
+/**
+ * Choose a default page for a VLM-extracted LABEL field. Priorities:
+ *   1. The page that already holds a Tesseract bbox on this run — that's
+ *      where the OCR could read text, so other readable content on the
+ *      same label is most likely there too (Stillwater keg-collar case:
+ *      the single circular label is on one page, Tesseract caught ABV
+ *      there, so brand/GW VLM extraction routes to the same page).
+ *   2. The first page whose render-kind tags it as a label.
+ *   3. Fall back to the first page in render order if nothing above
+ *      matches (single-page synthetic fixtures).
+ *
+ * This is a routing hint — not a location claim. The UI renders the
+ * NoSourceOverlay for vlm-source bboxes; the page just determines which
+ * tab to land on so the reviewer can see the label they're verifying.
+ */
+function pickVlmRoutingPage(
+  bboxes: FieldBboxes,
+  pages: Array<{ pageNumber: number; kind: RenderedPageKind }>,
+): number {
+  for (const bb of Object.values(bboxes)) {
+    if (bb && bb.source === 'tesseract' && bb.words.length > 0) {
+      const p = pages.find((pg) => pg.pageNumber === bb.page);
+      if (p && p.kind.includes('label')) return bb.page;
+    }
+  }
+  const firstLabel = pages.find((p) => p.kind.includes('label'));
+  if (firstLabel) return firstLabel.pageNumber;
+  return pages[0]?.pageNumber ?? 1;
+}
+
+/**
+ * Form-side fallback targets: only the cross-check-driving + display-critical
+ * form fields. Phase B path only.
+ */
+async function runFormFallback(args: {
+  application: ExtractedApplicationForm;
+  bboxes: FieldBboxes;
+  pages: Array<{ pageNumber: number; png: Buffer; kind: RenderedPageKind }>;
+  fallback: VlmSingleFieldExtractor;
+}): Promise<FieldBboxes> {
+  const { application, bboxes, pages, fallback } = args;
+  const updated: FieldBboxes = { ...bboxes };
+
+  const formFallbackFields: FieldPath[] = [
+    'application.brandName',
+    'application.fancifulName',
+    'application.productType',
+    'application.applicant.name',
+    'application.grapeVarietals',
+    'application.wineAppellation',
+  ];
+
+  const targets: FieldPath[] = [];
+  for (const field of formFallbackFields) {
+    const existing = bboxes[field];
+    const value = getApplicationField(application, field);
+    if (shouldFallback(existing, value)) targets.push(field);
+  }
+
+  // Same parallel fan-out as runLabelFallback — VLM calls are network-bound
+  // and the OpenAI SDK handles concurrent traffic. Saves ~10s of wall clock
+  // on a form with 4-6 fallback targets.
+  const results = await Promise.all(
+    targets.map(async (fieldPath) => ({
+      fieldPath,
+      value: await fallback.extractField({ fieldPath, pages }),
+    })),
+  );
+  for (const { fieldPath, value } of results) {
+    if (value !== null) {
+      setApplicationField(application, fieldPath, value);
     }
     updated[fieldPath] = {
       page: pages[0]?.pageNumber ?? 1,
@@ -460,16 +672,11 @@ function shouldFallback(existing: FieldBbox | undefined, value: string | null): 
   return false;
 }
 
-function applyFallbackValue(
-  application: ExtractedApplicationForm,
+function applyFallbackLabelValue(
   label: ExtractedFields,
   fieldPath: FieldPath,
   value: string,
 ): void {
-  if (fieldPath.startsWith('application.')) {
-    setApplicationField(application, fieldPath, value);
-    return;
-  }
   const labelKey = stripLabelPrefix(fieldPath);
   if (labelKey === 'governmentWarning') {
     label.governmentWarning.text = value;
@@ -536,10 +743,8 @@ function setApplicationField(
     return;
   }
   if (key === 'productType') {
-    const upper = value.toUpperCase();
-    if (upper === 'WINE' || upper === 'DISTILLED SPIRITS' || upper === 'MALT BEVERAGES') {
-      application.productType = upper;
-    }
+    const family = inferProductFamily(value);
+    if (family !== null) application.productType = family;
     return;
   }
   if (key === 'source') {
@@ -550,6 +755,25 @@ function setApplicationField(
   if (key in application) {
     (application as Record<string, unknown>)[key] = value;
   }
+}
+
+/**
+ * Map a free-form value (TYPE OF PRODUCT row or CLASS/TYPE DESCRIPTION line)
+ * to one of the three TTB product families. Returns null when the value
+ * names multiple families (checkbox triplet row with no clear winner) so a
+ * later landmark or the VLM fallback can disambiguate.
+ */
+function inferProductFamily(value: string): 'WINE' | 'DISTILLED SPIRITS' | 'MALT BEVERAGES' | null {
+  const upper = value.toUpperCase();
+  const wineHit = /\b(WINE|PORT|SHERRY|VERMOUTH|CHAMPAGNE|RIESLING|CHARDONNAY|CABERNET|MERLOT|PINOT|SAUVIGNON|MOSCATO|VINEYARD)\b/.test(upper);
+  const maltHit = /\b(MALT|BEER|ALE|LAGER|STOUT|PORTER|IPA|PILSNER|WEISSE|SAISON)\b/.test(upper);
+  const spiritsHit = /\b(SPIRITS|WHISKEY|WHISKY|VODKA|RUM|GIN|TEQUILA|BOURBON|BRANDY|COGNAC|MEZCAL|LIQUEUR|DISTILLED)\b/.test(upper);
+  const families: Array<'WINE' | 'DISTILLED SPIRITS' | 'MALT BEVERAGES'> = [];
+  if (wineHit) families.push('WINE');
+  if (maltHit) families.push('MALT BEVERAGES');
+  if (spiritsHit) families.push('DISTILLED SPIRITS');
+  if (families.length !== 1) return null;
+  return families[0]!;
 }
 
 function getApplicationField(

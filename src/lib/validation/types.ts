@@ -38,7 +38,12 @@ export type OverallStatus = 'compliant' | 'needs_review' | 'non_compliant';
 
 export interface VerificationReport {
   overallStatus: OverallStatus;
-  crossCheck: CrossCheckReport;
+  /**
+   * Optional under the Phase A split. The sync verify path returns the
+   * report without cross-check; Phase B's patch endpoint adds it once the
+   * form-side OCR finishes.
+   */
+  crossCheck?: CrossCheckReport;
   fields: Record<string, RuleResult>;
   /**
    * Legacy normalized 0-1 bboxes from the GPT-4o provenance code path.
@@ -59,4 +64,13 @@ export interface VerificationReport {
   extractedForm: ExtractedApplicationForm;
   /** Bare label-side extraction. Used by the UI to display every label field. */
   extractedLabel: ExtractedFields;
+  /**
+   * Page-render metadata from `renderApplicationPages`. The classifier-emitted
+   * `kind` tells the detail view which PDF pages are the form, front-label,
+   * back-label, etc. — used by the source-viewer tab strip so a `Front` tab
+   * stays enabled even when no Tesseract bbox happened to land on that page
+   * (common when the front-label artwork is decorative wordmarks that OCR
+   * rejects below the confidence floor).
+   */
+  pages?: Array<{ pageNumber: number; kind: string }>;
 }

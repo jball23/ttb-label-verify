@@ -7,7 +7,6 @@ import { withRequestSpan, withLabelSpan } from '@/lib/observability/spans';
 import { getPromptVersion } from '@/lib/extraction/prompt';
 import { type ResultLine } from '@/lib/results/result-types';
 import { scrubError } from '@/lib/safety/scrub-error';
-import { synthesizeExpectations } from '@/lib/application/loader';
 import { renderApplicationPages, PdfRenderError } from '@/lib/pdf/render';
 import { snapApplicationProvenance } from '@/lib/pdf/form-widgets';
 import { persistVerification } from '@/db/persist-verification';
@@ -137,21 +136,22 @@ export async function POST(req: NextRequest): Promise<Response> {
             );
             mark('llm', llmStart);
 
-            const application = synthesizeExpectations(extracted.application);
-            // Provenance branch:
-            //   • EXTRACT_PROVENANCE=true  → the model returned bboxes; snap
-            //     the application-side ones to deterministic widget rects.
-            //   • EXTRACT_PROVENANCE=false → the feature is OFF. No bboxes
-            //     anywhere; click-to-highlight is fully disabled in the UI.
+            // Phase A: sync path is label-only. Form OCR runs async (Phase B
+            // patch endpoint), so we don't have an Application to compare
+            // against on this request. Pass `undefined` for the application
+            // — `runVerification` skips cross-check and returns the verdict
+            // from the 6 label rules alone. The Form tab on the client shows
+            // per-field spinners until the patch lands.
             const provenance: ProvenanceMap = includeProvenance
               ? snapApplicationProvenance(extracted.provenance)
               : {};
             const report = runVerification(
-              application,
+              undefined,
               extracted.label,
               provenance,
               extracted.application,
               extracted.bboxes,
+              renderedPages.map((p) => ({ pageNumber: p.pageNumber, kind: p.kind })),
             );
 
             const latencyMs = Date.now() - start;

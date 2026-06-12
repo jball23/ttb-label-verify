@@ -4,9 +4,8 @@ import { findApplicationById } from '@/db/applications';
 import { listReviewsForApplication } from '@/db/reviews';
 import { tryGetDb } from '@/db/client';
 import { isFinalized } from '@/db/schema';
-import DetailReportView from '@/components/detail-report-view';
+import DetailPageShell from '@/components/detail-page-shell';
 import ReviewHistory from '@/components/review-history';
-import PdfModal from '@/components/pdf-modal';
 import { Check, X } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -36,41 +35,36 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
   const finalized = isFinalized(row.currentStatus);
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] px-4 py-6 sm:px-6">
+    <div className="mx-auto w-full px-4 py-6 sm:px-6">
       <Link
         href={finalized ? '/applications' : '/'}
         className="mb-3 inline-flex items-center text-xs text-muted-foreground hover:text-foreground"
       >
         ← {finalized ? 'All applications' : 'Back to Queue'}
       </Link>
-      <header className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-base font-semibold tracking-tight sm:text-lg">
-              {row.sourceFilename}
-            </h1>
-            <FinalStatusBadge status={row.currentStatus} />
-          </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Processed {row.createdAt.toLocaleString()} · {row.extractorModel} · prompt {row.promptVersion}
-          </p>
+      <header className="mb-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-base font-semibold tracking-tight sm:text-lg">
+            {row.sourceFilename}
+          </h1>
+          <FinalStatusBadge status={row.currentStatus} />
         </div>
-        <PdfModal
-          filename={row.sourceFilename}
-          source={{
-            kind: 'stored',
-            applicationId: row.id,
-            hasStoredPdf: row.hasPdfBytes,
-          }}
-        />
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Processed {row.createdAt.toLocaleString()} · {row.extractorModel} · prompt {row.promptVersion}
+        </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-        <DetailReportView report={report} />
-        <div className="space-y-4">
+      <DetailPageShell
+        report={report}
+        applicationId={row.id}
+        hasStoredPdf={row.hasPdfBytes}
+      />
+
+      {reviews.length > 0 && (
+        <div className="mt-6">
           <ReviewHistory reviews={reviews} />
         </div>
-      </div>
+      )}
     </div>
   );
 }

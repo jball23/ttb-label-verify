@@ -210,3 +210,11 @@ export function synthesizeApplicationProvenance(
   }
   return out;
 }
+
+// TODO: re-calibrate PDF_RECTS against the current TTB Form 5100.31 revision
+// in samples — the captured values target a 612×1008pt template but the
+// real sample PDFs are 612×792pt with a different cell layout. Until that
+// recalibration ships, the Tesseract pipeline uses landmark-text matching
+// (see src/lib/extraction/tesseract-extractor.ts readValueAtLandmark) and
+// only the legacy GPT-4o provenance path uses these rects via
+// snapApplicationProvenance / synthesizeApplicationProvenance below.

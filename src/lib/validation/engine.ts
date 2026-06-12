@@ -73,21 +73,30 @@ function runRulesInternal(extracted: ExtractedFields): {
  * `uncertain` rules do NOT trip the verdict (preserves existing behavior).
  */
 export function runVerification(
-  application: Application,
+  application: Application | undefined,
   extracted: ExtractedFields,
   provenance: ProvenanceMap = {},
   extractedForm?: ExtractedApplicationForm,
   bboxes?: import('../extraction/types').FieldBboxes,
+  pages?: Array<{ pageNumber: number; kind: string }>,
 ): VerificationReport {
-  const crossCheck: CrossCheckReport = runCrossCheck(application, extracted);
+  // Phase A sync path: form OCR runs async, so `application` is undefined.
+  // Skip cross-check entirely — Phase B patches it in once the form data
+  // lands. The verdict is computed from the 6 label rules alone; a later
+  // cross-check mismatch can downgrade compliant → needs_review during the
+  // patch but never reverses non_compliant (GW failure is sticky).
+  const crossCheck: CrossCheckReport | undefined = application
+    ? runCrossCheck(application, extracted)
+    : undefined;
   const { fields, anyFailOrWarn } = runRulesInternal(extracted);
 
   const govWarningFailed = fields['governmentWarning']?.status === 'fail';
+  const crossCheckMismatch = crossCheck?.overallStatus === 'mismatch';
 
   let overallStatus: VerificationReport['overallStatus'];
   if (govWarningFailed) {
     overallStatus = 'non_compliant';
-  } else if (crossCheck.overallStatus === 'mismatch' || anyFailOrWarn) {
+  } else if (crossCheckMismatch || anyFailOrWarn) {
     overallStatus = 'needs_review';
   } else {
     overallStatus = 'compliant';
@@ -99,8 +108,11 @@ export function runVerification(
     fields,
     provenance,
     bboxes,
-    extractedForm: extractedForm ?? extractedFormFromApplication(application),
+    extractedForm:
+      extractedForm ??
+      (application ? extractedFormFromApplication(application) : blankExtractedForm()),
     extractedLabel: extracted,
+    pages,
   };
 }
 

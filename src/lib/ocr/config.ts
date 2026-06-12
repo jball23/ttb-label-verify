@@ -55,8 +55,21 @@ export const FORM_LANDMARKS: readonly FormLandmark[] = [
   { field: 'application.plantRegistryNumber', marker: 'PLANT REGISTRY', valueDirection: 'below' },
   // Item 4 — Serial Number
   { field: 'application.serialNumber', marker: 'SERIAL NUMBER', valueDirection: 'below' },
-  // Item 5 — Type of Product
-  { field: 'application.productType', marker: 'TYPE OF PRODUCT', valueDirection: 'below' },
+  // Item 5 — Type of Product (checkbox row — "Wine  Distilled Spirits  Malt
+  // Beverages" laid out horizontally across the page; the value-collection
+  // window needs to be wide enough to capture all three so the
+  // ambiguity-rejection in inferProductFamily can kick in. The default 250px
+  // window would only catch "Wine" → false-confidently mis-classifies.
+  { field: 'application.productType', marker: 'TYPE OF PRODUCT', valueDirection: 'below', maxDistancePx: 900 },
+  // Item 6a — Class/Type Description (more specific product-type signal; e.g.
+  // "DESSERT WINE", "STRAIGHT BOURBON WHISKEY", "INDIA PALE ALE"). Two
+  // markers because Tesseract tokenizes "CLASS/TYPE" inconsistently — some
+  // forms surface it as one word ("class/type"), others split on the slash
+  // into two words. Both variants land here; first match wins per assigner.
+  // The description can wrap to a second line on dense forms, so the
+  // collection window is wider than the column-style default too.
+  { field: 'application.productType', marker: 'CLASS/TYPE', valueDirection: 'below', maxDistancePx: 600 },
+  { field: 'application.productType', marker: 'CLASS TYPE', valueDirection: 'below', maxDistancePx: 600 },
   // Item 6 — Brand Name (verdict-critical via cross-check)
   { field: 'application.brandName', marker: 'BRAND NAME', valueDirection: 'below' },
   // Item 7 — Fanciful Name
@@ -95,16 +108,38 @@ export const LABEL_PATTERNS: ReadonlyArray<{
   field: FieldPath;
   pattern: RegExp;
 }> = [
-  // ABV — supports "12.6%", "12.6% ABV", "12.6% BY VOL.", "(80 PROOF)", etc.
-  { field: 'label.abv', pattern: /\b\d{1,2}(?:\.\d{1,2})?\s*%/ },
+  // ABV — order matters: more-specific patterns FIRST so the bare "%"
+  // fallback can't capture an unrelated percentage on the front label
+  // ("20% FILL", "25% OFF", etc.) before the ALC-context one fires on
+  // the back. The pattern loop is restructured pattern-first / page-second
+  // in tesseract-extractor.ts so the priorities here are honored across
+  // the full page set.
+  { field: 'label.abv', pattern: /\b\d{1,2}(?:\.\d{1,2})?\s*%\s*(?:abv|alc|by\s*vol|vol)\b/i },
+  { field: 'label.abv', pattern: /\balc\.?\s*\d{1,2}(?:\.\d{1,2})?\s*%/i },
   { field: 'label.abv', pattern: /\(\s*\d{1,3}\s+proof\s*\)/i },
+  // Last-resort bare percentage. Front-label-only `%` text (FILL volumes,
+  // marketing splashes) can capture here; protected by pattern-first
+  // ordering above.
+  { field: 'label.abv', pattern: /\b\d{1,2}(?:\.\d{1,2})?\s*%/ },
   // Net contents — mL, L, fl oz, gal (per the existing net-contents rule)
   { field: 'label.netContents', pattern: /\b\d+(?:\.\d+)?\s*(?:m?l|fl\.?\s*oz|gal)\b/i },
-  // Producer — "Produced by", "Bottled by", "Distilled by", "Imported by"
+  // Producer — "Produced by", "Bottled by", "Distilled by", "Imported by",
+  // "Brewed by", optionally "Produced and Bottled by". The capture extends
+  // through the proper-noun producer name and any city/state suffix (e.g.
+  // "Brewed by Twelve Percent, Westminster, MD"). Non-greedy with a
+  // structural lookahead: stops at the next OCR neighbor that signals a
+  // different field — Government Warning, net contents, ABV, country of
+  // origin, etc. — or at end-of-input. Without the extended capture the
+  // bbox would highlight just the verb header ("Brewed by") and the rule
+  // would report the producer field as empty.
   {
     field: 'label.producer',
-    pattern: /\b(?:produced|bottled|distilled|imported|brewed|vinified)\s+(?:and\s+\w+\s+)?by[: ]/i,
+    pattern: /\b(?:produced|bottled|distilled|imported|brewed|vinified)(?:\s+and\s+\w+)?\s+by\s*:?\s*[A-Z][A-Za-z0-9'.,&\-\s]{2,120}?(?=\s+(?:government|contains|net\s+content|alc\.?|vol\.?|product\s+of|caution|©|approved|class\/type|item\s+\d+)|\s*$)/i,
   },
-  // Country of origin — "Product of {country}"
-  { field: 'label.countryOfOrigin', pattern: /\bproduct\s+of\s+\S+/i },
+  // Country of origin — "Product of {country}" with multi-word capture for
+  // "PRODUCT OF NEW ZEALAND", "PRODUCT OF SOUTH AFRICA", etc. The capture
+  // intentionally extends through interior whitespace, periods, and commas
+  // so phrases like "PRODUCT OF U.S.A." or "PRODUCT OF FRANCE." land cleanly.
+  { field: 'label.countryOfOrigin', pattern: /\bproduct\s+of\s+([a-z][a-z.,\s'-]{2,40}?)(?=\s*(?:\b(?:contains|net|alc|bottled|imported|distilled|produced|address|gov)\b|$|\.))/i },
+  { field: 'label.countryOfOrigin', pattern: /\bproduct\s+of\s+([a-z][a-z.,\s'-]{2,30})/i },
 ];

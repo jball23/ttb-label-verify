@@ -1,14 +1,24 @@
 /**
- * Tesseract.js worker — server-side, lazy + module-cached (KD7).
+ * Tesseract.js worker pool — server-side, lazy + module-cached.
  *
- * Exposes one function: `getWorker()` returns a ready-to-use Tesseract worker.
- * The worker is created on first call and reused for every subsequent call in
- * the same Node process. Vercel reuses warm lambdas across requests, so cold
- * starts pay the ~500ms `eng.traineddata` load once and warm requests pay
- * nothing.
+ * Exposes `runOcr(png)` (page-level recognise) and `getWorker()` (raw worker
+ * handle, used by tests). Both are backed by a fixed-size pool of N Tesseract
+ * workers; pool size defaults to 2 (Phase A — parallel label OCR). Workers
+ * are created lazily on first acquire, so a single-page request still pays
+ * one cold start, not N. Vercel reuses warm lambdas across requests, so warm
+ * pages pay nothing.
  *
- * **Path resolution** — Tesseract.js needs to locate four runtime artifacts:
- * the WASM binary + its JS wrapper, the worker-thread entrypoint, and the
+ * Concurrency model:
+ *   - Each `runOcr` call ACQUIRES a free worker, runs `recognize()`, then
+ *     RELEASES the slot. Up to POOL_SIZE recognises run in parallel.
+ *   - A separate caller using `getWorker()` (tests only) always gets slot 0's
+ *     worker — identity-stable so the "concurrent callers see the same
+ *     instance" expectation still holds.
+ *   - Excess `runOcr` callers wait on a FIFO waiter queue and wake when a
+ *     slot frees.
+ *
+ * **Path resolution** — Tesseract.js needs four runtime artifacts: the WASM
+ * binary + its JS wrapper, the worker-thread entrypoint, and the
  * `eng.traineddata` language file. Webpack's static analyzer rewrites
  * `createRequire().resolve()` and similar lookups into webpack module IDs at
  * build time, which then fail when handed to `fs.readFile`. We compute paths
@@ -17,8 +27,7 @@
  * computed paths either, so `next.config.mjs.outputFileTracingIncludes`
  * force-includes the file list with the `/api/verify` lambda.
  *
- * Plan unit: U3.
- * Plan KDs: KD7 (lazy + cached, single worker, sequential OCR).
+ * Plan unit: U3 (single-worker original) + Phase A (pool extension).
  */
 import path from 'node:path';
 import { createWorker, type Worker } from 'tesseract.js';
@@ -41,39 +50,99 @@ const WORKER_SCRIPT_PATH = path.join(
   'index.js',
 );
 
-let cachedWorker: Promise<Worker> | null = null;
+// Default to 2. Tesseract.js workers are single-threaded internally — a worker
+// recognise() blocks the worker until it finishes — so parallel OCR requires
+// distinct worker instances. Two is enough to overlap the 3–4 label pages a
+// typical COLA carries against the form page's render+decode while staying
+// well within Vercel's 1 GB lambda memory floor (one warm worker ≈ 50 MB
+// trained-data + WASM heap).
+const POOL_SIZE = Number(process.env.OCR_POOL_SIZE ?? 2);
 
-/**
- * Returns a Tesseract worker initialised with the English language data.
- * The worker is created on first call and reused across all subsequent calls
- * in the lifetime of the Node process.
- *
- * Concurrent callers receive the same in-flight init promise (no duplicate
- * `createWorker` calls under load).
- */
-export function getWorker(): Promise<Worker> {
-  if (!cachedWorker) {
-    cachedWorker = createWorker('eng', undefined, {
-      langPath: TESSDATA_PATH,
-      corePath: TESSERACT_CORE_PATH,
-      workerPath: WORKER_SCRIPT_PATH,
-      gzip: false, // tessdata/eng.traineddata is the raw uncompressed file
-      // Silence verbose recognize progress; callers can wire a logger if needed.
-      logger: () => {},
-    }).catch((err: unknown) => {
-      // If init fails, clear the cache so the next request can retry.
-      cachedWorker = null;
-      throw err;
-    });
-  }
-  return cachedWorker;
+interface Slot {
+  promise: Promise<Worker> | null;
+  busy: boolean;
+}
+
+const pool: Slot[] = Array.from({ length: POOL_SIZE }, () => ({
+  promise: null,
+  busy: false,
+}));
+const waiters: Array<() => void> = [];
+
+function initSlot(slot: Slot): Promise<Worker> {
+  if (slot.promise) return slot.promise;
+  slot.promise = createWorker('eng', undefined, {
+    langPath: TESSDATA_PATH,
+    corePath: TESSERACT_CORE_PATH,
+    workerPath: WORKER_SCRIPT_PATH,
+    gzip: false, // tessdata/eng.traineddata is the raw uncompressed file
+    logger: () => {},
+  }).catch((err: unknown) => {
+    slot.promise = null;
+    throw err;
+  });
+  return slot.promise;
+}
+
+function notifyWaiter(): void {
+  const next = waiters.shift();
+  if (next) next();
 }
 
 /**
- * Test-only — reset the cached worker so each test case starts fresh.
+ * Acquire a worker from the pool. The returned `release()` MUST be called
+ * once recognise() resolves so the slot can serve the next caller. The
+ * acquire/release dance is wrapped in a try/finally inside `runOcr`; callers
+ * outside this module shouldn't drive it directly.
+ *
+ * Find + busy-set happens in one synchronous tick so two simultaneous acquires
+ * can't both claim the same slot. The waiter queue is FIFO — strictly one
+ * waiter wakes per release, so the queue can't double-serve.
+ */
+async function acquire(): Promise<{ worker: Worker; release: () => void }> {
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const slot = pool.find((s) => !s.busy);
+    if (slot) {
+      slot.busy = true;
+      try {
+        const worker = await initSlot(slot);
+        return {
+          worker,
+          release: () => {
+            slot.busy = false;
+            notifyWaiter();
+          },
+        };
+      } catch (err) {
+        slot.busy = false;
+        notifyWaiter();
+        throw err;
+      }
+    }
+    await new Promise<void>((resolve) => waiters.push(resolve));
+  }
+}
+
+/**
+ * Returns slot 0's worker instance. Used by tests for the
+ * "concurrent callers receive the same instance" expectation, and as a
+ * shutdown handle for `afterAll(() => worker.terminate())`. Production code
+ * should call `runOcr` instead — that path uses the full pool.
+ */
+export function getWorker(): Promise<Worker> {
+  return initSlot(pool[0]!);
+}
+
+/**
+ * Test-only — clear every slot so each test case starts cold.
  */
 export function resetWorkerForTesting(): void {
-  cachedWorker = null;
+  for (const s of pool) {
+    s.promise = null;
+    s.busy = false;
+  }
+  waiters.length = 0;
 }
 
 export interface WordRect {
@@ -100,33 +169,37 @@ export interface OcrPageResult {
  * and would leave every word's bbox unavailable. Confirmed in the U2 spike.
  */
 export async function runOcr(png: Buffer | Uint8Array): Promise<OcrPageResult> {
-  const worker = await getWorker();
+  const { worker, release } = await acquire();
   const start = Date.now();
-  const result = await worker.recognize(
-    Buffer.isBuffer(png) ? png : Buffer.from(png),
-    {},
-    { blocks: true, text: true },
-  );
-  const ocrLatencyMs = Date.now() - start;
+  try {
+    const result = await worker.recognize(
+      Buffer.isBuffer(png) ? png : Buffer.from(png),
+      {},
+      { blocks: true, text: true },
+    );
+    const ocrLatencyMs = Date.now() - start;
 
-  const blocks = result.data.blocks ?? [];
-  const words: WordRect[] = [];
-  for (const block of blocks) {
-    for (const para of block.paragraphs ?? []) {
-      for (const line of para.lines ?? []) {
-        for (const word of line.words ?? []) {
-          words.push({
-            text: word.text,
-            confidence: word.confidence,
-            bbox: word.bbox,
-          });
+    const blocks = result.data.blocks ?? [];
+    const words: WordRect[] = [];
+    for (const block of blocks) {
+      for (const para of block.paragraphs ?? []) {
+        for (const line of para.lines ?? []) {
+          for (const word of line.words ?? []) {
+            words.push({
+              text: word.text,
+              confidence: word.confidence,
+              bbox: word.bbox,
+            });
+          }
         }
       }
     }
+    const meanConfidence =
+      words.length === 0
+        ? 0
+        : Math.round(words.reduce((a, w) => a + w.confidence, 0) / words.length);
+    return { words, meanConfidence, ocrLatencyMs };
+  } finally {
+    release();
   }
-  const meanConfidence =
-    words.length === 0
-      ? 0
-      : Math.round(words.reduce((a, w) => a + w.confidence, 0) / words.length);
-  return { words, meanConfidence, ocrLatencyMs };
 }

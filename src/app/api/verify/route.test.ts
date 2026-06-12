@@ -181,7 +181,7 @@ describe('POST /api/verify', () => {
     expect(body.error).toMatch(/empty/i);
   });
 
-  it('streams one ok line with cross-check and provenance for a valid PDF', async () => {
+  it('streams one ok line with label-only verdict for a valid PDF (Phase A sync path)', async () => {
     mockHappyPath();
     const { POST } = await import('./route');
     const res = await POST(fakeRequest(buildFormData(makePdfFile())) as never);
@@ -191,9 +191,12 @@ describe('POST /api/verify', () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]?.status).toBe('ok');
     if (lines[0]?.status === 'ok') {
+      // Sync path returns the label-only verdict (compliant — all 6 rules
+      // pass against the canonical Ridge Creek extraction). Cross-check is
+      // intentionally absent — Phase B's patch endpoint fills it in once
+      // form OCR completes async.
       expect(lines[0].report.overallStatus).toBe('compliant');
-      expect(lines[0].report.crossCheck.overallStatus).toBe('match');
-      expect(lines[0].report.crossCheck.fields.brandName?.status).toBe('match');
+      expect(lines[0].report.crossCheck).toBeUndefined();
       expect(Object.keys(lines[0].report.provenance).length).toBeGreaterThan(0);
     }
   });

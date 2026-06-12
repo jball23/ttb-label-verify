@@ -91,11 +91,14 @@ describe('ResultLineSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects an ok line missing crossCheck', () => {
+  it('accepts an ok line without crossCheck (Phase A sync path)', () => {
+    // Phase A: the sync verify path skips form-side OCR, so crossCheck is
+    // absent until Phase B's patch endpoint fills it in. The wire schema
+    // accepts both shapes — present (patched / legacy) and absent (sync).
     const line = validOkLine();
     delete (line as { report: { crossCheck?: unknown } }).report.crossCheck;
     const result = ResultLineSchema.safeParse(line);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('rejects crossCheck.overallStatus outside the enum', () => {

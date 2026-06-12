@@ -286,18 +286,40 @@ function pickPagesToRender(classes: PageClassification[]): Array<{
   const selected = new Map<number, RenderedPageKind>();
   selected.set(formPage.pageNumber, 'form');
 
-  // Step 2 — Front/Back marker resolution. Walk pages in PDF order; for each
-  // marker hit, tag the next page as the corresponding artwork kind.
+  // Step 2 — Front/Back marker resolution. TTB COLA Online exports come in
+  // two layouts:
+  //
+  //   Layout A (Bouchard, Chacewater, older exports): caption marker on
+  //     page N is a header on a chrome-only page; the actual label artwork
+  //     is on the next page N+1. Marker page has 0 image ops.
+  //
+  //   Layout B (Vina La Rosa and many real exports): caption marker, the
+  //     image, and possibly the next caption are ALL on the same page N.
+  //     Marker page has 1+ image ops. The marker page IS the artwork —
+  //     the next caption + next image continue on N+1.
+  //
+  // Distinguishing by `hasImageContent`: marker page with image content →
+  // Layout B (this page is artwork). Marker page with no image → Layout A
+  // (next page is artwork). Misclassifying Layout B as A swaps front/back
+  // (Vina La Rosa bug: page 2 = front, page 3 = back, but classifier said
+  // page 2 = back, page 3 = front).
   for (const c of classes) {
     if (c.frontMarkerHits > 0) {
-      const target = c.pageNumber + 1 <= lastPageNumber ? c.pageNumber + 1 : c.pageNumber;
+      const target = c.hasImageContent
+        ? c.pageNumber
+        : c.pageNumber + 1 <= lastPageNumber
+          ? c.pageNumber + 1
+          : c.pageNumber;
       assignArtwork(selected, target, formPage.pageNumber, 'label-front');
     }
     if (c.backMarkerHits > 0) {
-      // If front and back markers share a page, the front already claimed
-      // c.pageNumber + 1 — give back the page after that.
-      let target = c.pageNumber + 1;
-      if (selected.get(target) === 'label-front' || selected.get(target) === 'form+label-front') {
+      // Same Layout A/B split. If the front already claimed the target
+      // page, back falls through to the next page.
+      let target = c.hasImageContent ? c.pageNumber : c.pageNumber + 1;
+      if (
+        selected.get(target) === 'label-front' ||
+        selected.get(target) === 'form+label-front'
+      ) {
         target = target + 1;
       }
       if (target > lastPageNumber) target = c.pageNumber;
