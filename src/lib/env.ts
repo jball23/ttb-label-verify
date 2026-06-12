@@ -15,10 +15,6 @@ const baseSchema = z.object({
   AZURE_OPENAI_ENDPOINT: z.string().url().optional(),
   AZURE_OPENAI_API_KEY: z.string().optional(),
   AZURE_OPENAI_DEPLOYMENT: z.string().optional(),
-  DEMO_PASSWORD: z.string().min(1, 'DEMO_PASSWORD is required'),
-  DEMO_PASSWORD_COOKIE_SECRET: z
-    .string()
-    .min(16, 'DEMO_PASSWORD_COOKIE_SECRET must be at least 16 characters'),
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
   LANGFUSE_SECRET_KEY: z.string().optional(),
   LANGFUSE_HOST: z.string().url().optional(),

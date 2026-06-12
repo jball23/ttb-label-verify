@@ -33,7 +33,7 @@ git clone <repo-url>
 cd ttb-label-verify
 npm install
 cp .env.example .env.local
-# Edit .env.local: OPENAI_API_KEY, DEMO_PASSWORD, DEMO_PASSWORD_COOKIE_SECRET (32+ chars)
+# Edit .env.local: OPENAI_API_KEY (DATABASE_URL optional)
 npm run dev
 ```
 
@@ -53,7 +53,7 @@ Open <http://localhost:3000>.
 
 ### Demo
 
-The app is gated by a shared password. On first visit you'll be redirected to `/login`. After authenticating, **pick one of the 5 demo scenarios** from the dropdown or drop a COLA PDF. Then click **Verify**.
+**Pick one of the 5 demo scenarios** from the dropdown or drop a COLA PDF. Then click **Verify**.
 
 Five scenarios ship under `public/samples/applications/`:
 

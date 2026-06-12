@@ -17,8 +17,6 @@ import { type ExtractedDocument } from '@/lib/extraction/types';
 const ORIGINAL_ENV = { ...process.env };
 
 function setEnv(): void {
-  process.env.DEMO_PASSWORD = 'pw';
-  process.env.DEMO_PASSWORD_COOKIE_SECRET = 'a'.repeat(32);
   process.env.LABEL_EXTRACTOR = 'openai';
   process.env.OPENAI_API_KEY = 'sk-test';
   // Default flipped to 'false' app-wide; this truth-table asserts the bbox=on

@@ -27,11 +27,7 @@ function setEnv(vars: Record<string, string | undefined>): void {
 
 describe('observability/langfuse', () => {
   beforeEach(() => {
-    setEnv({
-      DEMO_PASSWORD: 'pw',
-      DEMO_PASSWORD_COOKIE_SECRET: 'a'.repeat(32),
-      OPENAI_API_KEY: 'sk-test',
-    });
+    setEnv({ OPENAI_API_KEY: 'sk-test' });
   });
 
   afterEach(() => {
@@ -52,8 +48,6 @@ describe('observability/langfuse', () => {
 
   it('getLangfuseClient returns a client when all keys are set', () => {
     setEnv({
-      DEMO_PASSWORD: 'pw',
-      DEMO_PASSWORD_COOKIE_SECRET: 'a'.repeat(32),
       OPENAI_API_KEY: 'sk-test',
       LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
       LANGFUSE_SECRET_KEY: 'sk-lf-test',
@@ -65,8 +59,6 @@ describe('observability/langfuse', () => {
 
   it('getObservedOpenAI returns a usable client when Langfuse keys are set', () => {
     setEnv({
-      DEMO_PASSWORD: 'pw',
-      DEMO_PASSWORD_COOKIE_SECRET: 'a'.repeat(32),
       OPENAI_API_KEY: 'sk-test',
       LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
       LANGFUSE_SECRET_KEY: 'sk-lf-test',
@@ -79,11 +71,7 @@ describe('observability/langfuse', () => {
 
 describe('observability/spans', () => {
   beforeEach(() => {
-    setEnv({
-      DEMO_PASSWORD: 'pw',
-      DEMO_PASSWORD_COOKIE_SECRET: 'a'.repeat(32),
-      OPENAI_API_KEY: 'sk-test',
-    });
+    setEnv({ OPENAI_API_KEY: 'sk-test' });
   });
 
   afterEach(() => {
