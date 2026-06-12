@@ -72,22 +72,16 @@ export class TesseractExtractor implements DocumentExtractor {
   }
 
   /**
-   * Legacy `DocumentExtractor` signature — used until U4 step 3 broadens the
-   * interface. Without page kinds, we assume page 1 is form and any other
-   * pages are label-back (matches the single-page synthetic-fixture path).
+   * Extract from a set of rendered pages with their classifier-emitted kinds.
+   * U4 step 3 broadened DocumentExtractor.extract to take RenderedPage-shaped
+   * input so kinds flow through to the field assigners.
    */
-  async extract(pngBuffers: Buffer[]): Promise<ExtractedDocument> {
-    const pages: RenderedPage[] = pngBuffers.map((png, i) => ({
-      pageNumber: i + 1,
-      kind: i === 0 && pngBuffers.length === 1 ? 'form+label-front' : i === 0 ? 'form' : 'label-back',
-      png,
-    }));
-    return this.extractFromPages(pages);
+  async extract(pages: { pageNumber: number; kind: string; png: Buffer }[]): Promise<ExtractedDocument> {
+    return this.extractFromPages(pages as RenderedPage[]);
   }
 
   /**
-   * Preferred entry point — takes pages with their classifier-emitted kinds
-   * so the assigners route to the right page set.
+   * Internal entry point retained for direct tests that wire arbitrary pages.
    */
   async extractFromPages(pages: RenderedPage[]): Promise<ExtractedDocument> {
     if (pages.length === 0) {

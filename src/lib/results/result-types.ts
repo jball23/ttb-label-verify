@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   ExtractedApplicationFormSchema,
   ExtractedFieldsSchema,
+  FieldBboxesSchema,
   ProvenanceMapSchema,
 } from '../extraction/types';
 
@@ -52,7 +53,10 @@ const VerificationReportSchema = z.object({
   overallStatus: z.enum(['compliant', 'needs_review', 'non_compliant']),
   crossCheck: CrossCheckReportSchema,
   fields: z.record(z.string(), RuleResultSchema),
+  /** Legacy GPT-4o provenance map. Always `{}` under the Tesseract pipeline. */
   provenance: ProvenanceMapSchema,
+  /** U4 / KD2 — per-field WordRect sidecar from the Tesseract pipeline. */
+  bboxes: FieldBboxesSchema.optional(),
   extractedForm: ExtractedApplicationFormSchema,
   extractedLabel: ExtractedFieldsSchema,
 });

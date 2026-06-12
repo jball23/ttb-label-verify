@@ -11,9 +11,9 @@ describe('parseEnv', () => {
     expect(env.OPENAI_API_KEY).toBe('sk-test');
   });
 
-  it('defaults LABEL_EXTRACTOR to openai when unset', () => {
+  it('defaults LABEL_EXTRACTOR to tesseract when unset (post-U4)', () => {
     const env = parseEnv({ OPENAI_API_KEY: 'sk-test' });
-    expect(env.LABEL_EXTRACTOR).toBe('openai');
+    expect(env.LABEL_EXTRACTOR).toBe('tesseract');
   });
 
   it('throws when OPENAI_API_KEY is missing for openai extractor', () => {

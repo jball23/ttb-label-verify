@@ -96,7 +96,9 @@ async function captureOne(extractor: ReturnType<typeof getExtractor>, pdfPath: s
   let extraction: ExtractedDocument | undefined;
   let errorMessage: string | undefined;
   try {
-    extraction = await extractor.extract(pages.map((p) => p.png));
+    extraction = await extractor.extract(
+      pages.map((p) => ({ pageNumber: p.pageNumber, kind: p.kind, png: p.png })),
+    );
   } catch (e) {
     errorMessage = `Extract failed: ${(e as Error).message}`;
   }

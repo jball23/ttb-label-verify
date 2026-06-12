@@ -204,13 +204,28 @@ export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
 // The provider abstraction the verify route depends on. The input is the set
 // of rendered pages the verifier needs (form fields + label artwork); for a
 // single-page fixture that's one PNG, for a real TTB COLA Online export it
-// can be two or more. The response still carries one application + label +
-// provenance — the model is expected to find each field wherever it appears
-// across the supplied pages.
+// can be two or more. Each page carries its renderer-emitted kind
+// ('form' | 'label-front' | 'label-back' | ...) so the Tesseract extractor
+// can route field assignment to the right page set without re-classifying.
+//
+// The response still carries one application + label + (optional) bboxes —
+// the extractor is expected to find each field wherever it appears across
+// the supplied pages.
 export interface DocumentExtractor {
   readonly providerName: string;
   readonly modelId: string;
-  extract(pngBuffers: Buffer[]): Promise<ExtractedDocument>;
+  extract(pages: ExtractorPage[]): Promise<ExtractedDocument>;
+}
+
+/**
+ * Minimal page descriptor passed to the extractor. Structurally compatible
+ * with `RenderedPage` from `../pdf/render`, but typed here to avoid a circular
+ * import from extraction → pdf → extraction.
+ */
+export interface ExtractorPage {
+  pageNumber: number;
+  kind: string;
+  png: Buffer;
 }
 
 // Kept as an alias so legacy imports that referenced LabelExtractor compile.

@@ -12,6 +12,13 @@ export const PROMPT_VERSION = '2026-06-11.v7';
 // conflating runs with and without bbox output.
 export const PROMPT_VERSION_NO_PROVENANCE = '2026-06-11.v7-nobbox';
 
+/**
+ * Audit-trail version for the U4 single-field VLM fallback (KD3 path). Each
+ * persisted application records `promptVersion`; bumping when the fallback
+ * prompt changes keeps trace-level replay coherent across the cutover.
+ */
+export const PROMPT_VERSION_TESSERACT_FALLBACK_V1 = '2026-06-11.v8-tesseract-fallback';
+
 export function getPromptVersion(includeProvenance: boolean): string {
   return includeProvenance ? PROMPT_VERSION : PROMPT_VERSION_NO_PROVENANCE;
 }

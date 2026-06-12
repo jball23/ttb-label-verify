@@ -77,6 +77,7 @@ export function runVerification(
   extracted: ExtractedFields,
   provenance: ProvenanceMap = {},
   extractedForm?: ExtractedApplicationForm,
+  bboxes?: import('../extraction/types').FieldBboxes,
 ): VerificationReport {
   const crossCheck: CrossCheckReport = runCrossCheck(application, extracted);
   const { fields, anyFailOrWarn } = runRulesInternal(extracted);
@@ -97,6 +98,7 @@ export function runVerification(
     crossCheck,
     fields,
     provenance,
+    bboxes,
     extractedForm: extractedForm ?? extractedFormFromApplication(application),
     extractedLabel: extracted,
   };

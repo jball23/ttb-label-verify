@@ -10,7 +10,9 @@ import { z } from 'zod';
  */
 
 const baseSchema = z.object({
-  LABEL_EXTRACTOR: z.enum(['openai', 'azure-openai']).default('openai'),
+  LABEL_EXTRACTOR: z
+    .enum(['openai', 'azure-openai', 'tesseract'])
+    .default('tesseract'),
   OPENAI_API_KEY: z.string().optional(),
   AZURE_OPENAI_ENDPOINT: z.string().url().optional(),
   AZURE_OPENAI_API_KEY: z.string().optional(),

@@ -129,7 +129,11 @@ export async function POST(req: NextRequest): Promise<Response> {
                 byteSize: totalPngBytes,
                 imageSha256: pdfSha,
               },
-              () => extractor.extract(pngBuffers),
+              () => extractor.extract(renderedPages.map((p) => ({
+                pageNumber: p.pageNumber,
+                kind: p.kind,
+                png: p.png,
+              }))),
             );
             mark('llm', llmStart);
 
@@ -147,6 +151,7 @@ export async function POST(req: NextRequest): Promise<Response> {
               extracted.label,
               provenance,
               extracted.application,
+              extracted.bboxes,
             );
 
             const latencyMs = Date.now() - start;

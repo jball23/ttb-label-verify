@@ -1,6 +1,7 @@
 import {
   type ExtractedApplicationForm,
   type ExtractedFields,
+  type FieldBboxes,
   type ProvenanceMap,
 } from '../extraction/types';
 import { type CrossCheckReport } from '../cross-check/types';
@@ -39,7 +40,18 @@ export interface VerificationReport {
   overallStatus: OverallStatus;
   crossCheck: CrossCheckReport;
   fields: Record<string, RuleResult>;
+  /**
+   * Legacy normalized 0-1 bboxes from the GPT-4o provenance code path.
+   * Always empty `{}` under the Tesseract pipeline. Detail view uses
+   * `bboxes` instead — see KD9 for the loader's shape-detection logic.
+   */
   provenance: ProvenanceMap;
+  /**
+   * U4 / KD2: per-field pixel-space WordRect lists. Optional during
+   * the U4 cascade — archived rows without this key fall back to
+   * read-only rendering (KD9).
+   */
+  bboxes?: FieldBboxes;
   /**
    * The bare extracted application form. Surfaces every form field the model
    * read so the UI can list them all (not just the cross-check subset).
