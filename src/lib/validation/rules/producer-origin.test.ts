@@ -24,26 +24,26 @@ describe('producer-origin rule', () => {
     ).toBe('pass');
   });
 
-  it('fails with country-missing reason when only producer is present', () => {
+  it('warns with country-missing reason when only producer is present', () => {
     const result = producerOriginRule.check(fields('Wild Acre Distillery', null));
-    expect(result.status).toBe('fail');
+    expect(result.status).toBe('warn');
     expect(result.reason).toMatch(/country/i);
   });
 
-  it('fails with producer-missing reason when only country is present', () => {
+  it('warns with producer-missing reason when only country is present', () => {
     const result = producerOriginRule.check(fields(null, 'USA'));
-    expect(result.status).toBe('fail');
+    expect(result.status).toBe('warn');
     expect(result.reason).toMatch(/producer/i);
   });
 
-  it('fails when both are missing', () => {
+  it('warns when both are missing', () => {
     const result = producerOriginRule.check(fields(null, null));
-    expect(result.status).toBe('fail');
+    expect(result.status).toBe('warn');
     expect(result.reason).toMatch(/producer.*country|both/i);
   });
 
-  it('fails when either is empty string', () => {
-    expect(producerOriginRule.check(fields('', 'USA')).status).toBe('fail');
-    expect(producerOriginRule.check(fields('Wild Acre', '')).status).toBe('fail');
+  it('warns when either is empty string', () => {
+    expect(producerOriginRule.check(fields('', 'USA')).status).toBe('warn');
+    expect(producerOriginRule.check(fields('Wild Acre', '')).status).toBe('warn');
   });
 });

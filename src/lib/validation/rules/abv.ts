@@ -34,7 +34,7 @@ const abvRule: Rule = {
     const value = extracted.abv;
     if (!value) {
       return {
-        status: 'fail',
+        status: 'warn',
         reason: 'Alcohol content (ABV) not detected on the label.',
         extractedValue: null,
       };
@@ -50,7 +50,7 @@ const abvRule: Rule = {
       return { status: 'pass', extractedValue: value };
     }
     return {
-      status: 'fail',
+      status: 'warn',
       reason:
         'Alcohol content is present but not in a recognized format (expected a percentage or proof value).',
       extractedValue: value,

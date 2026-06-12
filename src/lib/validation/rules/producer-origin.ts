@@ -23,21 +23,21 @@ const producerOriginRule: Rule = {
 
     if (!hasProducer && !hasCountry) {
       return {
-        status: 'fail',
+        status: 'warn',
         reason: 'Both producer and country of origin are missing from the label.',
         extractedValue: display,
       };
     }
     if (!hasProducer) {
       return {
-        status: 'fail',
+        status: 'warn',
         reason: 'Producer information is missing from the label.',
         extractedValue: display,
       };
     }
     if (!hasCountry) {
       return {
-        status: 'fail',
+        status: 'warn',
         reason: 'Country of origin is missing from the label.',
         extractedValue: display,
       };

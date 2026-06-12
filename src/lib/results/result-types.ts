@@ -14,7 +14,7 @@ import {
  */
 
 const RuleResultSchema = z.object({
-  status: z.enum(['pass', 'fail', 'uncertain']),
+  status: z.enum(['pass', 'warn', 'fail', 'uncertain']),
   reason: z.string().optional(),
   extractedValue: z.string().nullable().optional(),
 });

@@ -24,17 +24,17 @@ describe('net-contents rule', () => {
     },
   );
 
-  it('fails when null', () => {
+  it('warns when null', () => {
     const result = netContentsRule.check(fields(null));
-    expect(result.status).toBe('fail');
+    expect(result.status).toBe('warn');
     expect(result.reason).toMatch(/not detected|missing/i);
   });
 
   it.each(['big bottle', 'large', '12 servings', '750'])(
-    'fails on invalid: %s',
+    'warns on unrecognized format: %s',
     (input) => {
       const result = netContentsRule.check(fields(input));
-      expect(result.status).toBe('fail');
+      expect(result.status).toBe('warn');
     },
   );
 });

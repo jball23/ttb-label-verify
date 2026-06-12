@@ -27,13 +27,13 @@ describe('class-type rule', () => {
     expect(classTypeRule.check(fields('BEER')).status).toBe('pass');
   });
 
-  it('fails when null', () => {
+  it('warns when null', () => {
     const result = classTypeRule.check(fields(null));
-    expect(result.status).toBe('fail');
+    expect(result.status).toBe('warn');
     expect(result.reason).toMatch(/class.*type|designation|fanciful/i);
   });
 
-  it('fails when empty string', () => {
-    expect(classTypeRule.check(fields('')).status).toBe('fail');
+  it('warns when empty string', () => {
+    expect(classTypeRule.check(fields('')).status).toBe('warn');
   });
 });

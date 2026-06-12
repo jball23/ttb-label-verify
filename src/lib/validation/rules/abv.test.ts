@@ -24,17 +24,17 @@ describe('abv rule', () => {
     },
   );
 
-  it('fails when abv is null', () => {
+  it('warns when abv is null', () => {
     const result = abvRule.check(fields(null));
-    expect(result.status).toBe('fail');
+    expect(result.status).toBe('warn');
     expect(result.reason).toMatch(/abv|alcohol/i);
   });
 
   it.each(['forty percent', 'spirits', 'strong'])(
-    'fails on non-numeric ABV: %s',
+    'warns on non-numeric ABV: %s',
     (input) => {
       const result = abvRule.check(fields(input));
-      expect(result.status).toBe('fail');
+      expect(result.status).toBe('warn');
       expect(result.reason).toMatch(/recognized format|format|percentage|proof/i);
     },
   );

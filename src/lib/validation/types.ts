@@ -5,7 +5,11 @@ import {
 } from '../extraction/types';
 import { type CrossCheckReport } from '../cross-check/types';
 
-export type FieldStatus = 'pass' | 'fail' | 'uncertain';
+// 'warn' is a soft failure that draws the reviewer's eye but does NOT route
+// to non_compliant — used for non-GW rule failures (format quirks, missing
+// brand, country phrasing, etc.). Only Government Warning emits 'fail', the
+// one rule whose failure auto-routes to the Rejected bucket.
+export type FieldStatus = 'pass' | 'warn' | 'fail' | 'uncertain';
 
 export interface RuleResult {
   status: FieldStatus;

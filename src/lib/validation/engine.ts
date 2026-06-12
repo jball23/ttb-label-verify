@@ -39,40 +39,36 @@ export const RULES: readonly Rule[] = [
  */
 function runRulesInternal(extracted: ExtractedFields): {
   fields: Record<string, ReturnType<Rule['check']>>;
-  anyFail: boolean;
+  anyFailOrWarn: boolean;
 } {
   const fields: Record<string, ReturnType<Rule['check']>> = {};
-  let anyFail = false;
+  let anyFailOrWarn = false;
   for (const rule of RULES) {
     const result = rule.check(extracted);
     fields[rule.id] = result;
-    if (result.status === 'fail') {
-      anyFail = true;
+    if (result.status === 'fail' || result.status === 'warn') {
+      anyFailOrWarn = true;
     }
   }
-  return { fields, anyFail };
+  return { fields, anyFailOrWarn };
 }
 
 /**
  * Full verification: cross-check (application vs label) + label-only rules.
  *
  * Verdict tiers (matching how TTB actually decides):
- *   - non_compliant: a critical compliance failure that a human reviewer
- *     would also fail. Currently means the Government Warning rule failed —
- *     the highest-stakes label requirement under 27 CFR §16.21. Per Jenny
- *     Park: "It has to be exact. Like, word-for-word..." Everything else
- *     requires judgment a human reviewer is expected to apply.
- *   - needs_review: any other rule failed (ABV format, brand presence,
- *     net contents, class-type, producer/origin) OR the cross-check
+ *   - non_compliant: a critical compliance failure that auto-routes to the
+ *     Rejected bucket. Only Government Warning failure qualifies — it is
+ *     the one rule that emits status: 'fail'.
+ *   - needs_review: any non-GW rule emitted 'warn' (format quirks, missing
+ *     brand, country phrasing, net-contents unit, etc.) OR the cross-check
  *     surfaced any difference between the application and the label. The
  *     reviewer should glance, but the default disposition is approve.
  *   - compliant: every rule passed and the cross-check is clean.
  *
- * Cross-check differences (brand-name drift, producer mismatch, country
- * phrasing, etc.) NEVER push the verdict past needs_review — TTB approves
- * plenty of labels with surface drift on either side (see the stakeholder
- * interviews on judgment calls like "STONE'S THROW" vs "Stone's Throw" or
- * importer-vs-producer).
+ * Cross-check differences and non-GW rule warnings NEVER push the verdict
+ * past needs_review — those rows land in the Approved bucket awaiting the
+ * reviewer's final call on Finalize.
  *
  * `uncertain` rules do NOT trip the verdict (preserves existing behavior).
  */
@@ -83,14 +79,14 @@ export function runVerification(
   extractedForm?: ExtractedApplicationForm,
 ): VerificationReport {
   const crossCheck: CrossCheckReport = runCrossCheck(application, extracted);
-  const { fields, anyFail } = runRulesInternal(extracted);
+  const { fields, anyFailOrWarn } = runRulesInternal(extracted);
 
   const govWarningFailed = fields['governmentWarning']?.status === 'fail';
 
   let overallStatus: VerificationReport['overallStatus'];
   if (govWarningFailed) {
     overallStatus = 'non_compliant';
-  } else if (crossCheck.overallStatus === 'mismatch' || anyFail) {
+  } else if (crossCheck.overallStatus === 'mismatch' || anyFailOrWarn) {
     overallStatus = 'needs_review';
   } else {
     overallStatus = 'compliant';
@@ -162,11 +158,11 @@ function extractedFormFromApplication(application: Application): ExtractedApplic
  * existing engine tests that pre-date the cross-check pivot.
  */
 export function runRules(extracted: ExtractedFields): VerificationReport {
-  const { fields, anyFail } = runRulesInternal(extracted);
+  const { fields, anyFailOrWarn } = runRulesInternal(extracted);
   const govWarningFailed = fields['governmentWarning']?.status === 'fail';
   const overallStatus: VerificationReport['overallStatus'] = govWarningFailed
     ? 'non_compliant'
-    : anyFail
+    : anyFailOrWarn
       ? 'needs_review'
       : 'compliant';
   return {

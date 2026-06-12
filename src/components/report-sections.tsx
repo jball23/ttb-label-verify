@@ -91,6 +91,7 @@ function statusToDotColor(status: FieldStatus | null): string {
       return 'bg-emerald-500';
     case 'fail':
       return 'bg-rose-500';
+    case 'warn':
     case 'uncertain':
       return 'bg-amber-500';
     default:
@@ -262,7 +263,7 @@ function SideRow({
       <span className="w-16 shrink-0 text-muted-foreground">{sideLabel}</span>
       <span className="truncate text-foreground/90">{value ?? '—'}</span>
       {provenanceEntry?.confidence === 'low' && (
-        <span className="ml-auto text-[10px] uppercase tracking-wide text-amber-600">
+        <span className="ml-auto text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
           Low
         </span>
       )}
@@ -370,11 +371,20 @@ export function RulesSection({
                     </p>
                   )}
                   {result?.reason && result.status !== 'pass' && (
-                    <p className="text-[11px] text-rose-600">{result.reason}</p>
+                    <p
+                      className={cn(
+                        'text-[11px]',
+                        result.status === 'fail'
+                          ? 'text-rose-600 dark:text-rose-400'
+                          : 'text-amber-600 dark:text-amber-400',
+                      )}
+                    >
+                      {result.reason}
+                    </p>
                   )}
                 </div>
                 {provenanceEntry?.confidence === 'low' && (
-                  <span className="text-[10px] uppercase tracking-wide text-amber-600">
+                  <span className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
                     Low
                   </span>
                 )}
@@ -559,8 +569,8 @@ function CrossCheckIcon({ status }: { status: CrossCheckStatus }) {
   // the reviewer's eye but they don't reject the application. TTB
   // legitimately approves labels with differences on either side (importer
   // vs producer, fanciful vs class, etc.).
-  if (status === 'mismatch') return <AlertTriangle className="size-3.5 text-amber-600" />;
-  if (status === 'not_on_label') return <AlertTriangle className="size-3.5 text-amber-600" />;
+  if (status === 'mismatch') return <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400" />;
+  if (status === 'not_on_label') return <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400" />;
   if (status === 'not_on_application') return <Info className="size-3.5 text-sky-600" />;
   return <HelpCircle className="size-3.5 text-muted-foreground" />;
 }
@@ -568,6 +578,7 @@ function CrossCheckIcon({ status }: { status: CrossCheckStatus }) {
 function RuleIcon({ status }: { status: FieldStatus | null }) {
   if (status === 'pass') return <Check className="mt-0.5 size-3.5 text-emerald-600" />;
   if (status === 'fail') return <X className="mt-0.5 size-3.5 text-rose-600" />;
-  if (status === 'uncertain') return <AlertTriangle className="mt-0.5 size-3.5 text-amber-600" />;
+  if (status === 'warn' || status === 'uncertain')
+    return <AlertTriangle className="mt-0.5 size-3.5 text-amber-600 dark:text-amber-400" />;
   return <HelpCircle className="mt-0.5 size-3.5 text-muted-foreground" />;
 }

@@ -22,15 +22,15 @@ describe('brand rule', () => {
     expect(brandRule.check(fields({ brandName: 'Wild Acre' })).status).toBe('pass');
   });
 
-  it('fails when brandName is null', () => {
+  it('warns when brandName is null', () => {
     const result = brandRule.check(fields({ brandName: null }));
-    expect(result.status).toBe('fail');
+    expect(result.status).toBe('warn');
     expect(result.reason).toMatch(/brand name/i);
   });
 
-  it('fails when brandName is an empty string', () => {
+  it('warns when brandName is an empty string', () => {
     const result = brandRule.check(fields({ brandName: '' }));
-    expect(result.status).toBe('fail');
+    expect(result.status).toBe('warn');
   });
 
   it('returns uncertain when brand present but extraction confidence is low', () => {

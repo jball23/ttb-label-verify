@@ -15,7 +15,7 @@ const netContentsRule: Rule = {
     const value = extracted.netContents;
     if (!value) {
       return {
-        status: 'fail',
+        status: 'warn',
         reason: 'Net contents not detected on the label.',
         extractedValue: null,
       };
@@ -23,7 +23,7 @@ const netContentsRule: Rule = {
     const trimmed = value.trim();
     if (!NET_CONTENTS_PATTERN.test(trimmed)) {
       return {
-        status: 'fail',
+        status: 'warn',
         reason:
           'Net contents is present but the unit is not in a recognized format (mL, L, or fl oz).',
         extractedValue: value,

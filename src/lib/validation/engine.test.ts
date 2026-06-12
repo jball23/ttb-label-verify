@@ -62,10 +62,10 @@ describe('runRules', () => {
     }
   });
 
-  it('returns needs_review when any single rule fails', () => {
+  it('returns needs_review when any single non-GW rule warns', () => {
     const report = runRules({ ...compliant(), brandName: null });
     expect(report.overallStatus).toBe('needs_review');
-    expect(report.fields.brand?.status).toBe('fail');
+    expect(report.fields.brand?.status).toBe('warn');
     expect(report.fields.abv?.status).toBe('pass');
   });
 
@@ -95,13 +95,16 @@ describe('runRules', () => {
     expect(report.fields.brand?.status).toBe('uncertain');
   });
 
-  it('returns non_compliant with every field failed when ExtractedFields is empty', () => {
+  it('returns non_compliant with every field non-pass when ExtractedFields is empty', () => {
     // An empty extraction includes a missing GW, which trips the critical
-    // tier regardless of which other rules also failed.
+    // tier regardless of which other rules also failed. GW emits 'fail';
+    // the other rules emit 'warn' under the 3-tier severity model.
     const report = runRules(empty());
     expect(report.overallStatus).toBe('non_compliant');
-    for (const field of Object.values(report.fields)) {
-      expect(field.status).toBe('fail');
+    expect(report.fields.governmentWarning?.status).toBe('fail');
+    for (const [id, field] of Object.entries(report.fields)) {
+      if (id === 'governmentWarning') continue;
+      expect(field.status).toBe('warn');
     }
   });
 

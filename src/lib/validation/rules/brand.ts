@@ -14,7 +14,7 @@ const brandRule: Rule = {
     const value = extracted.brandName;
     if (!value || value.trim().length === 0) {
       return {
-        status: 'fail',
+        status: 'warn',
         reason: 'Brand name not detected on the label.',
         extractedValue: value ?? null,
       };

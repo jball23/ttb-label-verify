@@ -14,7 +14,7 @@ const classTypeRule: Rule = {
     const value = extracted.classType;
     if (!value || value.trim().length === 0) {
       return {
-        status: 'fail',
+        status: 'warn',
         reason: 'Fanciful name not detected on the label.',
         extractedValue: value ?? null,
       };
