@@ -113,11 +113,8 @@ export const FieldProvenanceSchema = z.object({
 });
 export type FieldProvenance = z.infer<typeof FieldProvenanceSchema>;
 
-// Provenance arrives as a fixed-shape object with one optional key per
-// FieldPath. We use an explicit shape (rather than `z.record`) because OpenAI
-// structured-output's JSON Schema dialect doesn't support the `propertyNames`
-// constraint Zod emits for `record(enum, value)` — the request 400s with
-// "'propertyNames' is not permitted" at validation time.
+// Legacy GPT-4o provenance map (KD6 swap — kept compiling until U4 step 3
+// cascades through the downstream consumers and removes the old path).
 const provenanceShape = FIELD_PATHS.reduce(
   (acc, path) => {
     acc[path] = FieldProvenanceSchema.nullable().optional();
@@ -128,10 +125,70 @@ const provenanceShape = FIELD_PATHS.reduce(
 export const ProvenanceMapSchema = z.object(provenanceShape).strict();
 export type ProvenanceMap = z.infer<typeof ProvenanceMapSchema>;
 
+/**
+ * Per-word OCR result from Tesseract. Coordinates are in PDF-page pixel
+ * space at the render DPI (currently 200 DPI). The Tesseract pipeline
+ * (U3 / U4) produces these; the source viewer overlays them on the rendered
+ * page image to highlight where each extracted field came from. KD2.
+ */
+export const WordRectSchema = z.object({
+  text: z.string(),
+  /** 0-100, Tesseract confidence. */
+  confidence: z.number().min(0).max(100),
+  /** Pixel-space bbox: top-left (x0,y0), bottom-right (x1,y1). */
+  bbox: z.object({
+    x0: z.number(),
+    y0: z.number(),
+    x1: z.number(),
+    y1: z.number(),
+  }),
+});
+export type WordRect = z.infer<typeof WordRectSchema>;
+
+/**
+ * Bbox sidecar for one extracted field. Carries every word the field's
+ * value was assembled from, plus a `source` discriminant.
+ *
+ * - `source: 'tesseract'` — the value came from OCR; `words` lists the per-
+ *   word rects (KD2 list-of-word-rects, not a single union); `meanConfidence`
+ *   is the average word confidence (0-100).
+ * - `source: 'vlm'` — the value came from the GPT-4o fallback (KD3). No
+ *   bboxes are available; `words` is `[]` and `meanConfidence` is `null`.
+ *   The detail view renders this case with a "source not available" overlay
+ *   when the user clicks the field.
+ */
+export const FieldBboxSchema = z.object({
+  /** 1-indexed PDF page the bboxes are relative to. */
+  page: z.number().int().positive(),
+  source: z.enum(['tesseract', 'vlm']),
+  words: z.array(WordRectSchema),
+  meanConfidence: z.number().min(0).max(100).nullable(),
+});
+export type FieldBbox = z.infer<typeof FieldBboxSchema>;
+
+/**
+ * Map from FieldPath → FieldBbox. One entry per field that was extracted.
+ * Fields that the extractor saw `null` for don't appear in the map.
+ *
+ * Will replace `ProvenanceMap` once U4 step 3 finishes the cascade through
+ * the route, validation engine, NDJSON wire validator, and DB schema.
+ */
+const fieldBboxesShape = FIELD_PATHS.reduce(
+  (acc, path) => {
+    acc[path] = FieldBboxSchema.optional();
+    return acc;
+  },
+  {} as Record<FieldPath, z.ZodOptional<typeof FieldBboxSchema>>,
+);
+export const FieldBboxesSchema = z.object(fieldBboxesShape).strict();
+export type FieldBboxes = z.infer<typeof FieldBboxesSchema>;
+
 export const ExtractedDocumentSchema = z.object({
   application: ExtractedApplicationFormSchema,
   label: ExtractedFieldsSchema,
   provenance: ProvenanceMapSchema,
+  /** New in U4. Optional during cascade — required after step 3. */
+  bboxes: FieldBboxesSchema.optional(),
 });
 
 // Lean variant the model is asked for when EXTRACT_PROVENANCE=false. Skips
