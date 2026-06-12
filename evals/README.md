@@ -1,5 +1,7 @@
 # Evals
 
+> **Status note (2026-06-11):** this suite predates the PDF pivot. It scores extraction against single-image JPGs at `evals/dataset/images/<id>.jpg` and does not exercise the multi-page PDF render path the live app uses. It still catches prompt + model drift on the label-half of the extraction, which is most of what these evals were ever measuring. A v2 that consumes COLA PDFs through `renderApplicationPages` is a separate piece of work.
+
 We treat the LLM as a versioned dependency we measure, not a magic box. This suite catches model upgrades, prompt drift, and provider swaps that silently regress extraction quality.
 
 ## Run
