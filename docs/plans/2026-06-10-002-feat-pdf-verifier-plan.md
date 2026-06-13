@@ -280,7 +280,7 @@ src/app/
   - Applicant block (name, address, city, state): from Items 11–13.
   - Grape varietals + wine appellation: from the wine-only items; null for non-wine.
   - Serial number, plant registry number, application date, applicant signature name: from the appropriate items on the form.
-- Wine handling: if `application.classType !== 'WINE'`, `application.grapeVarietals` and `application.wineAppellation` should both be null AND their provenance entries should be OMITTED from the provenance map.
+- Wine handling: if `application.productType !== 'WINE'`, `application.grapeVarietals` and `application.wineAppellation` should both be null AND their provenance entries should be OMITTED from the provenance map.
 - Output schema in the prompt (the structured-output JSON Schema) must match U2's Zod shape exactly.
 
 **Patterns to follow:**
@@ -345,13 +345,13 @@ src/app/
 - New exported helper `synthesizeExpectations(form: ExtractedApplicationForm): Application`.
 - Maps form fields → `crossCheckExpectations`:
   - `brandName` ← `form.brandName`
-  - `classType` ← `form.classType`
+  - `classType` ← `form.productType` (Item 5 broad product family; Item 7 fanciful name is not the class/type source)
   - `producer` ← `${form.applicant.name}, ${form.applicant.address}, ${form.applicant.city}, ${form.applicant.state}` (matching how the dataset already encodes it)
-  - `wineVarietal` ← `form.grapeVarietals` (only when `classType === 'WINE'`)
-  - `wineAppellation` ← `form.wineAppellation` (only when `classType === 'WINE'`)
+  - `wineVarietal` ← `form.grapeVarietals` (only when `productType === 'WINE'`)
+  - `wineAppellation` ← `form.wineAppellation` (only when `productType === 'WINE'`)
   - Other fields per the existing dataset shape.
 - Maps form fields → `labelOnlyExpectations`: copy the constants that the existing scenario JSONs encode (e.g., `governmentWarning.required: true`, etc.). These aren't derived from the form — they're regulatory constants. The simplest implementation has `synthesizeExpectations` hard-code the `labelOnlyExpectations` block since it's invariant across applications.
-- `productType` is derived from `classType` via the same alias map cross-check already uses.
+- `productType` comes directly from Item 5 when present; class/type comparison infers whether the label's specific designation belongs to that broad family.
 
 **Patterns to follow:**
 - Existing `parseApplication` shape — `synthesizeExpectations` returns the same `Application` type, just produced from a different source.

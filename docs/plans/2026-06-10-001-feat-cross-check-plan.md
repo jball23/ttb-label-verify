@@ -88,7 +88,7 @@ Locked decisions from the session that produced this plan:
 | Field | Strategy | Why |
 |---|---|---|
 | brandName | normalized exact (casefold, trim, strip "LLC/Inc./Corp/Co./Ltd."suffix) | Scenario 02's "Silver Birch" vs "Silver Birch Premium" must fail. Casefold-only is too loose; substring is far too loose. |
-| classType | normalized exact + alias map (e.g. "Distilled Spirits" ⇄ "Spirits") | Form Item 5 uses canonical TTB labels; label uses commercial names. |
+| classType | Item 5 product-family inference + legacy alias map (e.g. WINE ⇄ Barbera, MALT BEVERAGES ⇄ IPA) | Form Item 5 uses broad TTB product families; the label uses the actual class/type designation. Item 7 fanciful name is not the application source for this comparison. |
 | producer | token-set on company name + must-include city; state codes mapped | Scenario 05's "Calypso Sands Distilling Miami FL" vs "Tropical Spirits LLC San Juan PR" must fail; minor punctuation/word-order drift in same-company strings must pass. |
 | wineVarietal | normalized exact (wine only) | Scenario 03 Cabernet vs Merlot. |
 | wineAppellation | normalized exact (wine only) | Scenario 03 Napa Valley vs Sonoma County. |
@@ -254,13 +254,13 @@ src/lib/
 - `src/lib/cross-check/engine.test.ts`
 
 **Approach:**
-- `types.ts`: define `CrossCheckFieldId = 'brandName' | 'classType' | 'producer' | 'wineVarietal' | 'wineAppellation'`, `CrossCheckStatus = 'match' | 'mismatch' | 'not_on_label' | 'not_applicable'`, `CrossCheckFieldResult { id, label, status, applicationValue: string | null, labelValue: string | null, reason?: string }`, `CrossCheckReport { overallStatus: 'match' | 'mismatch', fields: Record<CrossCheckFieldId, CrossCheckFieldResult> }`.
+- `types.ts`: define `CrossCheckFieldId = 'brandName' | 'classType' | 'producer' | 'countryOfOrigin' | 'wineVarietal' | 'wineAppellation'`, `CrossCheckStatus = 'match' | 'mismatch' | 'not_on_label' | 'not_on_application' | 'not_applicable'`, `CrossCheckFieldResult { id, label, status, applicationValue: string | null, labelValue: string | null, reason?: string }`, `CrossCheckReport { overallStatus: 'match' | 'mismatch', fields: Record<CrossCheckFieldId, CrossCheckFieldResult> }`.
 - `normalize.ts`:
   - `normalizeExact(s)` = casefold → trim → collapse whitespace → strip diacritics → strip trailing corporate suffixes (`LLC`, `L.L.C.`, `Inc.`, `Inc`, `Corp.`, `Corp`, `Co.`, `Co`, `Ltd.`, `Ltd`, `Company`).
   - `tokenize(s)` = normalize then split on whitespace and punctuation, drop noise tokens (the, of, and, &).
   - `tokenSetEquals(a, b)` = `Set(tokenize(a))` deep-equal `Set(tokenize(b))`.
   - `producerMatches(applicationProducer, labelProducer)` = token-set match on the company-name span PLUS exact match on extracted city + state-code (normalized; state name → 2-letter code map).
-  - `classTypeMatches(applicationClass, labelClass)` = normalized exact OR via an alias map (e.g. `"distilled spirits" ⇄ "spirits"`, `"malt beverages" ⇄ "beer" ⇄ "ale" ⇄ "ipa" ⇄ "lager"`).
+  - `classTypeMatches(applicationClass, labelClass)` = when the application value is an Item 5 product family, infer the label's broad family from its class/type text and compare families; otherwise fall back to normalized exact + alias map for legacy scenario fixtures.
 - `engine.ts`: `runCrossCheck(application, extracted) → CrossCheckReport`. For each field id:
   - Read the application value from `application.crossCheckExpectations`.
   - Read the label value from `extracted`.

@@ -47,8 +47,13 @@ export function AboutDialog() {
             <ul className="space-y-2 text-sm">
               <li className="flex gap-2">
                 <FileText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                Parses known COLA form fields from the PDF text layer when
-                available.
+                Parses known COLA form fields from the PDF text layer,
+                including Item 5 product type, when available.
+              </li>
+              <li className="flex gap-2">
+                <SearchCheck className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                Compares Item 5 product type to the label&apos;s class/type
+                designation; Item 7 fanciful name is kept as context.
               </li>
               <li className="flex gap-2">
                 <SearchCheck className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
