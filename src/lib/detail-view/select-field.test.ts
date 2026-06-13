@@ -12,7 +12,7 @@ function rect(x0 = 10, y0 = 20, x1 = 50, y1 = 35): WordRect['bbox'] {
 }
 const W: WordRect = { text: 'TOKEN', confidence: 90, bbox: rect() };
 
-describe('selectField (U8 — left-panel clicks drive right-panel state)', () => {
+describe('selectField', () => {
   it('tesseract bbox: returns tab + page + words from the bbox', () => {
     const bboxes: FieldBboxes = {
       'label.brandName': {
@@ -45,9 +45,8 @@ describe('selectField (U8 — left-panel clicks drive right-panel state)', () =>
   });
 
   it('side-agnostic: GW with no document info defaults to front (not hardcoded back)', () => {
-    // Phase A: GW can live on front, back, neck, or strip — no hardcoded
-    // back bias on the routing path. With no pages/bboxes to consult,
-    // pickTab defaults to front.
+    // GW can live on front, back, neck, or strip — no hardcoded back bias on
+    // the routing path. With no pages/bboxes to consult, pickTab defaults to front.
     const sel = selectField('label.governmentWarning', {});
     expect(sel.tab).toBe('front');
     expect(sel.words).toBeNull();
@@ -118,6 +117,29 @@ describe('selectField (U8 — left-panel clicks drive right-panel state)', () =>
     const kinds = derivePageKinds(bboxes);
     expect(kinds.get(2)).toBe('form');
     expect(kinds.get(4)).toBe('back');
+  });
+
+  it('derivePageKinds: renderer front/back tags are not rewritten by field heuristics', () => {
+    const bboxes: FieldBboxes = {
+      'label.governmentWarning': {
+        page: 2,
+        source: 'tesseract',
+        words: [W],
+        meanConfidence: 92,
+      },
+    };
+    const pages = [
+      { pageNumber: 1, kind: 'form' },
+      { pageNumber: 2, kind: 'label-front' },
+    ];
+
+    const kinds = derivePageKinds(bboxes, pages);
+    expect(kinds.get(2)).toBe('front');
+    expect(availableTabs(bboxes, pages).has('back')).toBe(false);
+
+    const sel = selectField('label.governmentWarning', bboxes, pages);
+    expect(sel.tab).toBe('front');
+    expect(sel.page).toBe(2);
   });
 
   it('availableTabs: surfaces only tabs with backing pages', () => {

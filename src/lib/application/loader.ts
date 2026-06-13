@@ -6,6 +6,10 @@ import type {
   ApplicationProductType,
 } from './types';
 import type { ExtractedApplicationForm } from '../extraction/types';
+import {
+  normalizeWineAppellationClaim,
+  normalizeWineVarietalClaim,
+} from '../cross-check/normalize';
 
 /**
  * Thrown when an application payload fails Zod validation. Carries the formatted
@@ -70,7 +74,9 @@ function strOrFallback(value: string | null | undefined): string {
 export function synthesizeExpectations(
   form: ExtractedApplicationForm,
 ): Application {
-  const productType: ApplicationProductType = form.productType ?? 'DISTILLED SPIRITS';
+  const productType: ApplicationProductType =
+    form.productType ??
+    (form.grapeVarietals || form.wineAppellation ? 'WINE' : 'DISTILLED SPIRITS');
   const isWine = productType === 'WINE';
 
   // classType in the cross-check carries the SPECIFIC class designation,
@@ -91,7 +97,16 @@ export function synthesizeExpectations(
     .filter((p): p is string => p != null && p.length > 0)
     .join(', ');
 
-  const countryOfOrigin = form.source === 'Imported' ? 'IMPORTED' : 'USA';
+  const countryOfOrigin =
+    form.source === 'Imported'
+      ? 'IMPORTED'
+      : form.source === 'Domestic'
+        ? 'USA'
+      : '';
+  const wineVarietalExpectation = normalizeWineVarietalClaim(form.grapeVarietals);
+  const wineAppellationExpectation = normalizeWineAppellationClaim(
+    form.wineAppellation,
+  );
 
   const synthesizedForm: ApplicationForm = {
     repId: null,
@@ -131,11 +146,11 @@ export function synthesizeExpectations(
       classType,
       producer: producerParts,
       countryOfOrigin,
-      ...(isWine && form.grapeVarietals
-        ? { wineVarietal: form.grapeVarietals }
+      ...(isWine && wineVarietalExpectation
+        ? { wineVarietal: wineVarietalExpectation }
         : {}),
-      ...(isWine && form.wineAppellation
-        ? { wineAppellation: form.wineAppellation }
+      ...(isWine && wineAppellationExpectation
+        ? { wineAppellation: wineAppellationExpectation }
         : {}),
     },
     labelOnlyExpectations: {

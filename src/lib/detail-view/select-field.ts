@@ -97,6 +97,7 @@ export function derivePageKinds(
   pages?: ReadonlyArray<PageMeta>,
 ): Map<number, SourceTab> {
   const result = new Map<number, SourceTab>();
+  const lockedBySpecificPageMeta = new Set<number>();
   const rank: Record<SourceTab, number> = { form: 3, back: 2, front: 1 };
 
   // 1. Render-classifier data first — these page numbers come straight
@@ -109,13 +110,21 @@ export function derivePageKinds(
       if (!existing || rank[tab] > rank[existing]) {
         result.set(p.pageNumber, tab);
       }
+      if (
+        p.kind.includes('form') ||
+        p.kind.includes('front') ||
+        p.kind.includes('back')
+      ) {
+        lockedBySpecificPageMeta.add(p.pageNumber);
+      }
     }
   }
 
   // 2. Bbox-derived (fallback / tiebreaker).
   if (bboxes) {
     for (const [path, bbox] of Object.entries(bboxes) as Array<[FieldPath, FieldBbox | undefined]>) {
-      if (!bbox || bbox.source !== 'tesseract' || bbox.words.length === 0) continue;
+      if (!bbox || bbox.source === 'vlm' || bbox.words.length === 0) continue;
+      if (lockedBySpecificPageMeta.has(bbox.page)) continue;
       const candidate = tabFromPath(path);
       const existing = result.get(bbox.page);
       if (!existing || rank[candidate] > rank[existing]) {
@@ -171,8 +180,8 @@ export function selectField(
 ): FieldSelection {
   const bbox = bboxes?.[fieldPath];
 
-  // Tesseract bbox with actual words — highlight them on their page.
-  if (bbox && bbox.source === 'tesseract' && bbox.words.length > 0) {
+  // PDF/OCR bbox with actual words — highlight them on their page.
+  if (bbox && bbox.source !== 'vlm' && bbox.words.length > 0) {
     const kinds = derivePageKinds(bboxes, pages);
     const tab = kinds.get(bbox.page) ?? tabFromPath(fieldPath);
     return {

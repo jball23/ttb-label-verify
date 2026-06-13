@@ -6,14 +6,37 @@ describe('parseEnv', () => {
     const env = parseEnv({
       LABEL_EXTRACTOR: 'openai',
       OPENAI_API_KEY: 'sk-test',
+      OPENAI_VLM_MODEL: 'gpt-5.4-mini',
     });
     expect(env.LABEL_EXTRACTOR).toBe('openai');
     expect(env.OPENAI_API_KEY).toBe('sk-test');
+    expect(env.OPENAI_VLM_MODEL).toBe('gpt-5.4-mini');
   });
 
-  it('defaults LABEL_EXTRACTOR to tesseract when unset (post-U4)', () => {
+  it('defaults LABEL_EXTRACTOR to tesseract when unset', () => {
     const env = parseEnv({ OPENAI_API_KEY: 'sk-test' });
     expect(env.LABEL_EXTRACTOR).toBe('tesseract');
+    expect(env.OPENAI_MAX_CONCURRENT_REQUESTS).toBe(4);
+    expect(env.OPENAI_MAX_RETRIES).toBe(4);
+  });
+
+  it('accepts OpenAI throttle overrides', () => {
+    const env = parseEnv({
+      OPENAI_API_KEY: 'sk-test',
+      OPENAI_MAX_CONCURRENT_REQUESTS: '2',
+      OPENAI_MAX_RETRIES: '6',
+    });
+    expect(env.OPENAI_MAX_CONCURRENT_REQUESTS).toBe(2);
+    expect(env.OPENAI_MAX_RETRIES).toBe(6);
+  });
+
+  it('rejects invalid OpenAI throttle values', () => {
+    expect(() =>
+      parseEnv({
+        OPENAI_API_KEY: 'sk-test',
+        OPENAI_MAX_CONCURRENT_REQUESTS: '0',
+      }),
+    ).toThrow(/OPENAI_MAX_CONCURRENT_REQUESTS/);
   });
 
   it('throws when OPENAI_API_KEY is missing for openai extractor', () => {

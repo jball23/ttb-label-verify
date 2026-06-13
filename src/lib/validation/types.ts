@@ -39,27 +39,24 @@ export type OverallStatus = 'compliant' | 'needs_review' | 'non_compliant';
 export interface VerificationReport {
   overallStatus: OverallStatus;
   /**
-   * Optional under the Phase A split. The sync verify path returns the
-   * report without cross-check; Phase B's patch endpoint adds it once the
-   * form-side OCR finishes.
+   * Optional for backwards compatibility with older rows/results that were
+   * produced before synchronous form parsing populated the comparison block.
    */
   crossCheck?: CrossCheckReport;
   fields: Record<string, RuleResult>;
   /**
-   * Legacy normalized 0-1 bboxes from the GPT-4o provenance code path.
-   * Always empty `{}` under the Tesseract pipeline. Detail view uses
-   * `bboxes` instead — see KD9 for the loader's shape-detection logic.
+   * Legacy normalized 0-1 bboxes from the full-document OpenAI path.
+   * Usually empty `{}` under the default Tesseract pipeline.
    */
   provenance: ProvenanceMap;
   /**
-   * U4 / KD2: per-field pixel-space WordRect lists. Optional during
-   * the U4 cascade — archived rows without this key fall back to
-   * read-only rendering (KD9).
+   * Per-field pixel-space source rectangles from PDF text, Tesseract OCR,
+   * or text-only VLM fallback markers.
    */
   bboxes?: FieldBboxes;
   /**
-   * The bare extracted application form. Surfaces every form field the model
-   * read so the UI can list them all (not just the cross-check subset).
+   * The bare extracted application form. The UI only surfaces fields that
+   * drive label review, but the fuller shape is kept for rules and exports.
    */
   extractedForm: ExtractedApplicationForm;
   /** Bare label-side extraction. Used by the UI to display every label field. */

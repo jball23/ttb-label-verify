@@ -59,8 +59,9 @@ export const ExtractedApplicationFormSchema = z.object({
 });
 export type ExtractedApplicationForm = z.infer<typeof ExtractedApplicationFormSchema>;
 
-// All the field paths that can carry provenance. The model returns a bbox for
-// each path it populates; paths it leaves null are omitted from the map.
+// All field paths that can carry source metadata. PDF/Tesseract values use
+// FieldBbox entries; the legacy OpenAI extractor can still populate
+// ProvenanceMap entries when EXTRACT_PROVENANCE is enabled.
 export const FIELD_PATHS = [
   'application.repId',
   'application.brandName',
@@ -113,8 +114,8 @@ export const FieldProvenanceSchema = z.object({
 });
 export type FieldProvenance = z.infer<typeof FieldProvenanceSchema>;
 
-// Legacy GPT-4o provenance map (KD6 swap — kept compiling until U4 step 3
-// cascades through the downstream consumers and removes the old path).
+// Legacy full-document OpenAI provenance map. The default Tesseract pipeline
+// writes source locations to FieldBboxes instead.
 const provenanceShape = FIELD_PATHS.reduce(
   (acc, path) => {
     acc[path] = FieldProvenanceSchema.nullable().optional();
@@ -126,10 +127,9 @@ export const ProvenanceMapSchema = z.object(provenanceShape).strict();
 export type ProvenanceMap = z.infer<typeof ProvenanceMapSchema>;
 
 /**
- * Per-word OCR result from Tesseract. Coordinates are in PDF-page pixel
- * space at the render DPI (currently 200 DPI). The Tesseract pipeline
- * (U3 / U4) produces these; the source viewer overlays them on the rendered
- * page image to highlight where each extracted field came from. KD2.
+ * Per-word OCR/PDF-text result. Coordinates are in rendered PDF-page pixel
+ * space at the render DPI (currently 200 DPI). The source viewer overlays
+ * these on the full PDF page image.
  */
 export const WordRectSchema = z.object({
   text: z.string(),
@@ -149,10 +149,13 @@ export type WordRect = z.infer<typeof WordRectSchema>;
  * Bbox sidecar for one extracted field. Carries every word the field's
  * value was assembled from, plus a `source` discriminant.
  *
- * - `source: 'tesseract'` — the value came from OCR; `words` lists the per-
- *   word rects (KD2 list-of-word-rects, not a single union); `meanConfidence`
- *   is the average word confidence (0-100).
- * - `source: 'vlm'` — the value came from the GPT-4o fallback (KD3). No
+ * - `source: 'pdf'` — the value came from the PDF text layer; `words` are
+ *   synthetic per-word rects mapped into the same 200-DPI coordinate space
+ *   as Tesseract so the detail view can highlight them normally.
+ * - `source: 'tesseract'` — the value came from OCR; `words` lists per-word
+ *   rects rather than a single union; `meanConfidence` is the average word
+ *   confidence (0-100).
+ * - `source: 'vlm'` — the value came from the OpenAI VLM fallback. No
  *   bboxes are available; `words` is `[]` and `meanConfidence` is `null`.
  *   The detail view renders this case with a "source not available" overlay
  *   when the user clicks the field.
@@ -160,7 +163,7 @@ export type WordRect = z.infer<typeof WordRectSchema>;
 export const FieldBboxSchema = z.object({
   /** 1-indexed PDF page the bboxes are relative to. */
   page: z.number().int().positive(),
-  source: z.enum(['tesseract', 'vlm']),
+  source: z.enum(['pdf', 'tesseract', 'vlm']),
   words: z.array(WordRectSchema),
   meanConfidence: z.number().min(0).max(100).nullable(),
 });
@@ -170,8 +173,7 @@ export type FieldBbox = z.infer<typeof FieldBboxSchema>;
  * Map from FieldPath → FieldBbox. One entry per field that was extracted.
  * Fields that the extractor saw `null` for don't appear in the map.
  *
- * Will replace `ProvenanceMap` once U4 step 3 finishes the cascade through
- * the route, validation engine, NDJSON wire validator, and DB schema.
+ * Primary source-location map for the current Tesseract/PDF-text pipeline.
  */
 const fieldBboxesShape = FIELD_PATHS.reduce(
   (acc, path) => {
@@ -187,7 +189,7 @@ export const ExtractedDocumentSchema = z.object({
   application: ExtractedApplicationFormSchema,
   label: ExtractedFieldsSchema,
   provenance: ProvenanceMapSchema,
-  /** New in U4. Optional during cascade — required after step 3. */
+  /** Field-level PDF/OCR/VLM source sidecar used by the detail view. */
   bboxes: FieldBboxesSchema.optional(),
 });
 
@@ -201,12 +203,21 @@ export const ExtractedDocumentNoProvenanceSchema = z.object({
 });
 export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
 
+export interface ParsedApplicationFormPrepass {
+  application: ExtractedApplicationForm;
+  bboxes: FieldBboxes;
+}
+
+export interface ExtractorOptions {
+  parsedForm?: ParsedApplicationFormPrepass | null;
+}
+
 // The provider abstraction the verify route depends on. The input is the set
 // of rendered pages the verifier needs (form fields + label artwork); for a
 // single-page fixture that's one PNG, for a real TTB COLA Online export it
 // can be two or more. Each page carries its renderer-emitted kind
-// ('form' | 'label-front' | 'label-back' | ...) so the Tesseract extractor
-// can route field assignment to the right page set without re-classifying.
+// ('form' | 'label-front' | 'label-back' | ...) so the extractor can route
+// field assignment without re-classifying.
 //
 // The response still carries one application + label + (optional) bboxes —
 // the extractor is expected to find each field wherever it appears across
@@ -214,7 +225,10 @@ export type ExtractedDocument = z.infer<typeof ExtractedDocumentSchema>;
 export interface DocumentExtractor {
   readonly providerName: string;
   readonly modelId: string;
-  extract(pages: ExtractorPage[]): Promise<ExtractedDocument>;
+  extract(
+    pages: ExtractorPage[],
+    options?: ExtractorOptions,
+  ): Promise<ExtractedDocument>;
 }
 
 /**

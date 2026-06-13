@@ -7,6 +7,9 @@ origin: docs/brainstorms/2026-06-09-ttb-label-verify-requirements.md
 deadline: 2026-06-10
 ---
 
+> Historical plan: kept for design history. `README.md` documents the current
+> deployable architecture.
+
 # feat: TTB Label Verification Prototype
 
 ## Summary
@@ -892,9 +895,9 @@ Captured 2026-06-11 when the plan was marked completed. The original plan
 shipped end-to-end; the items below were added during implementation as
 the product target sharpened.
 
-- **DB-backed queue UX (replaces single-page batch-list).** Home page is a 3-tab queue (Queue / Approved / Rejected) backed by Neon Postgres via Drizzle ORM. AI verdict auto-routes each upload into Approved or Rejected; reviewer finalizes (terminal status) and the row moves to the `/applications` archive. The original plan had a session-local results grid — this is durable, sharable, and resumable across sessions.
+- **DB-backed queue UX (replaces single-page batch-list).** At the time this plan was completed, the home page was a 3-tab queue (Queue / Approved / Rejected) backed by Neon Postgres via Drizzle ORM. AI verdict auto-routed each upload into Approved or Rejected; reviewer finalize wrote what was then treated as a terminal status and moved the row to the `/applications` archive. The original plan had a session-local results grid — this made the flow durable, sharable, and resumable across sessions.
 - **Neon + Drizzle persistence.** `applications` (with `pdf_bytes` bytea) and `reviews` tables. `current_status` enum is `pending_approval | pending_rejection | approved | rejected`. Drizzle migrations in `drizzle/0000-0002`. `DATABASE_URL` is optional — verify route still works DB-less.
-- **Finalize flow.** Dedicated `/api/finalize` route writes the terminal status + Review row. Double-finalize rejected with 409. Detail page in `/applications` is read-only.
+- **Finalize flow.** The original `/api/finalize` route wrote the final status + Review row. Later work changed this lifecycle so finalized rows can still be revised until archived.
 - **PDF byte storage + on-demand stream.** PDFs persisted as bytea on the application row. `GET /api/applications/[id]/pdf` streams the bytes; list queries deliberately skip the column to dodge Neon's `Buffer()` deprecation.
 - **Cache-by-hash on the verify route.** Re-uploading an identical PDF returns the stored verdict — saves ~10s and a real GPT-4o call.
 - **`EXTRACT_PROVENANCE` feature flag.** Default `false`. When off, the model skips the provenance map (~30-40% of response tokens) and app-side bboxes are synthesized from AcroForm widget rects. Measured ~4x faster end-to-end. Toggle to `true` to demo click-to-highlight.

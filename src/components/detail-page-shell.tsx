@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import DetailReportView from './detail-report-view';
 import SourceViewer from './source-viewer';
 import {
-  pageForTab,
   selectField,
   type PageMeta,
-  type SourceTab,
 } from '@/lib/detail-view/select-field';
 import { type FieldPath } from '@/lib/extraction/types';
 import { type ResultLine } from '@/lib/results/result-types';
@@ -19,10 +23,11 @@ interface Props {
   report: WireReport;
   applicationId: string;
   hasStoredPdf: boolean;
+  leftFooter?: ReactNode;
 }
 
 // Display labels for the no-source overlay. Mirrors the labels in
-// report-sections.tsx's CROSS_CHECK_FIELDS / RULE_TO_LABEL_PATH / APP_FORM_FIELDS
+// report-sections.tsx's CROSS_CHECK_FIELDS / RULE_TO_LABEL_PATH / relevant form fields
 // for the most-likely-clicked paths; falls back to the raw FieldPath token
 // when an entry isn't present (acceptable — the path is still readable).
 const FIELD_LABELS: Partial<Record<FieldPath, string>> = {
@@ -46,32 +51,24 @@ const FIELD_LABELS: Partial<Record<FieldPath, string>> = {
 
 /**
  * Client wrapper for the detail page. Owns the shared `selectedFieldId`
- * and `activeTab` state so a click in the left-pane report drives both the
- * bbox highlight AND the tab switch in the right-pane source viewer.
+ * state so a click in the left-pane report drives the bbox highlight in
+ * the full original PDF.
  *
- * Field-to-tab routing logic lives in `lib/detail-view/select-field.ts`
+ * Field source metadata lives in `lib/detail-view/select-field.ts`
  * (pure, tested). This component is plumbing only.
  */
 export default function DetailPageShell({
   report,
   applicationId,
   hasStoredPdf,
+  leftFooter,
 }: Props) {
   const pages: ReadonlyArray<PageMeta> | undefined = report.pages;
   const [selectedFieldId, setSelectedFieldId] = useState<FieldPath | null>(null);
-  const [activeTab, setActiveTab] = useState<SourceTab>(() => {
-    // Default order: front → back → form. The front label is what a
-    // reviewer wants to see first (brand name, ABV, fanciful name),
-    // back is second (GW + producer), and form last — form-side data
-    // will Phase-B-load asynchronously, so showing it as the landing
-    // tab would surface empty spinners.
-    if (pageForTab('front', report.bboxes, pages) !== null) return 'front';
-    if (pageForTab('back', report.bboxes, pages) !== null) return 'back';
-    if (pageForTab('form', report.bboxes, pages) !== null) return 'form';
-    return 'front';
-  });
   const [blob, setBlob] = useState<Blob | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const leftColumnRef = useRef<HTMLDivElement>(null);
+  const [leftContentHeight, setLeftContentHeight] = useState<number | null>(null);
 
   useEffect(() => {
     if (!hasStoredPdf) return;
@@ -92,6 +89,36 @@ export default function DetailPageShell({
     };
   }, [applicationId, hasStoredPdf]);
 
+  useEffect(() => {
+    const el = leftColumnRef.current;
+    if (!el) return;
+
+    let frame = 0;
+    const measure = (): void => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const top = el.getBoundingClientRect().top;
+        const bottom = Array.from(el.children).reduce((max, child) => {
+          return Math.max(max, child.getBoundingClientRect().bottom);
+        }, top);
+        const next = Math.ceil(Math.max(0, bottom - top));
+        setLeftContentHeight((current) =>
+          current !== null && Math.abs(current - next) < 2 ? current : next,
+        );
+      });
+    };
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    for (const child of Array.from(el.children)) observer.observe(child);
+    measure();
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [leftFooter, report]);
+
   // Field click → selection routing. Toggles off on second click of the
   // same field (matches the prior detail-report-view affordance).
   function handleSelectField(path: FieldPath | null): void {
@@ -100,8 +127,6 @@ export default function DetailPageShell({
       return;
     }
     setSelectedFieldId(path);
-    const selection = selectField(path, report.bboxes, pages);
-    setActiveTab(selection.tab);
   }
 
   // Resolve the VLM-fallback / overlay state for the currently selected
@@ -113,16 +138,27 @@ export default function DetailPageShell({
   const selectedFieldLabel = selectedFieldId
     ? FIELD_LABELS[selectedFieldId] ?? selectedFieldId
     : undefined;
+  const pdfColumnStyle = {
+    '--review-left-height': leftContentHeight
+      ? `${leftContentHeight}px`
+      : '70vh',
+  } as CSSProperties & Record<'--review-left-height', string>;
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <DetailReportView
-        report={report}
-        selectedFieldId={selectedFieldId}
-        onSelectField={handleSelectField}
-      />
-      <div>
-        <div className="sticky top-4 flex h-[calc(100vh-2rem)] flex-col rounded-xl border border-border bg-card p-2">
+    <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+      <div ref={leftColumnRef} className="flex min-h-0 flex-col gap-4">
+        <DetailReportView
+          report={report}
+          selectedFieldId={selectedFieldId}
+          onSelectField={handleSelectField}
+        />
+        {leftFooter}
+      </div>
+      <div
+        className="min-h-[28rem] lg:h-[var(--review-left-height)] lg:min-h-0"
+        style={pdfColumnStyle}
+      >
+        <div className="sticky top-4 flex h-[70vh] flex-col rounded-xl border border-border bg-card p-2 lg:h-full lg:min-h-0">
           {!hasStoredPdf ? (
             <div className="flex h-64 items-center justify-center px-4 text-center text-xs text-muted-foreground">
               Original PDF not stored for this application. Click-to-highlight is unavailable.
@@ -136,10 +172,9 @@ export default function DetailPageShell({
               pdfFile={blob}
               provenance={report.provenance}
               bboxes={report.bboxes}
-              pages={pages}
+              pages={report.pages}
               selectedFieldId={selectedFieldId}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
+              selectedPageHint={selection?.page ?? null}
               isVlmFallback={isVlmFallback}
               selectedFieldLabel={selectedFieldLabel}
             />

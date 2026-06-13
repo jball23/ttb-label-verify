@@ -1,5 +1,10 @@
 # Baselines
 
+> Historical measurement note: these snapshots were captured during the
+> GPT-4o-to-Tesseract extraction pivot. They are useful for comparison history,
+> but they are not the current deploy gate; use the root `README.md` testing
+> section for current merge checks.
+
 Snapshots of extractor performance against the 20 real TTB COLA Online exports under `public/samples/cola/`. Captured before a pipeline change so we can validate parity after.
 
 ## Format
@@ -40,7 +45,7 @@ interface BaselineEntry {
 
 | File | Pipeline | Provenance | Notes |
 |------|----------|------------|-------|
-| `2026-06-11-gpt4o-cola.json` | OpenAI `gpt-4o-2024-11-20` | on | Pre-Tesseract baseline. The U5 parity gate diffs the Tesseract output against this snapshot to enforce the ±5% accuracy floor and the latency target from `docs/plans/2026-06-11-001-feat-tesseract-bbox-detail-view-plan.md`. |
+| `2026-06-11-gpt4o-cola.json` | OpenAI `gpt-4o-2024-11-20` | on | Pre-Tesseract baseline used during the OCR pivot. |
 
 ## Re-capturing
 

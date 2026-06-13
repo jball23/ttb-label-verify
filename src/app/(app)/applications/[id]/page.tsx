@@ -33,14 +33,16 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
   const reviews = await listReviewsForApplication(id);
   const report = row.validationReport;
   const finalized = isFinalized(row.currentStatus);
+  const backHref = finalized && row.archivedAt ? '/applications' : '/';
+  const backLabel = finalized && row.archivedAt ? 'Applications archive' : 'Back to Queue';
 
   return (
     <div className="mx-auto w-full px-4 py-6 sm:px-6">
       <Link
-        href={finalized ? '/applications' : '/'}
+        href={backHref}
         className="mb-3 inline-flex items-center text-xs text-muted-foreground hover:text-foreground"
       >
-        ← {finalized ? 'All applications' : 'Back to Queue'}
+        ← {backLabel}
       </Link>
       <header className="mb-4">
         <div className="flex items-center gap-3">
@@ -58,13 +60,10 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
         report={report}
         applicationId={row.id}
         hasStoredPdf={row.hasPdfBytes}
+        leftFooter={
+          reviews.length > 0 ? <ReviewHistory reviews={reviews} /> : null
+        }
       />
-
-      {reviews.length > 0 && (
-        <div className="mt-6">
-          <ReviewHistory reviews={reviews} />
-        </div>
-      )}
     </div>
   );
 }

@@ -153,6 +153,16 @@ describe('synthesizeExpectations', () => {
     expect(synth.crossCheckExpectations.wineAppellation).toBeTruthy();
   });
 
+  it('preserves wine Item 10 N/A on the form but does not create a varietal expectation', () => {
+    const form = formFromScenario('03-hawthorne-cabernet');
+    form.grapeVarietals = 'N/A';
+
+    const synth = synthesizeExpectations(form);
+
+    expect(synth.form.grapeVarietals).toBe('N/A');
+    expect(synth.crossCheckExpectations.wineVarietal).toBeUndefined();
+  });
+
   it('defaults countryOfOrigin to USA for Domestic source', () => {
     const form = formFromScenario('01-ridge-creek-bourbon');
     const synth = synthesizeExpectations(form);

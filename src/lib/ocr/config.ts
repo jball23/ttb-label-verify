@@ -1,15 +1,12 @@
 /**
  * OCR pipeline configuration — confidence threshold + landmark anchors for
  * the TTB Form 5100.31 form-field assigner.
- *
- * Plan unit: U4, KD1 (full-page OCR + bbox-containment assignment), KD4
- * (confidence threshold for VLM fallback).
  */
 import { type FieldPath } from '../extraction/types';
 
 /**
  * Below this mean-word-confidence, a Tesseract-extracted field falls back
- * to a single-call VLM re-extraction (KD3). Tuned in U5 against the 20-PDF
+ * to a single-call VLM re-extraction. Tuned against the 20-PDF
  * baseline; v1 default chosen from the U2 spike data (form pages clustered
  * 91-92 mean confidence, real label artwork 80-95, decorative wordmarks
  * 60-70 — a 60 cutoff lets the wordmark cases fall back while accepting
@@ -24,7 +21,7 @@ export const OCR_CONFIDENCE_THRESHOLD = 60;
  * specified direction within `maxDistancePx`.
  *
  * This is landmark-based v1 (more robust to small layout shifts than
- * hand-tuned pixel rects, and easier to maintain). U5's parity gate will
+ * hand-tuned pixel rects, and easier to maintain). Tests and sample runs
  * surface anchors that need tuning or replacement with explicit rects.
  *
  * `marker` is a substring match against `WordRect.text` after whitespace

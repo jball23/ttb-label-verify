@@ -5,6 +5,11 @@
 **Deadline:** Demo + repo due 2026-06-10
 **Source brief:** github.com/treasurytakehome-rgb/instructions
 
+> Historical note: this was the initial requirements brainstorm. The current
+> deployable architecture is documented in `README.md`; later work replaced the
+> GPT-4o-only label-image path with COLA PDF parsing, label-artwork OCR, and
+> selective OpenAI VLM fallback.
+
 ## Problem
 
 TTB (Alcohol and Tobacco Tax and Trade Bureau) reviewers manually check alcohol beverage labels for compliance with federal label requirements. The brief asks for a standalone prototype that uses AI to extract the regulated fields from a label image and validate them against TTB rules. The previous vendor's scanner took 30–40s per label and was blocked by government network firewalls during pilot.

@@ -4,6 +4,7 @@ import {
   DOMMatrix,
   Image,
   ImageData,
+  loadImage,
   Path2D,
   type Canvas,
 } from '@napi-rs/canvas';
@@ -47,9 +48,9 @@ const FORM_PAGE_MARKERS = [
   'FANCIFUL NAME',
 ];
 
-// Substrings that identify a "label" page — either the printed instructions
-// telling the applicant where to affix the artwork, or the COLA Online
-// export's image-block headings ("Image Type:", "Brand (front)").
+// Substrings that identify a page that points at label artwork. The verifier
+// prefers pages with the label image itself; these markers are a fallback for
+// unusual PDFs with vector/text labels or missing image metadata.
 const LABEL_PAGE_MARKERS = [
   'AFFIX COMPLETE SET OF LABELS',
   'Image Type:',
@@ -58,9 +59,8 @@ const LABEL_PAGE_MARKERS = [
 
 // Markers that announce the FRONT label artwork. Real TTB COLA Online
 // exports place these on the form page; the actual front-label artwork is
-// on the *next* page in PDF order. KD8 / U11 — the classifier tags the
-// following page as 'label-front' rather than tagging the marker-bearing
-// page itself.
+// often on the next page in PDF order. The classifier tags the artwork page
+// rather than the marker-bearing form page.
 const FRONT_LABEL_MARKERS = [
   'Brand (front) or keg collar',
   'Brand (front)',
@@ -113,10 +113,9 @@ export class PdfRenderError extends Error {
 
 /**
  * What kind of source content lives on a rendered page. The Tesseract-bbox
- * pipeline (U11 / KD8) emits the front/back-distinguished variants so the
- * detail-view source viewer can tab between them. The legacy `'label'` /
- * `'form+label'` tags remain for synthetic fixtures and as a fallback when
- * the classifier can't tell which side a label page belongs to.
+ * pipeline emits front/back-distinguished variants only when the PDF provides
+ * those markers. The generic `'label'` / `'form+label'` tags remain for
+ * synthetic fixtures and for label artwork whose side cannot be determined.
  */
 export type RenderedPageKind =
   | 'form'
@@ -132,11 +131,45 @@ export interface RenderedPage {
   pageNumber: number;
   /** Why this page was selected — form fields, label artwork, or both. */
   kind: RenderedPageKind;
+  /** Full rendered PDF page, used by the reviewer-facing source viewer. */
   png: Buffer;
+  /**
+   * Extraction-only image. For label pages this masks everything outside the
+   * embedded label artwork regions, so OCR cannot read COLA form/chrome text.
+   */
+  ocrPng?: Buffer;
+  /** Natural PDF page width in points (72 DPI). Present for real pdfjs renders. */
+  pageWidth?: number;
+  /** Natural PDF page height in points (72 DPI). Present for real pdfjs renders. */
+  pageHeight?: number;
+  /** Text-layer items from pdfjs, in PDF point coordinates. */
+  textItems?: PdfTextItem[];
+  /** Label artwork rectangles in rendered-page pixel coordinates. */
+  labelImageRegions?: PixelRect[];
+}
+
+export interface PixelRect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+export interface PdfTextItem {
+  text: string;
+  /** PDF-space x coordinate in points, origin bottom-left. */
+  x: number;
+  /** PDF-space y coordinate in points, origin bottom-left. */
+  y: number;
+  width: number;
+  height: number;
 }
 
 interface PageClassification {
   pageNumber: number;
+  pageWidth: number;
+  pageHeight: number;
+  textItems: PdfTextItem[];
   formMarkerHits: number;
   hasLabelMarker: boolean;
   /** How many Front-label markers appear on this page's text. >0 => the NEXT page is the front artwork. */
@@ -145,6 +178,9 @@ interface PageClassification {
   backMarkerHits: number;
   nonEmptyTextItems: number;
   hasImageContent: boolean;
+  hasLabelImageContent: boolean;
+  largestImageArea: number;
+  labelImageRegions: PixelRect[];
 }
 
 interface PdfDocument {
@@ -153,8 +189,15 @@ interface PdfDocument {
   cleanup(): Promise<void>;
 }
 interface PdfPage {
-  getTextContent(): Promise<{ items: Array<{ str: string }> }>;
-  getOperatorList(): Promise<{ fnArray: number[] }>;
+  getTextContent(): Promise<{
+    items: Array<{
+      str: string;
+      width?: number;
+      height?: number;
+      transform?: number[];
+    }>;
+  }>;
+  getOperatorList(): Promise<{ fnArray: number[]; argsArray?: unknown[] }>;
   getViewport(opts: { scale: number }): { width: number; height: number };
   render(opts: {
     canvasContext: CanvasRenderingContext2D;
@@ -169,6 +212,9 @@ interface PdfPage {
 // after the page whose text says "Image Type: Back" — the back artwork
 // itself lives on the next page with almost no text).
 const PDFJS_IMAGE_OPS = new Set<number>();
+let PDFJS_SAVE_OP: number | null = null;
+let PDFJS_RESTORE_OP: number | null = null;
+let PDFJS_TRANSFORM_OP: number | null = null;
 let pdfjsImageOpsInit = false;
 async function loadImageOps(): Promise<void> {
   if (pdfjsImageOpsInit) return;
@@ -185,16 +231,19 @@ async function loadImageOps(): Promise<void> {
     const code = OPS[key];
     if (typeof code === 'number') PDFJS_IMAGE_OPS.add(code);
   }
+  PDFJS_SAVE_OP = typeof OPS.save === 'number' ? OPS.save : null;
+  PDFJS_RESTORE_OP = typeof OPS.restore === 'number' ? OPS.restore : null;
+  PDFJS_TRANSFORM_OP = typeof OPS.transform === 'number' ? OPS.transform : null;
   pdfjsImageOpsInit = true;
 }
 
-// Threshold for "this page is text-light enough to be a continuation
-// label rather than form text." Form pages have hundreds of text items;
-// real label pages (front or back artwork on their own page) usually
-// have <20 text items — mostly an "Image Type:" header or just the
-// footer. Bare-footer pages (~5 items) can therefore look identical to
-// a back-label-only page; the `hasImageContent` check disambiguates.
-const LIGHT_TEXT_THRESHOLD = 30;
+// Real affixed-label raster images are usually hundreds of pixels in both
+// dimensions. COLA certificate chrome can also contain image XObjects, but
+// those are often thin signatures/seals. Use size, not page order, as the
+// signal for "this page has label artwork worth OCRing".
+const MIN_LABEL_IMAGE_AREA = 250_000;
+const MIN_LABEL_IMAGE_SHORT_SIDE = 300;
+const MIN_LABEL_IMAGE_LONG_SIDE = 500;
 
 async function loadDocument(pdfBuffer: Uint8Array | Buffer): Promise<PdfDocument> {
   const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
@@ -227,43 +276,181 @@ async function classifyPage(page: PdfPage, pageNumber: number): Promise<PageClas
   // these types String, Path" from canvas.paintChar (glyph cache miss).
   const text = await page.getTextContent();
   const opList = await page.getOperatorList();
-  const items = text.items.map((t) => t.str);
+  const viewport = page.getViewport({ scale: 1 });
+  const textItems = text.items.flatMap(toPdfTextItem);
+  const items = textItems.map((t) => t.text);
   const joined = items.join(' ');
-  const hasImageContent = opList.fnArray.some((fn) => PDFJS_IMAGE_OPS.has(fn));
+  const renderedPageSize = {
+    width: viewport.width * RENDER_SCALE,
+    height: viewport.height * RENDER_SCALE,
+  };
+  const imageStats = extractImageDraws(opList, renderedPageSize);
+  const largestImageArea = imageStats.reduce(
+    (max, image) => Math.max(max, image.width * image.height),
+    0,
+  );
+  const hasImageContent = imageStats.length > 0;
+  const hasLabelImageContent = imageStats.some(isSubstantialLabelImage);
+  const labelImageRegions = imageStats
+    .filter(isSubstantialLabelImage)
+    .map((image) => image.rect);
   return {
     pageNumber,
+    pageWidth: viewport.width,
+    pageHeight: viewport.height,
+    textItems,
     formMarkerHits: FORM_PAGE_MARKERS.filter((m) => joined.includes(m)).length,
     hasLabelMarker: LABEL_PAGE_MARKERS.some((m) => joined.includes(m)),
     frontMarkerHits: FRONT_LABEL_MARKERS.filter((m) => joined.includes(m)).length,
     backMarkerHits: BACK_LABEL_MARKERS.filter((m) => joined.includes(m)).length,
     nonEmptyTextItems: items.filter((s) => s.trim().length > 0).length,
     hasImageContent,
+    hasLabelImageContent,
+    largestImageArea,
+    labelImageRegions,
   };
+}
+
+function extractImageDraws(
+  opList: { fnArray: number[]; argsArray?: unknown[] },
+  renderedPageSize: { width: number; height: number },
+): Array<{ width: number; height: number; rect: PixelRect }> {
+  const draws: Array<{ width: number; height: number; rect: PixelRect }> = [];
+  let ctm: Matrix = [1, 0, 0, 1, 0, 0];
+  const stack: Matrix[] = [];
+
+  for (let idx = 0; idx < opList.fnArray.length; idx++) {
+    const fn = opList.fnArray[idx]!;
+    const args = opList.argsArray?.[idx];
+    if (fn === PDFJS_SAVE_OP) {
+      stack.push([...ctm] as Matrix);
+      continue;
+    }
+    if (fn === PDFJS_RESTORE_OP) {
+      ctm = stack.pop() ?? ctm;
+      continue;
+    }
+    if (fn === PDFJS_TRANSFORM_OP) {
+      const next = matrixFromArgs(args);
+      if (next) ctm = next;
+      continue;
+    }
+    if (!PDFJS_IMAGE_OPS.has(fn)) continue;
+    const dimensions = imageDimensionsFromArgs(args);
+    if (!dimensions) continue;
+    const rect = clampRect(expandRect(rectFromUnitSquare(ctm), 4), renderedPageSize);
+    if (!rect) continue;
+    draws.push({ ...dimensions, rect });
+  }
+  return draws;
+}
+
+type Matrix = [number, number, number, number, number, number];
+
+function matrixFromArgs(args: unknown): Matrix | null {
+  if (!Array.isArray(args) || args.length < 6) return null;
+  const values = args.slice(0, 6).map(Number);
+  if (values.some((value) => !Number.isFinite(value))) return null;
+  return values as Matrix;
+}
+
+function rectFromUnitSquare(matrix: Matrix): PixelRect {
+  const points = [
+    applyMatrix(matrix, 0, 0),
+    applyMatrix(matrix, 1, 0),
+    applyMatrix(matrix, 0, 1),
+    applyMatrix(matrix, 1, 1),
+  ];
+  return {
+    x0: Math.min(...points.map((point) => point.x)),
+    y0: Math.min(...points.map((point) => point.y)),
+    x1: Math.max(...points.map((point) => point.x)),
+    y1: Math.max(...points.map((point) => point.y)),
+  };
+}
+
+function applyMatrix(matrix: Matrix, x: number, y: number): { x: number; y: number } {
+  const [a, b, c, d, e, f] = matrix;
+  return {
+    x: a * x + c * y + e,
+    y: b * x + d * y + f,
+  };
+}
+
+function expandRect(rect: PixelRect, padding: number): PixelRect {
+  return {
+    x0: rect.x0 - padding,
+    y0: rect.y0 - padding,
+    x1: rect.x1 + padding,
+    y1: rect.y1 + padding,
+  };
+}
+
+function clampRect(
+  rect: PixelRect,
+  bounds: { width: number; height: number },
+): PixelRect | null {
+  const clamped = {
+    x0: Math.max(0, Math.min(bounds.width, rect.x0)),
+    y0: Math.max(0, Math.min(bounds.height, rect.y0)),
+    x1: Math.max(0, Math.min(bounds.width, rect.x1)),
+    y1: Math.max(0, Math.min(bounds.height, rect.y1)),
+  };
+  if (clamped.x1 - clamped.x0 <= 1 || clamped.y1 - clamped.y0 <= 1) return null;
+  return clamped;
+}
+
+function imageDimensionsFromArgs(args: unknown): { width: number; height: number } | null {
+  if (!Array.isArray(args)) return null;
+  const width = Number(args[1]);
+  const height = Number(args[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return null;
+  }
+  return { width, height };
+}
+
+function isSubstantialLabelImage(image: { width: number; height: number }): boolean {
+  const shortSide = Math.min(image.width, image.height);
+  const longSide = Math.max(image.width, image.height);
+  return (
+    image.width * image.height >= MIN_LABEL_IMAGE_AREA ||
+    (shortSide >= MIN_LABEL_IMAGE_SHORT_SIDE && longSide >= MIN_LABEL_IMAGE_LONG_SIDE)
+  );
+}
+
+function toPdfTextItem(item: {
+  str: string;
+  width?: number;
+  height?: number;
+  transform?: number[];
+}): PdfTextItem[] {
+  const text = item.str.trim();
+  if (!text) return [];
+  const transform = item.transform ?? [];
+  const x = Number(transform[4] ?? 0);
+  const y = Number(transform[5] ?? 0);
+  const width = Number(item.width ?? 0);
+  const transformedHeight = Math.hypot(
+    Number(transform[2] ?? 0),
+    Number(transform[3] ?? 0),
+  );
+  const height = Number(item.height ?? (transformedHeight || 0));
+  return [{ text, x, y, width, height }];
 }
 
 /**
  * Pick which pages to render and tag them with their content kind. Strategy:
  *   1. Pick the single page with the most form markers — that's where the
  *      Item 1–18 fields live (tagged 'form').
- *   2. **U11 / KD8 — front/back resolution.** For each page that carries a
- *      Front-marker ("Brand (front) or keg collar", "Image Type: Brand"),
- *      tag the *next* page as 'label-front'. For each page that carries a
- *      Back-marker ("Image Type: Back"), tag the *next* page as 'label-back'.
- *      The marker-bearing page itself stays form chrome and is not surfaced
- *      to the viewer. If a marker lives on the last page (no next page),
- *      the marker page itself is tagged as the artwork — better to show
- *      something than nothing.
- *   3. Legacy fallback for pages that have a label marker but no explicit
- *      Front/Back classification (older synthetic fixtures, weird exports):
- *      tag as 'label'. The new Tesseract pipeline can still OCR these;
- *      the source-viewer just doesn't get an explicit Front/Back tab.
- *   4. Continuation-label heuristic: a non-form page with an embedded image
- *      XObject and light text content is probably back-label artwork even
- *      without a marker, so tag as 'label-back' by default (Government
- *      Warning + producer info traditionally live on the back).
- *   5. If no label tags get assigned, the form page also holds the label —
- *      single-page synthetic fixture path, tag as 'form+label-front'.
- *   6. Cap at MAX_PAGES_TO_RENDER, preserving PDF page order.
+ *   2. Pick every non-form page with a substantial embedded image XObject.
+ *      Tag it as neutral 'label'. We do not need to know whether it is front,
+ *      back, neck, keg collar, or combined artwork to extract required facts.
+ *   3. Fallback for pages that have a label marker but no image signal
+ *      (older synthetic fixtures, vector labels, odd exports): tag as 'label'.
+ *   4. If no label tags get assigned, the form page also holds the label —
+ *      single-page synthetic fixture path, tag as neutral 'form+label'.
+ *   5. Cap at MAX_PAGES_TO_RENDER, preserving PDF page order.
  *
  * Returns the chosen pages with their `kind`, in PDF page order.
  */
@@ -277,75 +464,30 @@ function pickPagesToRender(classes: PageClassification[]): Array<{
   const formPage = classes.reduce((best, c) =>
     c.formMarkerHits > best.formMarkerHits ? c : best,
   );
-  const lastPageNumber = classes[classes.length - 1]!.pageNumber;
-
-  // Map pageNumber → classification for O(1) lookup.
-  const byNumber = new Map<number, PageClassification>();
-  for (const c of classes) byNumber.set(c.pageNumber, c);
 
   const selected = new Map<number, RenderedPageKind>();
   selected.set(formPage.pageNumber, 'form');
 
-  // Step 2 — Front/Back marker resolution. TTB COLA Online exports come in
-  // two layouts:
-  //
-  //   Layout A (Bouchard, Chacewater, older exports): caption marker on
-  //     page N is a header on a chrome-only page; the actual label artwork
-  //     is on the next page N+1. Marker page has 0 image ops.
-  //
-  //   Layout B (Vina La Rosa and many real exports): caption marker, the
-  //     image, and possibly the next caption are ALL on the same page N.
-  //     Marker page has 1+ image ops. The marker page IS the artwork —
-  //     the next caption + next image continue on N+1.
-  //
-  // Distinguishing by `hasImageContent`: marker page with image content →
-  // Layout B (this page is artwork). Marker page with no image → Layout A
-  // (next page is artwork). Misclassifying Layout B as A swaps front/back
-  // (Vina La Rosa bug: page 2 = front, page 3 = back, but classifier said
-  // page 2 = back, page 3 = front).
+  // Step 2 — label-image pages. The verifier scans every selected label
+  // page for the required facts, so side classification would only add risk.
   for (const c of classes) {
-    if (c.frontMarkerHits > 0) {
-      const target = c.hasImageContent
-        ? c.pageNumber
-        : c.pageNumber + 1 <= lastPageNumber
-          ? c.pageNumber + 1
-          : c.pageNumber;
-      assignArtwork(selected, target, formPage.pageNumber, 'label-front');
-    }
-    if (c.backMarkerHits > 0) {
-      // Same Layout A/B split. If the front already claimed the target
-      // page, back falls through to the next page.
-      let target = c.hasImageContent ? c.pageNumber : c.pageNumber + 1;
-      if (
-        selected.get(target) === 'label-front' ||
-        selected.get(target) === 'form+label-front'
-      ) {
-        target = target + 1;
-      }
-      if (target > lastPageNumber) target = c.pageNumber;
-      assignArtwork(selected, target, formPage.pageNumber, 'label-back');
-    }
-  }
-
-  // Step 4 — Continuation-label heuristic for image-bearing low-text pages
-  // that haven't been claimed yet. Tag as 'label-back' by default (the
-  // back label is where the Government Warning + producer attribution
-  // traditionally live).
-  for (const c of classes) {
-    if (selected.has(c.pageNumber)) continue;
     if (c.pageNumber === formPage.pageNumber) continue;
-    if (c.hasImageContent && c.nonEmptyTextItems < LIGHT_TEXT_THRESHOLD) {
-      selected.set(c.pageNumber, 'label-back');
-    }
-  }
-
-  // Step 3 — Pages with a generic label marker (AFFIX / Image Type:) that
-  // we couldn't classify as front or back specifically. Catch-all fallback.
-  for (const c of classes) {
-    if (selected.has(c.pageNumber)) continue;
-    if (c.pageNumber === formPage.pageNumber) continue;
-    if (c.hasLabelMarker) {
+    if (c.hasLabelImageContent) {
       selected.set(c.pageNumber, 'label');
+    }
+  }
+
+  // Step 3 — Pages with a generic label marker that we couldn't identify by
+  // image metadata. Use this only when no substantial label image was found;
+  // otherwise marker/certificate chrome pages just add OCR cost and noise.
+  const hasLabelImagePage = Array.from(selected.values()).some((kind) => kind === 'label');
+  if (!hasLabelImagePage) {
+    for (const c of classes) {
+      if (selected.has(c.pageNumber)) continue;
+      if (c.pageNumber === formPage.pageNumber) continue;
+      if (c.hasLabelMarker) {
+        selected.set(c.pageNumber, 'label');
+      }
     }
   }
 
@@ -355,7 +497,7 @@ function pickPagesToRender(classes: PageClassification[]): Array<{
     (k) => k !== 'form',
   );
   if (!hasAnyArtwork) {
-    selected.set(formPage.pageNumber, 'form+label-front');
+    selected.set(formPage.pageNumber, 'form+label');
   }
 
   return Array.from(selected.entries())
@@ -364,34 +506,9 @@ function pickPagesToRender(classes: PageClassification[]): Array<{
     .slice(0, MAX_PAGES_TO_RENDER);
 }
 
-/**
- * Assigns a `label-front` / `label-back` kind to the target page, merging
- * cleanly with any prior tag. If the target is the form page, upgrades the
- * form tag to `'form+label-front'` / `'form+label-back'`.
- */
-function assignArtwork(
-  selected: Map<number, RenderedPageKind>,
-  target: number,
-  formPageNumber: number,
-  artwork: 'label-front' | 'label-back',
-): void {
-  const existing = selected.get(target);
-  if (target === formPageNumber) {
-    // Front/back marker on or pointing back to the form page — single-page
-    // synthetic fixture or otherwise weird input. Upgrade to form+label-*.
-    selected.set(target, artwork === 'label-front' ? 'form+label-front' : 'form+label-back');
-    return;
-  }
-  if (existing === 'label-front' && artwork === 'label-back') {
-    // Same page got tagged as both — unusual. Keep as label-front since
-    // it landed first; back goes to the next slot.
-    return;
-  }
-  if (existing === 'label-back' && artwork === 'label-front') {
-    return;
-  }
-  selected.set(target, artwork);
-}
+export const __renderTesting = {
+  pickPagesToRender,
+};
 
 async function renderPage(page: PdfPage): Promise<Buffer> {
   const viewport = page.getViewport({ scale: RENDER_SCALE });
@@ -410,6 +527,24 @@ async function renderPage(page: PdfPage): Promise<Buffer> {
   // Cleanup is owned by the outer caller via doc.cleanup(); calling it here
   // discards the font/glyph cache prematurely and breaks any subsequent
   // operations against the same page proxy.
+  return canvas.toBuffer('image/png');
+}
+
+async function maskPngToRegions(png: Buffer, regions: PixelRect[]): Promise<Buffer> {
+  if (regions.length === 0) return png;
+  const image = await loadImage(png);
+  const canvas = createCanvas(image.width, image.height);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, image.width, image.height);
+  for (const region of regions) {
+    const x = Math.floor(region.x0);
+    const y = Math.floor(region.y0);
+    const width = Math.ceil(region.x1 - region.x0);
+    const height = Math.ceil(region.y1 - region.y0);
+    if (width <= 0 || height <= 0) continue;
+    ctx.drawImage(image, x, y, width, height, x, y, width, height);
+  }
   return canvas.toBuffer('image/png');
 }
 
@@ -448,11 +583,28 @@ export async function renderApplicationPages(
     }
 
     const picked = pickPagesToRender(classes);
+    const classByPage = new Map(classes.map((c) => [c.pageNumber, c]));
     const rendered: RenderedPage[] = [];
     for (const { pageNumber, kind } of picked) {
       const page = await doc.getPage(pageNumber);
       try {
-        rendered.push({ pageNumber, kind, png: await renderPage(page) });
+        const classification = classByPage.get(pageNumber);
+        const png = await renderPage(page);
+        const labelImageRegions = classification?.labelImageRegions ?? [];
+        const ocrPng =
+          kind.includes('label') && labelImageRegions.length > 0
+            ? await maskPngToRegions(png, labelImageRegions)
+            : undefined;
+        rendered.push({
+          pageNumber,
+          kind,
+          png,
+          ocrPng,
+          pageWidth: classification?.pageWidth,
+          pageHeight: classification?.pageHeight,
+          textItems: classification?.textItems,
+          labelImageRegions,
+        });
       } catch (e) {
         // Real TTB COLA exports occasionally carry exotic fonts that pdfjs
         // can't render. Don't fail the whole verify on a single page — drop

@@ -1,5 +1,8 @@
 # Tesseract baseline parity report
 
+> Historical measurement note: this is an old pivot-time report, not the
+> current branch's deploy verdict.
+
 Captured: 2026-06-12T04:29:07.666Z
 Baseline source: 2026-06-11-gpt4o-cola.json (mean total 17056ms)
 

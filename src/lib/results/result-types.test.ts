@@ -91,10 +91,9 @@ describe('ResultLineSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts an ok line without crossCheck (Phase A sync path)', () => {
-    // Phase A: the sync verify path skips form-side OCR, so crossCheck is
-    // absent until Phase B's patch endpoint fills it in. The wire schema
-    // accepts both shapes — present (patched / legacy) and absent (sync).
+  it('accepts an ok line without crossCheck for older result shapes', () => {
+    // Older streamed/archived rows may not carry a crossCheck block. Keep the
+    // wire schema tolerant so those records remain readable.
     const line = validOkLine();
     delete (line as { report: { crossCheck?: unknown } }).report.crossCheck;
     const result = ResultLineSchema.safeParse(line);

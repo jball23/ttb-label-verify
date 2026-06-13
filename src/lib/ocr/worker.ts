@@ -3,10 +3,9 @@
  *
  * Exposes `runOcr(png)` (page-level recognise) and `getWorker()` (raw worker
  * handle, used by tests). Both are backed by a fixed-size pool of N Tesseract
- * workers; pool size defaults to 2 (Phase A — parallel label OCR). Workers
- * are created lazily on first acquire, so a single-page request still pays
- * one cold start, not N. Vercel reuses warm lambdas across requests, so warm
- * pages pay nothing.
+ * workers; pool size defaults to 2. Workers are created lazily on first
+ * acquire, so a single-page request still pays one cold start, not N. Vercel
+ * reuses warm lambdas across requests, so warm pages pay nothing.
  *
  * Concurrency model:
  *   - Each `runOcr` call ACQUIRES a free worker, runs `recognize()`, then
@@ -26,8 +25,6 @@
  * worker (`src/lib/pdf/render.ts`). Vercel's nft can't trace these runtime-
  * computed paths either, so `next.config.mjs.outputFileTracingIncludes`
  * force-includes the file list with the `/api/verify` lambda.
- *
- * Plan unit: U3 (single-worker original) + Phase A (pool extension).
  */
 import path from 'node:path';
 import { createWorker, type Worker } from 'tesseract.js';
@@ -162,7 +159,7 @@ export interface OcrPageResult {
  *
  * Tesseract returns a `blocks > paragraphs > lines > words` hierarchy; we
  * flatten to a word array because the downstream field assigners only care
- * about per-word `text + bbox + confidence` triples (KD2: per-word bbox list).
+ * about per-word `text + bbox + confidence` triples.
  *
  * Uses the Worker API with `{ blocks: true, text: true }` — the convenience
  * `Tesseract.recognize(image)` does NOT return the blocks hierarchy in v6

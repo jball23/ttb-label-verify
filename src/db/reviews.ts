@@ -11,8 +11,8 @@ import {
 /**
  * Finalize an application: append an immutable review row capturing the
  * human's decision, then set the application's `current_status` to the
- * terminal value ('approved' | 'rejected'). After this, the application
- * leaves the home-page triage tabs and lives in the /applications archive.
+ * current human decision ('approved' | 'rejected'). The row stays in the
+ * Finalized tab and can be revised until it is explicitly archived.
  *
  * Two sequential statements (no transaction — Neon HTTP driver doesn't
  * support multi-statement tx). If the second statement fails the review

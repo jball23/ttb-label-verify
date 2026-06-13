@@ -14,6 +14,15 @@ const baseSchema = z.object({
     .enum(['openai', 'azure-openai', 'tesseract'])
     .default('tesseract'),
   OPENAI_API_KEY: z.string().optional(),
+  OPENAI_VLM_MODEL: z.string().optional(),
+  OPENAI_MAX_CONCURRENT_REQUESTS: integerEnv('4', {
+    min: 1,
+    max: 8,
+  }),
+  OPENAI_MAX_RETRIES: integerEnv('4', {
+    min: 0,
+    max: 10,
+  }),
   AZURE_OPENAI_ENDPOINT: z.string().url().optional(),
   AZURE_OPENAI_API_KEY: z.string().optional(),
   AZURE_OPENAI_DEPLOYMENT: z.string().optional(),
@@ -21,17 +30,41 @@ const baseSchema = z.object({
   LANGFUSE_SECRET_KEY: z.string().optional(),
   LANGFUSE_HOST: z.string().url().optional(),
   DATABASE_URL: z.string().url().optional(),
-  // Feature flag: when 'false'/'0', the extractor stops asking the model for a
-  // provenance map (bounding boxes + confidence per field). The application-side
-  // bboxes are then synthesized from the deterministic AcroForm widget rects,
-  // and label-side click-to-highlight becomes inert. Default 'true' preserves
-  // the existing behavior. Toggle to measure the latency impact of the
-  // provenance output (~30-40% of the model's response tokens).
+  // Legacy full-document OpenAI extractor flag. The default Tesseract/PDF-text
+  // pipeline ignores this and emits FieldBbox sidecars directly.
   EXTRACT_PROVENANCE: z
     .enum(['true', 'false', '1', '0'])
     .default('false')
     .transform((v) => v === 'true' || v === '1'),
 });
+
+function integerEnv(
+  defaultValue: string,
+  bounds: { min: number; max: number },
+): z.ZodEffects<z.ZodDefault<z.ZodOptional<z.ZodString>>, number> {
+  return z
+    .string()
+    .optional()
+    .default(defaultValue)
+    .transform((value, ctx) => {
+      if (!/^\d+$/.test(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Expected an integer between ${bounds.min} and ${bounds.max}`,
+        });
+        return z.NEVER;
+      }
+      const parsed = Number.parseInt(value, 10);
+      if (parsed < bounds.min || parsed > bounds.max) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Expected an integer between ${bounds.min} and ${bounds.max}`,
+        });
+        return z.NEVER;
+      }
+      return parsed;
+    });
+}
 
 const envSchema = baseSchema.superRefine((data, ctx) => {
   if (data.LABEL_EXTRACTOR === 'openai' && !data.OPENAI_API_KEY) {

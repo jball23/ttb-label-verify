@@ -7,7 +7,7 @@ import {
   type ProvenanceMap,
 } from '@/lib/extraction/types';
 import { type ResultLine } from '@/lib/results/result-types';
-import { CrossCheckSection, RulesSection } from './report-sections';
+import { RulesSection } from './report-sections';
 
 type OkResultLine = Extract<ResultLine, { status: 'ok' }>;
 type WireReport = OkResultLine['report'];
@@ -55,34 +55,18 @@ export default function DetailReportView({
     else setInternalSelectedFieldId(next);
   }
 
-  // Order matters: the TTB Label Rules drive the verdict — Government
-  // Warning (§16.21), ABV format, brand presence, etc. — so they sit at the
-  // top of the report. The cross-check section is informational; it
-  // surfaces side-by-side comparisons the reviewer's eye does anyway
-  // ("matching" work, per the stakeholder interviews), but TTB approves
-  // plenty of labels with applicant-vs-producer or country phrasing drift,
-  // so we don't let it drive the verdict.
+  // One focused review surface: the TTB label rules card owns both the
+  // label-only requirements and the app-vs-label comparisons needed to assess
+  // those same requirements. No separate comparison panel.
   return (
     <div className="space-y-4">
       <RulesSection
-        fields={report.fields}
+        report={report}
         selectedFieldId={selectedFieldId}
         onSelect={select}
         provenance={provenance}
         bboxes={bboxes}
       />
-      {/* Phase A: cross-check is undefined while form-side OCR is still
-          running on the async patch path. Phase B replaces this guard with
-          a per-field spinner row. */}
-      {report.crossCheck && (
-        <CrossCheckSection
-          report={report.crossCheck}
-          selectedFieldId={selectedFieldId}
-          onSelect={select}
-          provenance={provenance}
-          bboxes={bboxes}
-        />
-      )}
     </div>
   );
 }

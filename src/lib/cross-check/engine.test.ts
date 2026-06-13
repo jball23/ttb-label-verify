@@ -160,6 +160,82 @@ describe('runCrossCheck — status fan-out', () => {
     expect(report.overallStatus).toBe('match');
   });
 
+  it('treats wine Item 10 N/A and label wine blend as no grape-varietal claim', () => {
+    const application = loadApplication('03-hawthorne-cabernet');
+    const appWithNoVarietal: Application = {
+      ...application,
+      crossCheckExpectations: {
+        ...application.crossCheckExpectations,
+        wineVarietal: 'N/A',
+        wineAppellation: 'AMERICAN',
+      },
+    };
+    const extracted: ExtractedFields = {
+      ...baseExtracted,
+      brandName: appWithNoVarietal.crossCheckExpectations.brandName,
+      classType: appWithNoVarietal.crossCheckExpectations.classType,
+      producer: appWithNoVarietal.crossCheckExpectations.producer,
+      countryOfOrigin: 'Product of USA',
+      wineVarietal: 'white wine blend',
+      wineAppellation: 'AMERICAN',
+    };
+
+    const report = runCrossCheck(appWithNoVarietal, extracted);
+
+    expect(report.fields.wineVarietal.status).toBe('not_applicable');
+    expect(report.fields.wineAppellation.status).toBe('match');
+    expect(report.fields.countryOfOrigin.status).toBe('match');
+  });
+
+  it('matches grape-varietal synonyms through the wine lexicon', () => {
+    const application = loadApplication('03-hawthorne-cabernet');
+    const pinotApp: Application = {
+      ...application,
+      crossCheckExpectations: {
+        ...application.crossCheckExpectations,
+        wineVarietal: 'Pinot Grigio',
+        wineAppellation: 'American',
+      },
+    };
+    const extracted: ExtractedFields = {
+      ...baseExtracted,
+      brandName: pinotApp.crossCheckExpectations.brandName,
+      classType: pinotApp.crossCheckExpectations.classType,
+      producer: pinotApp.crossCheckExpectations.producer,
+      countryOfOrigin: 'Product of USA',
+      wineVarietal: 'Pinot Gris',
+      wineAppellation: 'American White Wine',
+    };
+
+    const report = runCrossCheck(pinotApp, extracted);
+
+    expect(report.fields.wineVarietal.status).toBe('match');
+    expect(report.fields.wineVarietal.applicationValue).toBe('Pinot Gris');
+    expect(report.fields.wineAppellation.status).toBe('match');
+    expect(report.fields.wineAppellation.labelValue).toBe('American');
+  });
+
+  it('infers domestic country from a producer address with a US state name', () => {
+    const application = loadApplication('03-hawthorne-cabernet');
+    const appDomestic: Application = {
+      ...application,
+      crossCheckExpectations: {
+        ...application.crossCheckExpectations,
+        countryOfOrigin: 'USA',
+      },
+    };
+    const extracted: ExtractedFields = {
+      ...baseExtracted,
+      countryOfOrigin: null,
+      producer:
+        'Produced and Bottled by CHATEAU SAINTE GENEVIEVE Bloomsdale, Missouri',
+    };
+
+    const report = runCrossCheck(appDomestic, extracted);
+
+    expect(report.fields.countryOfOrigin.status).toBe('match');
+  });
+
   it('all label fields null produces a flood of not_on_label', () => {
     const application = loadApplication('01-ridge-creek-bourbon');
     const report = runCrossCheck(application, baseExtracted);

@@ -52,25 +52,20 @@ const CrossCheckReportSchema = z.object({
 const VerificationReportSchema = z.object({
   overallStatus: z.enum(['compliant', 'needs_review', 'non_compliant']),
   /**
-   * Cross-check optional under the Phase A split: on the sync verify path
-   * the verdict ships without form-side OCR, so cross-check is absent until
-   * the Phase B patch endpoint fills it in. Older archived rows always
-   * carry a populated value.
+   * Optional for backwards compatibility with rows/results produced before
+   * the PDF form prepass populated application comparisons synchronously.
    */
   crossCheck: CrossCheckReportSchema.optional(),
   fields: z.record(z.string(), RuleResultSchema),
-  /** Legacy GPT-4o provenance map. Always `{}` under the Tesseract pipeline. */
+  /** Legacy full-document OpenAI provenance map. Usually `{}` now. */
   provenance: ProvenanceMapSchema,
-  /** U4 / KD2 — per-field WordRect sidecar from the Tesseract pipeline. */
+  /** Per-field source sidecar from PDF text, OCR, or VLM fallback. */
   bboxes: FieldBboxesSchema.optional(),
   extractedForm: ExtractedApplicationFormSchema,
   extractedLabel: ExtractedFieldsSchema,
   /**
-   * Page-render metadata (1-indexed page number + classifier-emitted kind:
-   * `form`, `label-front`, `label-back`, etc.). Drives the source-viewer tab
-   * strip independently of which pages had Tesseract bboxes — so a `Front`
-   * tab stays enabled even when the front-label artwork is decorative
-   * wordmarks the OCR rejected below the confidence floor.
+   * Page-render metadata (1-indexed page number + classifier-emitted kind).
+   * Drives the source viewer independently of which pages have bboxes.
    */
   pages: z
     .array(

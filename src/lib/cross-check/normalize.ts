@@ -9,6 +9,11 @@
  * - `classTypeMatches`: normalized exact OR an alias map for compact TTB
  *   categories (e.g. "IPA" ⇄ "India Pale Ale")
  */
+import {
+  canonicalWineAppellation,
+  canonicalWineVarietal,
+  isWineTypeOnly,
+} from '../wine/lexicon';
 
 const STATE_NAME_TO_CODE: Record<string, string> = {
   alabama: 'al',
@@ -63,6 +68,8 @@ const STATE_NAME_TO_CODE: Record<string, string> = {
   wyoming: 'wy',
 };
 
+const US_STATE_CODES = new Set(Object.values(STATE_NAME_TO_CODE));
+
 const COUNTRY_ALIASES: Record<string, string> = {
   usa: 'usa',
   us: 'usa',
@@ -72,6 +79,16 @@ const COUNTRY_ALIASES: Record<string, string> = {
   'united states of america': 'usa',
   america: 'usa',
 };
+
+const WINE_NO_DECLARATION_VALUES = new Set([
+  '',
+  '-',
+  'n/a',
+  'na',
+  'none',
+  'not applicable',
+  'null',
+]);
 
 // Compact aliases for the Fanciful name. Maps free-form label
 // designations to the canonical TTB category text used on the COLA form.
@@ -98,7 +115,21 @@ const CLASS_TYPE_ALIASES: Record<string, string[]> = {
 const CORPORATE_SUFFIX_RE =
   /\b(l\.?l\.?c\.?|inc\.?|corp\.?|co\.?|ltd\.?|company|incorporated|llp)\b\.?/g;
 
-const PRODUCER_NOISE_TOKENS = new Set(['the', 'of', 'and', 'by', 'a', 'an', '·', '-']);
+const PRODUCER_NOISE_TOKENS = new Set([
+  'the',
+  'of',
+  'and',
+  'by',
+  'a',
+  'an',
+  'on',
+  'used',
+  'label',
+  'dba',
+  'tradename',
+  '·',
+  '-',
+]);
 
 const PRODUCER_PROCESS_TOKENS = new Set([
   'distilled',
@@ -193,7 +224,22 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 export function producerMatches(applicationValue: string, labelValue: string): boolean {
   const appTokens = tokenize(applicationValue);
   const labelTokens = tokenize(labelValue);
+  if (appTokens.size >= 2 && isSubset(appTokens, labelTokens)) return true;
+  if (labelTokens.size >= 2 && isSubset(labelTokens, appTokens)) return true;
+  for (const line of applicationValue.split(/\n+/)) {
+    const lineTokens = tokenize(line);
+    if (lineTokens.size >= 2 && isSubset(lineTokens, labelTokens)) return true;
+  }
   return jaccard(appTokens, labelTokens) >= PRODUCER_MATCH_THRESHOLD;
+}
+
+export function producerImpliesDomesticOrigin(value: string | null | undefined): boolean {
+  if (!value || /^\s*imported\s+by\b/i.test(value)) return false;
+  const tokens = tokenize(value);
+  for (const token of tokens) {
+    if (US_STATE_CODES.has(token)) return true;
+  }
+  return false;
 }
 
 /**
@@ -208,12 +254,42 @@ export function producerMatches(applicationValue: string, labelValue: string): b
  */
 export function countryMatches(applicationValue: string, labelValue: string): boolean {
   const appNorm =
-    COUNTRY_ALIASES[normalizedExact(applicationValue)] ??
-    normalizedExact(applicationValue);
+    COUNTRY_ALIASES[normalizeCountryValue(applicationValue)] ??
+    normalizeCountryValue(applicationValue);
   const labelNorm =
-    COUNTRY_ALIASES[normalizedExact(labelValue)] ?? normalizedExact(labelValue);
+    COUNTRY_ALIASES[normalizeCountryValue(labelValue)] ?? normalizeCountryValue(labelValue);
   if (appNorm === 'imported') return labelNorm !== 'usa' && labelNorm.length > 0;
   return appNorm === labelNorm;
+}
+
+function normalizeCountryValue(value: string): string {
+  return normalizedExact(value)
+    .replace(/^(?:product|produce|made)\s+of\s+/, '')
+    .replace(/^country\s+of\s+origin\s+/, '')
+    .trim();
+}
+
+export function isNoWineDeclaration(value: string | null | undefined): boolean {
+  return WINE_NO_DECLARATION_VALUES.has(normalizedExact(value));
+}
+
+export function normalizeWineVarietalClaim(
+  value: string | null | undefined,
+): string | null {
+  const normalized = normalizedExact(value);
+  if (WINE_NO_DECLARATION_VALUES.has(normalized)) return null;
+  if (isWineTypeOnly(value)) return null;
+  return canonicalWineVarietal(value);
+}
+
+export function normalizeWineAppellationClaim(
+  value: string | null | undefined,
+): string | null {
+  if (isNoWineDeclaration(value)) return null;
+  const canonical = canonicalWineAppellation(value);
+  if (canonical) return canonical;
+  if (isWineTypeOnly(value)) return null;
+  return value?.trim() || null;
 }
 
 /**

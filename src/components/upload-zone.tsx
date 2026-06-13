@@ -45,7 +45,7 @@ export default function UploadZone({ onFilesSelected, scenarioPicker }: Props) {
       <div className="mb-8 text-center sm:mb-12">
         <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
           <Sparkles className="size-3" />
-          GPT-4o vision · COLA cross-check + TTB rule engine
+          PDF OCR · COLA cross-check + TTB rule engine
         </div>
         <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
           Verify alcohol labels against a COLA application

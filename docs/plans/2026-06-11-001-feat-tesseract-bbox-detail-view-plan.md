@@ -1,11 +1,14 @@
 ---
 title: "feat: Tesseract.js OCR extractor + bbox-driven detail view"
 type: feat
-status: active
+status: superseded
 created: 2026-06-11
 origin: docs/brainstorms/2026-06-11-tesseract-bbox-requirements.md
 branch: feat/tesseract-bbox
 ---
+
+> Historical plan: kept for design history. `README.md` documents the current
+> deployable architecture.
 
 # feat: Tesseract.js OCR extractor + bbox-driven detail view
 

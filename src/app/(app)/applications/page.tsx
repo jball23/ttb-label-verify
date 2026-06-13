@@ -53,7 +53,7 @@ export default async function ApplicationsPage({ searchParams }: PageProps) {
       <header className="mb-4">
         <h1 className="text-lg font-semibold tracking-tight">Applications archive</h1>
         <p className="text-xs text-muted-foreground">
-          Every COLA application that&apos;s been finalized. In-flight items
+          Archived COLA applications only. Finalized-but-not-archived items
           live on the <Link href="/" className="underline">Queue</Link>.
         </p>
       </header>
@@ -75,7 +75,7 @@ export default async function ApplicationsPage({ searchParams }: PageProps) {
       {rows.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
           {filter === 'all'
-            ? 'No finalized applications yet. Items appear here after you Finalize them on the Queue.'
+            ? 'No archived applications yet. Finalize items on the Queue, then archive them from the Finalized tab.'
             : `No ${filter} applications yet.`}
         </div>
       ) : (

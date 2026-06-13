@@ -3,11 +3,10 @@
 import { Sparkles } from 'lucide-react';
 
 /**
- * Affordance for VLM-fallback fields (KD3). The Tesseract OCR didn't
- * extract this field, so the GPT-4o single-field fallback produced the
- * value — there's no on-page bbox to highlight. We still switch tabs to
- * the page the field SHOULD have come from (per path heuristic) and
- * overlay this notice on top of the rendered page.
+ * Affordance for VLM-fallback fields. The PDF/OCR pipeline didn't
+ * extract this field, so the OpenAI single-field fallback produced the
+ * value — there's no on-page bbox to highlight. The full original PDF stays
+ * visible and this notice explains why no exact box appeared.
  */
 export default function NoSourceOverlay({ fieldLabel }: { fieldLabel?: string }) {
   return (
@@ -19,9 +18,8 @@ export default function NoSourceOverlay({ fieldLabel }: { fieldLabel?: string })
         </div>
         <p className="text-[10.5px] leading-snug text-sky-900/80 dark:text-sky-100/80">
           {fieldLabel ? `“${fieldLabel}” was ` : 'This value was '}filled by the
-          GPT-4o vision fallback because the page OCR didn&apos;t find a
-          confident match. The viewer is showing the page where the value
-          would normally live.
+          OpenAI vision fallback because the page OCR didn&apos;t find a
+          confident match. No exact source box is available for this value.
         </p>
       </div>
     </div>

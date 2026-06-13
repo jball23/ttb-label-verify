@@ -28,6 +28,7 @@ import { cn } from '@/lib/utils';
  * (page-pt-dimension × DPI/72).
  */
 const RENDER_DPI = 200;
+const SELECTION_SCROLL_TOP_PADDING = 96;
 
 // pdfjs worker is copied into public/ by an install-time step (documented in
 // README). Setting workerSrc once is required by react-pdf.
@@ -37,18 +38,26 @@ if (typeof window !== 'undefined') {
 
 interface Props {
   pdfFile: File | Blob | null;
-  /** Legacy single-bbox provenance (GPT-4o path). Empty under Tesseract. */
+  /** Legacy single-bbox provenance from the full-document OpenAI path. */
   provenance: ProvenanceMap;
-  /** Tesseract per-word bbox sidecar. Preferred when present for a field. */
+  /** Current per-field source sidecar. Preferred when present for a field. */
   bboxes?: FieldBboxes;
   selectedFieldId: FieldPath | null;
+  selectedPageHint?: number | null;
   /**
    * When set, render only this 1-indexed page (rest of the document is
    * hidden). Used by the source-viewer tab strip so each tab shows exactly
    * one page. Falsy → render every page stacked (legacy modal behavior).
    */
   singlePage?: number | null;
+  pages?: ReadonlyArray<{ pageNumber: number; kind: string }>;
 }
+
+type LoadedPdfPage = {
+  originalWidth: number;
+  originalHeight: number;
+  getTextContent(): Promise<{ items: unknown[] }>;
+};
 
 const ZOOM_STEPS = [0.6, 0.75, 0.9, 1.0, 1.25, 1.5, 2.0, 2.5] as const;
 
@@ -57,7 +66,9 @@ export default function PdfViewer({
   provenance,
   bboxes,
   selectedFieldId,
+  selectedPageHint,
   singlePage,
+  pages,
 }: Props) {
   const [numPages, setNumPages] = useState(0);
   const [containerWidth, setContainerWidth] = useState(720);
@@ -69,6 +80,10 @@ export default function PdfViewer({
   const [pagePts, setPagePts] = useState<
     Map<number, { width: number; height: number }>
   >(new Map());
+  const [pageContentRight, setPageContentRight] = useState<Map<number, number>>(
+    new Map(),
+  );
+  const pageCanvasRefs = useRef<Map<number, HTMLCanvasElement>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -98,8 +113,21 @@ export default function PdfViewer({
     return () => ro.disconnect();
   }, []);
 
-  // When selection changes, scroll the page that owns the selected bbox into
-  // view. Non-selected bboxes are not drawn; only the selected one renders.
+  useEffect(() => {
+    setNumPages(0);
+    setPagePts(new Map());
+    setPageContentRight(new Map());
+    pageCanvasRefs.current.clear();
+    pageRefs.current.clear();
+  }, [pdfFile]);
+
+  const zoom = ZOOM_STEPS[zoomIndex] ?? 1.0;
+  const pageWidth = Math.floor(containerWidth * zoom);
+
+  // When selection changes, scroll the page that owns the selected source into
+  // view. For OCR fields, prefer the first highlighted word; for VLM/no-word
+  // fields, use the page hint and leave a top cushion so the app header never
+  // covers the evidence.
   // The new Tesseract bbox sidecar wins over the legacy provenance map when
   // both are present — the latter is `{}` under the Tesseract pipeline today,
   // but keeping the precedence explicit makes the dual-path render unambiguous.
@@ -107,15 +135,52 @@ export default function PdfViewer({
     selectedFieldId && bboxes ? bboxes[selectedFieldId] ?? null : null;
   const selectedEntry: FieldProvenance | null =
     selectedFieldId && !selectedBbox ? provenance[selectedFieldId] ?? null : null;
-  const selectedPage =
-    selectedBbox?.page ?? selectedEntry?.page ?? null;
+  const selectedPageNumber =
+    selectedBbox && selectedBbox.source !== 'vlm' && selectedBbox.words.length > 0
+      ? selectedBbox.page
+      : selectedPageHint ?? selectedBbox?.page ?? (selectedEntry ? selectedEntry.page + 1 : null);
   useEffect(() => {
-    if (selectedPage === null) return;
-    const pageEl = pageRefs.current.get(selectedPage);
-    if (pageEl) {
-      pageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (selectedPageNumber === null || !scrollRef.current) return;
+    const pageEl = pageRefs.current.get(selectedPageNumber);
+    if (!pageEl) return;
+
+    let targetTop = pageEl.offsetTop - SELECTION_SCROLL_TOP_PADDING;
+    if (
+      selectedBbox &&
+      selectedBbox.source !== 'vlm' &&
+      selectedBbox.words.length > 0 &&
+      selectedBbox.page === selectedPageNumber
+    ) {
+      const pt = pagePts.get(selectedBbox.page);
+      if (pt) {
+        const pixelWidth = pt.width * (RENDER_DPI / 72);
+        const firstY = Math.min(...selectedBbox.words.map((w) => w.bbox.y0));
+        const pageInner = pageEl.querySelector<HTMLElement>('[data-pdf-page-inner]');
+        const renderWidth = pageInner?.clientWidth ?? pageWidth;
+        targetTop =
+          pageEl.offsetTop +
+          (firstY / pixelWidth) * renderWidth -
+          SELECTION_SCROLL_TOP_PADDING;
+      }
+    } else if (selectedEntry) {
+      targetTop =
+        pageEl.offsetTop +
+        selectedEntry.bbox.y * pageEl.clientHeight -
+        SELECTION_SCROLL_TOP_PADDING;
     }
-  }, [selectedPage]);
+
+    scrollRef.current.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: 'smooth',
+    });
+  }, [
+    selectedPageNumber,
+    selectedBbox,
+    selectedEntry,
+    pagePts,
+    pageWidth,
+    numPages,
+  ]);
 
   if (!pdfFile) {
     return (
@@ -128,9 +193,96 @@ export default function PdfViewer({
     );
   }
 
-  const zoom = ZOOM_STEPS[zoomIndex] ?? 1.0;
-  const pageWidth = Math.floor(containerWidth * zoom);
   const canPan = zoom > 1.0;
+  const applicationBboxPages = new Set(
+    Object.entries(bboxes ?? {})
+      .filter(([path]) => path.startsWith('application.'))
+      .map(([, bbox]) => bbox.page),
+  );
+
+  function isFormPage(pageNumber: number): boolean {
+    const pageMeta = pages?.find((p) => p.pageNumber === pageNumber);
+    if (pageMeta) return pageMeta.kind.includes('form');
+    return applicationBboxPages.has(pageNumber);
+  }
+
+  function formPageFitScale(pageNumber: number): number {
+    if (!isFormPage(pageNumber)) return 1;
+    const right = pageContentRight.get(pageNumber);
+    if (!right || right >= 0.985) return 1;
+    return Math.min(1.22, Math.max(1, 1 / right));
+  }
+
+  function capturePageTextBounds(pageNumber: number, page: LoadedPdfPage): void {
+    void page.getTextContent().then((content) => {
+      const rightEdges: number[] = [];
+      for (const item of content.items) {
+        if (typeof item !== 'object' || item === null) continue;
+        const textItem = item as { transform?: unknown; width?: unknown };
+        if (!Array.isArray(textItem.transform)) continue;
+        const x = Number(textItem.transform[4]);
+        const width = Number(textItem.width ?? 0);
+        if (!Number.isFinite(x) || !Number.isFinite(width)) continue;
+        rightEdges.push(x + Math.max(0, width));
+      }
+      if (rightEdges.length === 0) return;
+      rightEdges.sort((a, b) => a - b);
+      const percentileIndex = Math.max(
+        0,
+        Math.ceil(rightEdges.length * 0.98) - 1,
+      );
+      const textRight = rightEdges[percentileIndex] ?? rightEdges.at(-1) ?? 0;
+      if (textRight <= 0) return;
+      const right = Math.min(1, (textRight + 18) / page.originalWidth);
+      setPageContentRight((prev) => {
+        if (prev.get(pageNumber) === right) return prev;
+        const next = new Map(prev);
+        next.set(pageNumber, right);
+        return next;
+      });
+    }).catch(() => undefined);
+  }
+
+  function captureCanvasBounds(pageNumber: number): void {
+    const canvas = pageCanvasRefs.current.get(pageNumber);
+    if (!canvas || canvas.width === 0 || canvas.height === 0) return;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return;
+    const stepX = Math.max(1, Math.floor(canvas.width / 900));
+    const stepY = Math.max(1, Math.floor(canvas.height / 900));
+    const whiteThreshold = 246;
+    let maxX = 0;
+    const { data, width, height } = ctx.getImageData(
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
+    for (let y = 0; y < height; y += stepY) {
+      for (let x = 0; x < width; x += stepX) {
+        const offset = (y * width + x) * 4;
+        const r = data[offset] ?? 255;
+        const g = data[offset + 1] ?? 255;
+        const b = data[offset + 2] ?? 255;
+        const alpha = data[offset + 3] ?? 255;
+        if (
+          alpha > 16 &&
+          (r < whiteThreshold || g < whiteThreshold || b < whiteThreshold)
+        ) {
+          maxX = Math.max(maxX, x);
+        }
+      }
+    }
+    if (maxX <= 0) return;
+    const right = Math.min(1, (maxX + 18) / canvas.width);
+    setPageContentRight((prev) => {
+      const existing = prev.get(pageNumber);
+      if (existing && existing <= right) return prev;
+      const next = new Map(prev);
+      next.set(pageNumber, right);
+      return next;
+    });
+  }
 
   function zoomIn(): void {
     setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, i + 1));
@@ -198,6 +350,7 @@ export default function PdfViewer({
       </div>
       <div
         ref={scrollRef}
+        data-pdf-scroll="true"
         onMouseDown={onPanStart}
         onMouseMove={onPanMove}
         onMouseUp={onPanEnd}
@@ -207,87 +360,115 @@ export default function PdfViewer({
           canPan ? (isPanning ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default',
         )}
       >
-      <Document
-        file={pdfFile}
-        onLoadSuccess={(p) => setNumPages(p.numPages)}
-        loading={<div className="text-xs text-muted-foreground">Loading PDF…</div>}
-        error={
-          <div className="text-xs text-destructive">
-            Could not display the PDF.
-          </div>
-        }
-      >
-        {Array.from({ length: numPages }, (_, i) => i)
-          .filter((pageIdx) => singlePage == null || pageIdx + 1 === singlePage)
-          .map((pageIdx) => {
-          const pageNumber = pageIdx + 1;
-          // FieldBbox.page is 1-indexed; legacy provenance.page is 0-indexed.
-          const showWordRects =
-            selectedBbox !== null && selectedBbox.page === pageNumber;
-          const showLegacyBbox =
-            selectedEntry !== null && selectedEntry.page === pageIdx;
-          const pt = pagePts.get(pageNumber);
-          return (
-            <div
-              key={pageIdx}
-              ref={(el) => {
-                // Track both index spaces so each selection variant scrolls
-                // into view using its own key.
-                if (el) {
-                  pageRefs.current.set(pageIdx, el);
-                  pageRefs.current.set(pageNumber, el);
-                }
-              }}
-              className="relative mb-4 inline-block bg-white shadow-sm"
-            >
-              <Page
-                pageNumber={pageNumber}
-                width={pageWidth}
-                renderTextLayer={false}
-                renderAnnotationLayer={false}
-                onLoadSuccess={(p) => {
-                  // originalWidth/originalHeight are the PDF's natural pt
-                  // dimensions before react-pdf's display scaling — exactly
-                  // what we need to denominate WordRect pixel coords.
-                  setPagePts((prev) => {
-                    const existing = prev.get(pageNumber);
-                    if (
-                      existing &&
-                      existing.width === p.originalWidth &&
-                      existing.height === p.originalHeight
-                    ) {
-                      return prev;
-                    }
-                    const next = new Map(prev);
-                    next.set(pageNumber, {
-                      width: p.originalWidth,
-                      height: p.originalHeight,
-                    });
-                    return next;
-                  });
-                }}
-              />
-              {showWordRects && selectedBbox && pt && (
-                <WordRectsHighlight bbox={selectedBbox} pagePt={pt} />
-              )}
-              {showLegacyBbox && selectedEntry && (
-                <BboxHighlight provenance={selectedEntry} />
-              )}
+        <Document
+          file={pdfFile}
+          onLoadSuccess={(p) => setNumPages(p.numPages)}
+          loading={
+            <div className="text-xs text-muted-foreground">Loading PDF…</div>
+          }
+          error={
+            <div className="text-xs text-destructive">
+              Could not display the PDF.
             </div>
-          );
-        })}
-      </Document>
+          }
+        >
+          {Array.from({ length: numPages }, (_, i) => i)
+            .filter((pageIdx) => singlePage == null || pageIdx + 1 === singlePage)
+            .map((pageIdx) => {
+              const pageNumber = pageIdx + 1;
+              // FieldBbox.page is 1-indexed; legacy provenance.page is 0-indexed.
+              const showWordRects =
+                selectedBbox !== null && selectedBbox.page === pageNumber;
+              const showLegacyBbox =
+                selectedEntry !== null && selectedEntry.page === pageIdx;
+              const pt = pagePts.get(pageNumber);
+              const fitScale = formPageFitScale(pageNumber);
+              const renderWidth = Math.floor(pageWidth * fitScale);
+              return (
+                <div
+                  key={pageIdx}
+                  ref={(el) => {
+                    if (el) {
+                      pageRefs.current.set(pageNumber, el);
+                    } else {
+                      pageRefs.current.delete(pageNumber);
+                    }
+                  }}
+                  className="mb-4 inline-block overflow-hidden bg-white shadow-sm"
+                  data-form-fit={fitScale > 1 ? 'true' : 'false'}
+                  data-fit-scale={fitScale.toFixed(3)}
+                  data-pdf-page={pageNumber}
+                  style={{ width: pageWidth }}
+                >
+                  <div
+                    className="relative bg-white"
+                    data-pdf-page-inner={pageNumber}
+                    style={{ width: renderWidth }}
+                  >
+                    <Page
+                      pageNumber={pageNumber}
+                      width={renderWidth}
+                      renderTextLayer={false}
+                      renderAnnotationLayer={false}
+                      canvasRef={(canvas) => {
+                        if (canvas) pageCanvasRefs.current.set(pageNumber, canvas);
+                        else pageCanvasRefs.current.delete(pageNumber);
+                      }}
+                      onLoadSuccess={(p) => {
+                        // originalWidth/originalHeight are the PDF's natural pt
+                        // dimensions before react-pdf's display scaling — exactly
+                        // what we need to denominate WordRect pixel coords.
+                        setPagePts((prev) => {
+                          const existing = prev.get(pageNumber);
+                          if (
+                            existing &&
+                            existing.width === p.originalWidth &&
+                            existing.height === p.originalHeight
+                          ) {
+                            return prev;
+                          }
+                          const next = new Map(prev);
+                          next.set(pageNumber, {
+                            width: p.originalWidth,
+                            height: p.originalHeight,
+                          });
+                          return next;
+                        });
+                        if (isFormPage(pageNumber)) {
+                          capturePageTextBounds(pageNumber, p);
+                        }
+                      }}
+                      onRenderSuccess={() => {
+                        if (isFormPage(pageNumber)) {
+                          captureCanvasBounds(pageNumber);
+                        }
+                      }}
+                    />
+                    {showWordRects && selectedBbox && pt && (
+                      <WordRectsHighlight
+                        bbox={selectedBbox}
+                        fieldPath={selectedFieldId}
+                        pagePt={pt}
+                      />
+                    )}
+                    {showLegacyBbox && selectedEntry && (
+                      <BboxHighlight provenance={selectedEntry} />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+        </Document>
       </div>
     </div>
   );
 }
 
 /**
- * Per-word overlay for the Tesseract bbox sidecar (KD2: list-of-word-rects,
- * NOT a union rect). Each word renders as its own absolute-positioned div
- * over the rendered page; the parent container is the same `relative`
- * wrapper that holds the react-pdf `<Page>`, so % units resolve to the
- * displayed page size automatically.
+ * Per-word overlay for the bbox sidecar. Each word renders as its own
+ * absolute-positioned div over the rendered page; the parent container is
+ * the same `relative` wrapper that holds the react-pdf `<Page>`, so % units
+ * resolve to the displayed page size automatically.
  *
  * Coordinate math: WordRect.x0/y0/x1/y1 are in 200-DPI PNG pixel space.
  * The PDF page's natural pt size × (DPI/72) is the source pixel-space
@@ -299,15 +480,27 @@ export default function PdfViewer({
  */
 function WordRectsHighlight({
   bbox,
+  fieldPath,
   pagePt,
 }: {
   bbox: FieldBbox;
+  fieldPath: FieldPath | null;
   pagePt: { width: number; height: number };
 }) {
   if (bbox.source === 'vlm' || bbox.words.length === 0) return null;
   const pixelWidth = pagePt.width * (RENDER_DPI / 72);
   const pixelHeight = pagePt.height * (RENDER_DPI / 72);
   const isLow = bbox.meanConfidence !== null && bbox.meanConfidence < 70;
+  if (fieldPath === 'label.governmentWarning') {
+    return (
+      <RegionRectDiv
+        words={bbox.words}
+        pixelWidth={pixelWidth}
+        pixelHeight={pixelHeight}
+        isLow={isLow}
+      />
+    );
+  }
   return (
     <>
       {bbox.words.map((w, i) => (
@@ -320,6 +513,42 @@ function WordRectsHighlight({
         />
       ))}
     </>
+  );
+}
+
+function RegionRectDiv({
+  words,
+  pixelWidth,
+  pixelHeight,
+  isLow,
+}: {
+  words: WordRect[];
+  pixelWidth: number;
+  pixelHeight: number;
+  isLow: boolean;
+}) {
+  const x0 = Math.min(...words.map((w) => w.bbox.x0));
+  const y0 = Math.min(...words.map((w) => w.bbox.y0));
+  const x1 = Math.max(...words.map((w) => w.bbox.x1));
+  const y1 = Math.max(...words.map((w) => w.bbox.y1));
+  const style: CSSProperties = {
+    left: `${(x0 / pixelWidth) * 100}%`,
+    top: `${(y0 / pixelHeight) * 100}%`,
+    width: `${((x1 - x0) / pixelWidth) * 100}%`,
+    height: `${((y1 - y0) / pixelHeight) * 100}%`,
+  };
+  return (
+    <div
+      aria-hidden
+      data-field-highlight="true"
+      className={cn(
+        'pointer-events-none absolute z-10 rounded-[3px] transition-all',
+        isLow
+          ? 'border-2 border-dashed border-amber-500/85 bg-amber-200/20'
+          : 'border-2 border-sky-500 bg-sky-300/15 shadow-[0_0_0_3px_rgba(56,189,248,0.16)]',
+      )}
+      style={style}
+    />
   );
 }
 
@@ -343,6 +572,7 @@ function WordRectDiv({
   return (
     <div
       aria-hidden
+      data-field-highlight="true"
       className={cn(
         'pointer-events-none absolute z-10 rounded-[2px] transition-all',
         isLow
@@ -365,6 +595,7 @@ function BboxHighlight({ provenance }: { provenance: FieldProvenance }) {
   return (
     <div
       aria-hidden
+      data-field-highlight="true"
       className={cn(
         'pointer-events-none absolute z-10 rounded-sm transition-all',
         isLow

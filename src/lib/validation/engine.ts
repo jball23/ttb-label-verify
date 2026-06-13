@@ -80,11 +80,8 @@ export function runVerification(
   bboxes?: import('../extraction/types').FieldBboxes,
   pages?: Array<{ pageNumber: number; kind: string }>,
 ): VerificationReport {
-  // Phase A sync path: form OCR runs async, so `application` is undefined.
-  // Skip cross-check entirely — Phase B patches it in once the form data
-  // lands. The verdict is computed from the 6 label rules alone; a later
-  // cross-check mismatch can downgrade compliant → needs_review during the
-  // patch but never reverses non_compliant (GW failure is sticky).
+  // Legacy/compat path: if a caller only has label fields, skip cross-check
+  // and compute the verdict from the label rules alone.
   const crossCheck: CrossCheckReport | undefined = application
     ? runCrossCheck(application, extracted)
     : undefined;

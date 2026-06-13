@@ -6,12 +6,16 @@
 
 ---
 
+> Historical note: this captured the OCR/bbox pivot before the current PDF
+> prepass and consolidated review UI landed. Use `README.md` as the current
+> source of truth for deployment.
+
 ## Problem
 
 Two real complaints with the current extraction + detail-view experience:
 
 1. **End-to-end extraction is slow.** GPT-4o vision dominates the ~10–15s budget per PDF, and the cost-per-verify is meaningful even at demo scale. Worse, when `EXTRACT_PROVENANCE=true` is enabled to get bboxes, latency grows another 3–4s and the model's bbox quality is poor enough that the prior session disabled the flag by default.
-2. **The reviewer can't see where extracted values came from.** The detail page lists rule outcomes and side-by-side comparisons in the left pane and shows the PDF only behind a "View full PDF" modal. A reviewer can read "Read: 5.17 gal" on the Net Contents row but has no way to point at the spot on the label that says it. This is the core compliance question — *where did the AI get this?* — and the current UI doesn't answer it.
+2. **The reviewer can't see where extracted values came from.** At the time this was written, the detail page listed rule outcomes and side-by-side comparisons in the left pane and showed the PDF only behind a "View full PDF" modal. A reviewer could read "Read: 5.17 gal" on the Net Contents row but had no way to point at the spot on the label that said it. This is the core compliance question — *where did the AI get this?* — and the then-current UI didn't answer it.
 
 Colleagues working the same TTB-label problem have shown that **OCR with native word-level bboxes** ships a much better reviewer experience than vision-LLM-only extraction.
 
