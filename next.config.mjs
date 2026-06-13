@@ -30,20 +30,12 @@ const nextConfig = {
       './node_modules/pdfjs-dist/standard_fonts/**',
       // Tesseract.js OCR — runtime paths from src/lib/ocr/worker.ts.
       // The worker spawns a worker_thread (workerPath) that loads a WASM
-      // build (corePath/tesseract-core-*.wasm.js + .wasm) and the language
-      // file (langPath/eng.traineddata). v6 picks the best WASM variant at
-      // runtime; include all SIMD + non-SIMD options so it can choose. The
-      // worker-script's index.js also requires sibling helpers (cache,
-      // getCore, gunzip).
+      // build from tesseract.js-core based on runtime WebAssembly feature
+      // detection. Include every core variant (plain, simd, relaxedsimd, lstm)
+      // plus the language file so Vercel's file tracer cannot omit the one
+      // selected by the deployed Node runtime.
       './node_modules/tesseract.js/src/worker-script/node/**',
-      './node_modules/tesseract.js-core/tesseract-core.wasm',
-      './node_modules/tesseract.js-core/tesseract-core.wasm.js',
-      './node_modules/tesseract.js-core/tesseract-core-simd.wasm',
-      './node_modules/tesseract.js-core/tesseract-core-simd.wasm.js',
-      './node_modules/tesseract.js-core/tesseract-core-lstm.wasm',
-      './node_modules/tesseract.js-core/tesseract-core-lstm.wasm.js',
-      './node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm',
-      './node_modules/tesseract.js-core/tesseract-core-simd-lstm.wasm.js',
+      './node_modules/tesseract.js-core/tesseract-core*',
       './tessdata/eng.traineddata',
     ],
   },
