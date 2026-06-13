@@ -15,14 +15,13 @@ export interface ScenarioOption {
 // Source of truth: the filenames under `public/samples/cola/` (without the
 // `.pdf` extension). Keep this list in sync with the directory — there's no
 // runtime listing because the PDFs are served from /public as static assets.
-// The first four are intentionally the fastest samples from the Tesseract
-// baseline so a first-time demo click gets to a decision quickly. The rest
-// stay in the original directory order.
+// The first four are intentionally fast samples from the Tesseract baseline,
+// ordered for the demo flow. The rest stay in the original directory order.
 const COLA_SLUGS: readonly string[] = [
-  '26090001000206-castello-di-radda',
-  '26084001000715-cointreau-spicy-margarita',
   '26084001000723-cointreau-mango-margarita',
+  '26084001000715-cointreau-spicy-margarita',
   '26084001000449-ironwood-cellars',
+  '26090001000206-castello-di-radda',
   '26062001000676-soplica-apricot',
   '26069001000391-super-cattivo-mandarino',
   '26069001000588-country-and-western-ale',
@@ -36,7 +35,6 @@ const COLA_SLUGS: readonly string[] = [
   '26086001000651-bouchard-aine-fils',
   '26089001000452-eagle-ridge-blanc',
   '26089001000771-el-mayoral-de-la-hacienda',
-  '26090001000206-castello-di-radda',
   '26091001000783-chateau-sainte-genevieve',
   '26092001000442-visuals-illuminate-the-sky',
   '26092001000545-quibole-tequila',
