@@ -213,6 +213,21 @@ export default function PdfViewer({
     return Math.min(1.22, Math.max(1, 1 / right));
   }
 
+  function rememberPageContentRight(pageNumber: number, rawRight: number): void {
+    if (!Number.isFinite(rawRight) || rawRight <= 0) return;
+    // Text-layer and canvas scans can disagree slightly. Treat the stored value
+    // as a monotonic "tightest right edge" so the rendered page width cannot
+    // bounce between two fit scales and make react-pdf repaint like a strobe.
+    const right = Math.min(1, Math.max(0.05, Math.round(rawRight * 1000) / 1000));
+    setPageContentRight((prev) => {
+      const existing = prev.get(pageNumber);
+      if (existing !== undefined && existing <= right + 0.002) return prev;
+      const next = new Map(prev);
+      next.set(pageNumber, right);
+      return next;
+    });
+  }
+
   function capturePageTextBounds(pageNumber: number, page: LoadedPdfPage): void {
     void page.getTextContent().then((content) => {
       const rightEdges: number[] = [];
@@ -234,12 +249,7 @@ export default function PdfViewer({
       const textRight = rightEdges[percentileIndex] ?? rightEdges.at(-1) ?? 0;
       if (textRight <= 0) return;
       const right = Math.min(1, (textRight + 18) / page.originalWidth);
-      setPageContentRight((prev) => {
-        if (prev.get(pageNumber) === right) return prev;
-        const next = new Map(prev);
-        next.set(pageNumber, right);
-        return next;
-      });
+      rememberPageContentRight(pageNumber, right);
     }).catch(() => undefined);
   }
 
@@ -275,13 +285,7 @@ export default function PdfViewer({
     }
     if (maxX <= 0) return;
     const right = Math.min(1, (maxX + 18) / canvas.width);
-    setPageContentRight((prev) => {
-      const existing = prev.get(pageNumber);
-      if (existing && existing <= right) return prev;
-      const next = new Map(prev);
-      next.set(pageNumber, right);
-      return next;
-    });
+    rememberPageContentRight(pageNumber, right);
   }
 
   function zoomIn(): void {
