@@ -520,6 +520,11 @@ function ReviewCard({
   selectedForArchive?: boolean;
 }) {
   const finalized = card.currentStatus === 'approved' || card.currentStatus === 'rejected';
+  const timestampLabel = finalized
+    ? `finalized ${formatRelative(card.currentStatusAt)}`
+    : `processed ${card.createdAt.toLocaleString()}`;
+  const runMetadata = `Extractor: ${card.extractorModel}\nPrompt: ${card.promptVersion}`;
+
   return (
     <li
       className={cn(
@@ -540,13 +545,13 @@ function ReviewCard({
             <p className="truncate text-sm font-medium">
               {card.sourceFilename}
             </p>
-            <p className="truncate text-[11px] text-muted-foreground">
+            <p
+              className="truncate text-[11px] text-muted-foreground"
+              title={runMetadata}
+            >
               {card.brandName ?? 'unknown brand'} ·{' '}
               {card.ttbSerialNumber ?? 'no serial'} ·{' '}
-              {finalized
-                ? `finalized ${formatRelative(card.currentStatusAt)}`
-                : `processed ${card.createdAt.toLocaleString()}`}{' '}
-              · {card.extractorModel} · prompt {card.promptVersion}
+              {timestampLabel}
             </p>
           </div>
           {statusPill}
