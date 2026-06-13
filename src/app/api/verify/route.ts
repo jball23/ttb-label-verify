@@ -66,15 +66,36 @@ export async function POST(req: NextRequest): Promise<Response> {
   }
 
   const encoder = new TextEncoder();
+  const traceEnabled = req.headers.get('x-verify-trace') === '1';
+  const requestStart = Date.now();
 
   const stream = new ReadableStream({
     start(controller) {
-      const enqueue = (line: ResultLine): void => {
+      const enqueueRaw = (line: unknown): void => {
         controller.enqueue(encoder.encode(encodeNDJSON(line)));
+      };
+      const enqueue = (line: ResultLine): void => {
+        enqueueRaw(line);
+      };
+      const trace = (stage: string, extra: Record<string, unknown> = {}): void => {
+        if (!traceEnabled) return;
+        enqueueRaw({
+          trace: true,
+          stage,
+          atMs: Date.now() - requestStart,
+          ...extra,
+        });
       };
 
       const includeProvenance = getEnv().EXTRACT_PROVENANCE;
       const promptVersion = getPromptVersion(includeProvenance);
+      trace('request.accepted', {
+        filename: pdfField.name,
+        bytes: pdfField.size,
+        extractorModel: extractor.modelId,
+        vercel: process.env.VERCEL === '1',
+        ocrPoolSize: process.env.OCR_POOL_SIZE ?? null,
+      });
 
       const wrappedWork = withRequestSpan(
         'verify-request',
@@ -89,6 +110,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             timings[label] = Date.now() - since;
           };
           try {
+            trace('pdf.read.start');
             const arrayBuffer = await pdfField.arrayBuffer();
             const pdfBuffer = Buffer.from(arrayBuffer);
             const pdfShaFull = crypto
@@ -96,18 +118,21 @@ export async function POST(req: NextRequest): Promise<Response> {
               .update(pdfBuffer)
               .digest('hex');
             const pdfSha = pdfShaFull.slice(0, 16);
+            trace('pdf.read.done', { sha: pdfSha, bytes: pdfBuffer.byteLength });
 
             // Cache hit: reuse only the same PDF under the same extraction
             // pipeline. Tesseract/parser updates can change field values and
             // bboxes without changing the PDF bytes, so content hash alone
             // would pin reviewers to stale results.
             if (tryGetDb()) {
+              trace('cache.lookup.start');
               const existing = await findApplicationByProcessingRun(
                 pdfShaFull,
                 promptVersion,
                 extractor.modelId,
               );
               if (existing) {
+                trace('cache.hit', { applicationId: existing.id });
                 enqueue({
                   status: 'ok',
                   index: 0,
@@ -118,19 +143,41 @@ export async function POST(req: NextRequest): Promise<Response> {
                 });
                 return;
               }
+              trace('cache.miss');
+            } else {
+              trace('cache.skip', { reason: 'database not configured' });
             }
 
             const queueStart = Date.now();
+            trace('verify.work.wait.start');
             await runVerificationWork(async () => {
               mark('queue', queueStart);
+              trace('verify.work.start', { queueMs: timings.queue ?? 0 });
               const renderStart = Date.now();
+              trace('render.start');
               const renderedPages = await renderApplicationPages(pdfBuffer);
               mark('render', renderStart);
+              trace('render.done', {
+                ms: timings.render,
+                pages: renderedPages.map((p) => ({
+                  pageNumber: p.pageNumber,
+                  kind: p.kind,
+                  pngBytes: p.png.byteLength,
+                  hasOcrMask: Boolean(p.ocrPng),
+                })),
+              });
               const parseStart = Date.now();
+              trace('parse.start');
               const parsedForm = await parseApplicationFormFromRenderedPages(
                 renderedPages,
               );
               mark('parse', parseStart);
+              trace('parse.done', {
+                ms: timings.parse,
+                parsed: Boolean(parsedForm),
+                productType: parsedForm?.application.productType ?? null,
+                brandName: parsedForm?.application.brandName ?? null,
+              });
               const pngBuffers = renderedPages.map((p) => p.png);
               const totalPngBytes = pngBuffers.reduce(
                 (sum, b) => sum + b.byteLength,
@@ -138,6 +185,10 @@ export async function POST(req: NextRequest): Promise<Response> {
               );
 
               const llmStart = Date.now();
+              trace('extract.start', {
+                pageCount: renderedPages.length,
+                totalPngBytes,
+              });
               const extracted = await withLabelSpan(
                 {
                   filename: pdfField.name,
@@ -149,7 +200,13 @@ export async function POST(req: NextRequest): Promise<Response> {
                   extractor.extract(renderedPages, { parsedForm }),
               );
               mark('llm', llmStart);
+              trace('extract.done', {
+                ms: timings.llm,
+                labelBrand: extracted.label.brandName ?? null,
+                labelClassType: extracted.label.classType ?? null,
+              });
 
+              trace('verify.rules.start');
               const provenance: ProvenanceMap = includeProvenance
                 ? snapApplicationProvenance(extracted.provenance)
                 : {};
@@ -162,6 +219,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                 extracted.bboxes,
                 renderedPages.map((p) => ({ pageNumber: p.pageNumber, kind: p.kind })),
               );
+              trace('verify.rules.done', { overallStatus: report.overallStatus });
 
               const latencyMs = Date.now() - start;
               const pagesLog = renderedPages
@@ -171,6 +229,7 @@ export async function POST(req: NextRequest): Promise<Response> {
               console.log(
                 `[verify] ${pdfField.name} model=${extractor.modelId} bbox=${includeProvenance ? 'on' : 'off'} formPrepass=${parsedForm ? 'hit' : 'miss'} pages=[${pagesLog}] total=${latencyMs}ms queue=${timings.queue ?? 0}ms render=${timings.render ?? 0}ms parse=${timings.parse ?? 0}ms llm=${timings.llm ?? 0}ms`,
               );
+              trace('persist.start');
               const applicationId = await persistVerification({
                 sourceFilename: pdfField.name,
                 contentHash: pdfShaFull,
@@ -182,6 +241,7 @@ export async function POST(req: NextRequest): Promise<Response> {
                 report,
                 pdfBytes: pdfBuffer,
               });
+              trace('persist.done', { applicationId });
 
               enqueue({
                 status: 'ok',
@@ -193,6 +253,9 @@ export async function POST(req: NextRequest): Promise<Response> {
               });
             });
           } catch (e) {
+            trace('error', {
+              message: scrubError(humanizeError(e as Error)),
+            });
             enqueue({
               status: 'error',
               index: 0,
