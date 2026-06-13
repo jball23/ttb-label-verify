@@ -36,7 +36,6 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
   const backHref = finalized && row.archivedAt ? '/applications' : '/';
   const backLabel = finalized && row.archivedAt ? 'Applications archive' : 'Back to Queue';
   const processedAt = row.createdAt.toLocaleString();
-  const runMetadata = `Extractor: ${row.extractorModel}\nPrompt: ${row.promptVersion}`;
 
   return (
     <div className="mx-auto w-full px-4 py-6 sm:px-6">
@@ -53,7 +52,7 @@ export default async function ApplicationDetailPage({ params }: PageProps) {
           </h1>
           <FinalStatusBadge status={row.currentStatus} />
         </div>
-        <p className="mt-1 text-[11px] text-muted-foreground" title={runMetadata}>
+        <p className="mt-1 text-[11px] text-muted-foreground">
           Processed {processedAt}
         </p>
       </header>

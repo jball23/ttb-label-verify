@@ -523,7 +523,6 @@ function ReviewCard({
   const timestampLabel = finalized
     ? `finalized ${formatRelative(card.currentStatusAt)}`
     : `processed ${card.createdAt.toLocaleString()}`;
-  const runMetadata = `Extractor: ${card.extractorModel}\nPrompt: ${card.promptVersion}`;
 
   return (
     <li
@@ -545,10 +544,7 @@ function ReviewCard({
             <p className="truncate text-sm font-medium">
               {card.sourceFilename}
             </p>
-            <p
-              className="truncate text-[11px] text-muted-foreground"
-              title={runMetadata}
-            >
+            <p className="truncate text-[11px] text-muted-foreground">
               {card.brandName ?? 'unknown brand'} ·{' '}
               {card.ttbSerialNumber ?? 'no serial'} ·{' '}
               {timestampLabel}
