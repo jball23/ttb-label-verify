@@ -25,8 +25,10 @@ export type AiVerdict = 'compliant' | 'needs_review' | 'non_compliant';
  * Lifecycle of a verified COLA submission:
  *   • 'pending_approval'  — AI judged compliant; awaiting human Finalize.
  *   • 'pending_rejection' — AI judged non-compliant; awaiting human Finalize.
- *   • 'approved'          — finalized; lives in /applications archive.
- *   • 'rejected'          — finalized; lives in /applications archive.
+ *   • 'approved'          — human finalized as approved; remains in the
+ *                           Finalized queue until archivedAt is set.
+ *   • 'rejected'          — human finalized as rejected; remains in the
+ *                           Finalized queue until archivedAt is set.
  *
  * Items don't persist in a 'queued'/'processing' state — those only exist
  * client-side during the in-flight verify API call.
@@ -94,8 +96,8 @@ export const applications = pgTable(
 
     // Set when a reviewer moves a finalized row from the Finalized tab to
     // the /applications archive via the Archive Selected button. Finalize
-    // (approve/reject) no longer auto-archives — items stay in the
-    // Finalized queue until the reviewer batch-archives them.
+    // (approve/reject) does not auto-archive; items stay in the Finalized
+    // queue and can still be revised until this timestamp is set.
     archivedAt: timestamp({ withTimezone: true }),
   },
   (t) => [

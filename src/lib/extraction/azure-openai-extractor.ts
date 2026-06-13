@@ -1,6 +1,7 @@
 import {
   type DocumentExtractor,
   type ExtractedDocument,
+  type ExtractorOptions,
   NotImplementedError,
 } from './types';
 
@@ -30,11 +31,14 @@ export class AzureOpenAIExtractor implements DocumentExtractor {
     this.modelId = `azure:${options.deployment ?? 'unknown'}`;
   }
 
-  async extract(_pngBuffers: Buffer[]): Promise<ExtractedDocument> {
+  async extract(
+    _pages: { pageNumber: number; kind: string; png: Buffer }[],
+    _options?: ExtractorOptions,
+  ): Promise<ExtractedDocument> {
     throw new NotImplementedError(
       `AzureOpenAIExtractor is documented but not implemented in the prototype. ` +
         `Endpoint configured: ${this.options.endpoint}. ` +
-        `See README "Azure OpenAI migration path" for the production swap.`,
+        `Use LABEL_EXTRACTOR=tesseract for the current deployable path.`,
     );
   }
 }

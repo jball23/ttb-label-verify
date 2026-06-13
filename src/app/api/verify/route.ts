@@ -7,19 +7,21 @@ import { withRequestSpan, withLabelSpan } from '@/lib/observability/spans';
 import { getPromptVersion } from '@/lib/extraction/prompt';
 import { type ResultLine } from '@/lib/results/result-types';
 import { scrubError } from '@/lib/safety/scrub-error';
-import { synthesizeExpectations } from '@/lib/application/loader';
 import { renderApplicationPages, PdfRenderError } from '@/lib/pdf/render';
+import { parseApplicationFormFromRenderedPages } from '@/lib/pdf/parse-form';
 import { snapApplicationProvenance } from '@/lib/pdf/form-widgets';
 import { persistVerification } from '@/db/persist-verification';
-import { findApplicationByHash } from '@/db/applications';
+import { findApplicationByProcessingRun } from '@/db/applications';
 import { tryGetDb } from '@/db/client';
 import { getEnv } from '@/lib/env';
+import { synthesizeExpectations } from '@/lib/application/loader';
 import type { ProvenanceMap } from '@/lib/extraction/types';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB headroom for a multi-page COLA PDF
+let verifyQueue: Promise<void> = Promise.resolve();
 
 export async function POST(req: NextRequest): Promise<Response> {
   let formData: FormData;
@@ -94,11 +96,16 @@ export async function POST(req: NextRequest): Promise<Response> {
               .digest('hex');
             const pdfSha = pdfShaFull.slice(0, 16);
 
-            // Cache hit: if we've already processed this exact PDF, return the
-            // stored result immediately — saves the GPT-4o call (real money +
-            // ~10s) and keeps re-uploads of the same file deterministic.
+            // Cache hit: reuse only the same PDF under the same extraction
+            // pipeline. Tesseract/parser updates can change field values and
+            // bboxes without changing the PDF bytes, so content hash alone
+            // would pin reviewers to stale results.
             if (tryGetDb()) {
-              const existing = await findApplicationByHash(pdfShaFull);
+              const existing = await findApplicationByProcessingRun(
+                pdfShaFull,
+                promptVersion,
+                extractor.modelId,
+              );
               if (existing) {
                 enqueue({
                   status: 'ok',
@@ -112,70 +119,77 @@ export async function POST(req: NextRequest): Promise<Response> {
               }
             }
 
-            const renderStart = Date.now();
-            const renderedPages = await renderApplicationPages(pdfBuffer);
-            mark('render', renderStart);
-            const pngBuffers = renderedPages.map((p) => p.png);
-            const totalPngBytes = pngBuffers.reduce(
-              (sum, b) => sum + b.byteLength,
-              0,
-            );
+            const queueStart = Date.now();
+            await runOneVerificationAtATime(async () => {
+              mark('queue', queueStart);
+              const renderStart = Date.now();
+              const renderedPages = await renderApplicationPages(pdfBuffer);
+              mark('render', renderStart);
+              const parseStart = Date.now();
+              const parsedForm = await parseApplicationFormFromRenderedPages(
+                renderedPages,
+              );
+              mark('parse', parseStart);
+              const pngBuffers = renderedPages.map((p) => p.png);
+              const totalPngBytes = pngBuffers.reduce(
+                (sum, b) => sum + b.byteLength,
+                0,
+              );
 
-            const llmStart = Date.now();
-            const extracted = await withLabelSpan(
-              {
+              const llmStart = Date.now();
+              const extracted = await withLabelSpan(
+                {
+                  filename: pdfField.name,
+                  mimeType: 'image/png',
+                  byteSize: totalPngBytes,
+                  imageSha256: pdfSha,
+                },
+                () =>
+                  extractor.extract(renderedPages, { parsedForm }),
+              );
+              mark('llm', llmStart);
+
+              const provenance: ProvenanceMap = includeProvenance
+                ? snapApplicationProvenance(extracted.provenance)
+                : {};
+              const application = synthesizeExpectations(extracted.application);
+              const report = runVerification(
+                application,
+                extracted.label,
+                provenance,
+                extracted.application,
+                extracted.bboxes,
+                renderedPages.map((p) => ({ pageNumber: p.pageNumber, kind: p.kind })),
+              );
+
+              const latencyMs = Date.now() - start;
+              const pagesLog = renderedPages
+                .map((p) => `${p.pageNumber}:${p.kind}`)
+                .join(',');
+              // eslint-disable-next-line no-console -- structured per-request observability marker; HANDOFF references the `[verify]` log line for diagnostics.
+              console.log(
+                `[verify] ${pdfField.name} model=${extractor.modelId} bbox=${includeProvenance ? 'on' : 'off'} formPrepass=${parsedForm ? 'hit' : 'miss'} pages=[${pagesLog}] total=${latencyMs}ms queue=${timings.queue ?? 0}ms render=${timings.render ?? 0}ms parse=${timings.parse ?? 0}ms llm=${timings.llm ?? 0}ms`,
+              );
+              const applicationId = await persistVerification({
+                sourceFilename: pdfField.name,
+                contentHash: pdfShaFull,
+                byteSize: pdfField.size,
+                promptVersion,
+                extractorModel: extractor.modelId,
+                latencyMs,
+                extracted: { ...extracted, provenance },
+                report,
+                pdfBytes: pdfBuffer,
+              });
+
+              enqueue({
+                status: 'ok',
+                index: 0,
                 filename: pdfField.name,
-                mimeType: 'image/png',
-                byteSize: totalPngBytes,
-                imageSha256: pdfSha,
-              },
-              () => extractor.extract(pngBuffers),
-            );
-            mark('llm', llmStart);
-
-            const application = synthesizeExpectations(extracted.application);
-            // Provenance branch:
-            //   • EXTRACT_PROVENANCE=true  → the model returned bboxes; snap
-            //     the application-side ones to deterministic widget rects.
-            //   • EXTRACT_PROVENANCE=false → the feature is OFF. No bboxes
-            //     anywhere; click-to-highlight is fully disabled in the UI.
-            const provenance: ProvenanceMap = includeProvenance
-              ? snapApplicationProvenance(extracted.provenance)
-              : {};
-            const report = runVerification(
-              application,
-              extracted.label,
-              provenance,
-              extracted.application,
-            );
-
-            const latencyMs = Date.now() - start;
-            const pagesLog = renderedPages
-              .map((p) => `${p.pageNumber}:${p.kind}`)
-              .join(',');
-            // eslint-disable-next-line no-console -- structured per-request observability marker; HANDOFF references the `[verify]` log line for diagnostics.
-            console.log(
-              `[verify] ${pdfField.name} model=${extractor.modelId} bbox=${includeProvenance ? 'on' : 'off'} pages=[${pagesLog}] total=${latencyMs}ms render=${timings.render ?? 0}ms llm=${timings.llm ?? 0}ms`,
-            );
-            const applicationId = await persistVerification({
-              sourceFilename: pdfField.name,
-              contentHash: pdfShaFull,
-              byteSize: pdfField.size,
-              promptVersion,
-              extractorModel: extractor.modelId,
-              latencyMs,
-              extracted: { ...extracted, provenance },
-              report,
-              pdfBytes: pdfBuffer,
-            });
-
-            enqueue({
-              status: 'ok',
-              index: 0,
-              filename: pdfField.name,
-              durationMs: latencyMs,
-              report,
-              applicationId,
+                durationMs: latencyMs,
+                report,
+                applicationId,
+              });
             });
           } catch (e) {
             enqueue({
@@ -213,6 +227,21 @@ export async function POST(req: NextRequest): Promise<Response> {
       'X-Accel-Buffering': 'no',
     },
   });
+}
+
+async function runOneVerificationAtATime<T>(work: () => Promise<T>): Promise<T> {
+  const previous = verifyQueue.catch(() => undefined);
+  let release: () => void = () => undefined;
+  verifyQueue = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  await previous;
+  try {
+    return await work();
+  } finally {
+    release();
+  }
 }
 
 function errorResponse(status: number, message: string): Response {

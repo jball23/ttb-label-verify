@@ -42,3 +42,12 @@ next-env.d.ts
 .claude/
 scripts/.cola-template-*.pdf
 .playwright-mcp/
+
+# Tesseract.js artifacts. The eng.traineddata file lives at tessdata/
+# (committed — Vercel's outputFileTracingIncludes ships it with the
+# lambda). Auto-downloaded copies at repo root or under node_modules
+# are gitignored. Spike PNGs and per-word JSONs are reproducible via
+# the spike script.
+/eng.traineddata
+scripts/spike-output/*.png
+scripts/spike-output/*-words.json

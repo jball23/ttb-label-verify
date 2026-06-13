@@ -1,4 +1,5 @@
 import { type Rule } from '../types';
+import { producerImpliesDomesticOrigin } from '../../cross-check/normalize';
 
 function present(value: string | null): boolean {
   return !!value && value.trim().length > 0;
@@ -16,9 +17,14 @@ const producerOriginRule: Rule = {
   },
   check(extracted) {
     const hasProducer = present(extracted.producer);
-    const hasCountry = present(extracted.countryOfOrigin);
+    const inferredDomestic = !present(extracted.countryOfOrigin) &&
+      producerImpliesDomesticOrigin(extracted.producer);
+    const hasCountry = present(extracted.countryOfOrigin) || inferredDomestic;
     const display =
-      [extracted.producer, extracted.countryOfOrigin].filter(Boolean).join(' · ') ||
+      [
+        extracted.producer,
+        extracted.countryOfOrigin ?? (inferredDomestic ? 'USA' : null),
+      ].filter(Boolean).join(' · ') ||
       null;
 
     if (!hasProducer && !hasCountry) {

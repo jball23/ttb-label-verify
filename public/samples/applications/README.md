@@ -1,10 +1,18 @@
 # Demo dataset — COLA applications + labels
 
+> Legacy fixture note: the live app now verifies real COLA PDFs from
+> `public/samples/cola/` and user-uploaded Form 5100.31 PDFs. These synthetic
+> `application.json` + label-image scenarios are retained for historical route
+> tests and should not be treated as the current product flow.
+
 Five fictitious `TTB F 5100.31` applications paired with the labels that would be submitted alongside them. Each scenario exercises a specific failure mode in the verify pipeline so the demo shows a full range of TTB-reviewer outcomes, not just the green-path bourbon.
 
 ## Why this exists
 
-The current prototype validates a label image against the six TTB labeling rules in isolation. In reality, a TTB reviewer looks at **the COLA application AND the submitted labels together** and verifies that the labels match what the applicant certified on the form. This dataset is the input for that cross-check feature.
+This dataset was created before the real-PDF workflow, when the prototype used
+structured `application.json` fixtures plus generated label images to design
+the application/label cross-check feature. The current app performs that review
+from one uploaded COLA PDF instead.
 
 Each scenario folder contains:
 
@@ -36,8 +44,8 @@ Coverage:
 | Item 6 — Brand Name (required)         | Brand mark                   | `brandName`                                       |
 | Item 7 — Fanciful Name (if any)        | Fanciful name / product line | (part of `classType` or absent on label)          |
 | Item 8 — Applicant name + address      | Producer/bottler statement   | `producer`                                        |
-| Item 10 — Grape Varietal (wine only)   | Varietal designation         | (cross-check only — not on `ExtractedFields` yet) |
-| Item 11 — Wine Appellation (wine only) | Appellation                  | (cross-check only — not on `ExtractedFields` yet) |
+| Item 10 — Grape Varietal (wine only)   | Varietal designation         | `wineVarietal`                                    |
+| Item 11 — Wine Appellation (wine only) | Appellation                  | `wineAppellation`                                 |
 
 Form items 1–4, 9, 12–13, 14, 16–18 are administrative — they do not appear on a label and are not cross-checked.
 
@@ -58,9 +66,10 @@ For each scenario folder:
 
 The prompts are tuned for flat unrolled label artwork (not 3D bottle photos) so OCR is clean. Backgrounds are neutral light-gray studio surfaces so the extractor isn't distracted by scene content.
 
-## What the verify pipeline will do with this dataset (proposed)
+## What the original proposed pipeline did with this dataset
 
-Once the application + label cross-check feature ships, the verify endpoint will accept both inputs and produce a result with three sections per scenario:
+The original plan for these fixtures was a two-input verify endpoint that
+accepted both `application.json` and `label.jpg` and produced:
 
 1. **Extraction** — what the label extractor found
 2. **Cross-check** — field-by-field comparison of `application.crossCheckExpectations` vs extracted fields, one row per field with `match` / `mismatch` / `not_on_label`
@@ -68,6 +77,8 @@ Once the application + label cross-check feature ships, the verify endpoint will
 
 The aggregate verdict combines both — `COMPLIANT` only if cross-check is all matches AND all label-only rules pass.
 
-## Once the system is wired up
+## Current use
 
-`expectedVerdict` and `intentionalMismatches` are designed to drive eval cases — each scenario doubles as a regression fixture. A future `npm run eval` should iterate `public/samples/applications/`, run the full pipeline against each `(application.json, label.jpg)` pair, and assert the verdict + mismatch list matches what's declared in the JSON.
+`expectedVerdict` and `intentionalMismatches` still explain the old regression
+intent, but the live verifier no longer runs these folders as user-facing demo
+scenarios. The route tests keep them only as deterministic historical fixtures.

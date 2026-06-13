@@ -15,6 +15,8 @@ interface Props {
   // non_compliant = actually rejected). Only non_compliant pre-selects
   // Reject — that mirrors how persist-verification routes initial status.
   aiVerdict: 'compliant' | 'needs_review' | 'non_compliant';
+  initialDecision?: Decision;
+  mode?: 'finalize' | 'revise';
   defaultReviewerLabel?: string;
   onSubmitted?(decision: Decision): void;
 }
@@ -25,12 +27,15 @@ const aiPick = (v: Props['aiVerdict']): Decision =>
 export default function FinalizeForm({
   applicationId,
   aiVerdict,
+  initialDecision,
+  mode = 'finalize',
   defaultReviewerLabel,
   onSubmitted,
 }: Props) {
   const router = useRouter();
-  // Pre-select the AI's pick. Reviewer can flip it before finalizing.
-  const [decision, setDecision] = useState<Decision>(aiPick(aiVerdict));
+  // Pre-select the AI's pick, unless a current human decision is provided
+  // for a finalized-but-not-archived row.
+  const [decision, setDecision] = useState<Decision>(initialDecision ?? aiPick(aiVerdict));
   const [reviewerLabel, setReviewerLabel] = useState(defaultReviewerLabel ?? '');
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +78,9 @@ export default function FinalizeForm({
       <header className="border-b border-border px-3 py-2">
         <h2 className="text-sm font-semibold">Finalize</h2>
         <p className="text-[11px] text-muted-foreground">
-          The AI&apos;s pick is pre-selected. Keep it or flip it, then Finalize
-          to lock the decision in.
+          {mode === 'revise'
+            ? 'The current decision is pre-selected. Change it if needed before archiving.'
+            : "The AI's pick is pre-selected. Keep it or flip it, then Finalize."}
         </p>
       </header>
       <form onSubmit={submit} className="space-y-3 px-3 py-3">
@@ -177,7 +183,8 @@ export default function FinalizeForm({
           )}
         >
           {isPending && <Loader2 className="size-3 animate-spin" />}
-          Finalize as {decision === 'approved' ? 'Approved' : 'Rejected'}
+          {mode === 'revise' ? 'Update' : 'Finalize as'}{' '}
+          {decision === 'approved' ? 'Approved' : 'Rejected'}
         </button>
       </form>
     </section>

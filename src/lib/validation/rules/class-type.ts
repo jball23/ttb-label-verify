@@ -2,7 +2,7 @@ import { type Rule } from '../types';
 
 const classTypeRule: Rule = {
   id: 'classType',
-  label: 'Fanciful name',
+  label: 'Fanciful / class name',
   cfr: {
     section: '27 CFR §4.34 (wine) / §5.35 (spirits) / §7.24 (malt beverages)',
     summary:
@@ -15,7 +15,7 @@ const classTypeRule: Rule = {
     if (!value || value.trim().length === 0) {
       return {
         status: 'warn',
-        reason: 'Fanciful name not detected on the label.',
+        reason: 'Fanciful or class/type name not detected on the label.',
         extractedValue: value ?? null,
       };
     }

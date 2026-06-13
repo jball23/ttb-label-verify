@@ -1,0 +1,2680 @@
+{
+  "capturedAt": "2026-06-12T04:29:07.662Z",
+  "entries": [
+    {
+      "filename": "26062001000676-soplica-apricot.pdf",
+      "sizeBytes": 682961,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 627648
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 984127
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 184442
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 44635,
+      "totalLatencyMs": 44635,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "extraction": {
+        "application": {
+          "repId": null,
+          "plantRegistryNumber": "IL-I-1022",
+          "source": null,
+          "serialNumber": "260307 WINE",
+          "productType": "WINE",
+          "brandName": "SOPLICA",
+          "fancifulName": "APRICOT",
+          "applicant": {
+            "name": "CRACOVIA BRANDS, INC.\n10103 PACIFIC AVE\nFRANKLIN PARK IL 60131",
+            "addressLine1": null,
+            "city": null,
+            "state": null,
+            "postalCode": null
+          },
+          "mailingAddress": null,
+          "formula": "1658022 N/A",
+          "grapeVarietals": "N/A",
+          "wineAppellation": null,
+          "phone": "(847) 928-2866",
+          "email": null,
+          "applicationType": "CERTIFICATE OF LABEL APPROVAL",
+          "containerWording": null,
+          "applicationDate": "03/03/2026",
+          "applicantSignatureName": null
+        },
+        "label": {
+          "brandName": "SOPLICA",
+          "abv": "26% ALC./VOL.",
+          "governmentWarning": {
+            "text": "GOVERNMENT WARNING: ACCORDING THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE THE RISK BIRTH DRIVE OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.",
+            "appearsAllCaps": true,
+            "appearsBold": null
+          },
+          "netContents": "500 mL",
+          "classType": null,
+          "producer": "Produced by:",
+          "countryOfOrigin": "PRODUCT OF POLAND",
+          "wineVarietal": null,
+          "wineAppellation": null,
+          "extractionConfidence": "medium"
+        },
+        "provenance": {},
+        "bboxes": {
+          "application.serialNumber": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "260307",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 39,
+                  "y0": 673,
+                  "x1": 111,
+                  "y1": 690
+                }
+              },
+              {
+                "text": "WINE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 343,
+                  "y0": 675,
+                  "x1": 386,
+                  "y1": 688
+                }
+              },
+              {
+                "text": "(Wine",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 552,
+                  "y0": 1034,
+                  "x1": 611,
+                  "y1": 1055
+                }
+              },
+              {
+                "text": "WINE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 51,
+                  "y0": 1165,
+                  "x1": 107,
+                  "y1": 1181
+                }
+              }
+            ],
+            "meanConfidence": 96
+          },
+          "application.productType": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "WINE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 343,
+                  "y0": 675,
+                  "x1": 386,
+                  "y1": 688
+                }
+              },
+              {
+                "text": "(Wine",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 552,
+                  "y0": 1034,
+                  "x1": 611,
+                  "y1": 1055
+                }
+              },
+              {
+                "text": "WINE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 51,
+                  "y0": 1165,
+                  "x1": 107,
+                  "y1": 1181
+                }
+              }
+            ],
+            "meanConfidence": 96
+          },
+          "application.brandName": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "SOPLICA",
+                "confidence": 92,
+                "bbox": {
+                  "x0": 31,
+                  "y0": 900,
+                  "x1": 126,
+                  "y1": 917
+                }
+              }
+            ],
+            "meanConfidence": 92
+          },
+          "application.applicationType": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 926,
+                  "y0": 63,
+                  "x1": 963,
+                  "y1": 84
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 1038,
+                  "y0": 157,
+                  "x1": 1082,
+                  "y1": 182
+                }
+              },
+              {
+                "text": "LABEL/BOTTLE",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 1095,
+                  "y0": 157,
+                  "x1": 1345,
+                  "y1": 182
+                }
+              },
+              {
+                "text": "APPROVAL",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 866,
+                  "y0": 194,
+                  "x1": 1047,
+                  "y1": 219
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 416,
+                  "y0": 436,
+                  "x1": 444,
+                  "y1": 452
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 823,
+                  "y0": 428,
+                  "x1": 852,
+                  "y1": 444
+                }
+              },
+              {
+                "text": "LABEL",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 842,
+                  "y0": 478,
+                  "x1": 913,
+                  "y1": 494
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 379,
+                  "y0": 613,
+                  "x1": 407,
+                  "y1": 630
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 97,
+                "bbox": {
+                  "x0": 792,
+                  "y0": 1034,
+                  "x1": 821,
+                  "y1": 1050
+                }
+              },
+              {
+                "text": "CERTIFICATE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 835,
+                  "y0": 1094,
+                  "x1": 943,
+                  "y1": 1107
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 949,
+                  "y0": 1094,
+                  "x1": 971,
+                  "y1": 1107
+                }
+              },
+              {
+                "text": "LABEL",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 977,
+                  "y0": 1094,
+                  "x1": 1031,
+                  "y1": 1106
+                }
+              },
+              {
+                "text": "APPROVAL",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1035,
+                  "y0": 1094,
+                  "x1": 1126,
+                  "y1": 1106
+                }
+              },
+              {
+                "text": "CERTIFICATE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 835,
+                  "y0": 1155,
+                  "x1": 943,
+                  "y1": 1167
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 949,
+                  "y0": 1154,
+                  "x1": 971,
+                  "y1": 1167
+                }
+              },
+              {
+                "text": "LABEL",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1134,
+                  "y0": 1155,
+                  "x1": 1187,
+                  "y1": 1167
+                }
+              },
+              {
+                "text": "APPROVAL",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 1192,
+                  "y0": 1154,
+                  "x1": 1283,
+                  "y1": 1167
+                }
+              },
+              {
+                "text": "label)",
+                "confidence": 90,
+                "bbox": {
+                  "x0": 336,
+                  "y0": 1165,
+                  "x1": 393,
+                  "y1": 1186
+                }
+              },
+              {
+                "text": "APPROVAL.",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 1083,
+                  "y0": 1223,
+                  "x1": 1178,
+                  "y1": 1236
+                }
+              },
+              {
+                "text": "LABELS",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 359,
+                  "y0": 1403,
+                  "x1": 440,
+                  "y1": 1419
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 959,
+                  "y0": 1402,
+                  "x1": 988,
+                  "y1": 1419
+                }
+              },
+              {
+                "text": "LABELS.",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 202,
+                  "y0": 1427,
+                  "x1": 289,
+                  "y1": 1444
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 229,
+                  "y0": 1555,
+                  "x1": 248,
+                  "y1": 1571
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1215,
+                  "y0": 1555,
+                  "x1": 1234,
+                  "y1": 1571
+                }
+              },
+              {
+                "text": "labels",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 609,
+                  "y0": 1580,
+                  "x1": 665,
+                  "y1": 1596
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 337,
+                  "y0": 1605,
+                  "x1": 355,
+                  "y1": 1621
+                }
+              },
+              {
+                "text": "labels",
+                "confidence": 92,
+                "bbox": {
+                  "x0": 656,
+                  "y0": 1605,
+                  "x1": 712,
+                  "y1": 1621
+                }
+              },
+              {
+                "text": "Certificate/Exemption",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 963,
+                  "y0": 1630,
+                  "x1": 1171,
+                  "y1": 1650
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 1179,
+                  "y0": 1630,
+                  "x1": 1198,
+                  "y1": 1646
+                }
+              },
+              {
+                "text": "Label/Bottle",
+                "confidence": 92,
+                "bbox": {
+                  "x0": 1205,
+                  "y0": 1630,
+                  "x1": 1320,
+                  "y1": 1646
+                }
+              },
+              {
+                "text": "Approval.",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 30,
+                  "y0": 1655,
+                  "x1": 122,
+                  "y1": 1675
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 82,
+                "bbox": {
+                  "x0": 122,
+                  "y0": 1705,
+                  "x1": 151,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 353,
+                  "y0": 1705,
+                  "x1": 382,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1074,
+                  "y0": 1705,
+                  "x1": 1103,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "CERTIFICATE",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 693,
+                  "y0": 1817,
+                  "x1": 872,
+                  "y1": 1838
+                }
+              },
+              {
+                "text": "certificate",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 71,
+                  "y0": 1861,
+                  "x1": 175,
+                  "y1": 1877
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 1267,
+                  "y0": 1861,
+                  "x1": 1288,
+                  "y1": 1877
+                }
+              }
+            ],
+            "meanConfidence": 95
+          },
+          "application.grapeVarietals": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 585,
+                  "y0": 428,
+                  "x1": 648,
+                  "y1": 444
+                }
+              },
+              {
+                "text": "TRADENAME",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 559,
+                  "y0": 478,
+                  "x1": 700,
+                  "y1": 494
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 131,
+                  "y0": 865,
+                  "x1": 194,
+                  "y1": 881
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 161,
+                  "y0": 949,
+                  "x1": 223,
+                  "y1": 965
+                }
+              },
+              {
+                "text": "N/A",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 297,
+                  "y0": 1069,
+                  "x1": 332,
+                  "y1": 1086
+                }
+              },
+              {
+                "text": "penalties",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 135,
+                  "y0": 1555,
+                  "x1": 222,
+                  "y1": 1575
+                }
+              },
+              {
+                "text": "original",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 724,
+                  "y0": 1630,
+                  "x1": 794,
+                  "y1": 1650
+                }
+              },
+              {
+                "text": "SIGNATURE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 218,
+                  "y0": 1705,
+                  "x1": 345,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 1004,
+                  "y0": 1705,
+                  "x1": 1066,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "SIGNATURE,",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 428,
+                  "y0": 1923,
+                  "x1": 561,
+                  "y1": 1943
+                }
+              }
+            ],
+            "meanConfidence": 95
+          },
+          "application.formula": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 585,
+                  "y0": 428,
+                  "x1": 648,
+                  "y1": 444
+                }
+              },
+              {
+                "text": "TRADENAME",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 559,
+                  "y0": 478,
+                  "x1": 700,
+                  "y1": 494
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 131,
+                  "y0": 865,
+                  "x1": 194,
+                  "y1": 881
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 161,
+                  "y0": 949,
+                  "x1": 223,
+                  "y1": 965
+                }
+              },
+              {
+                "text": "1658022",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 28,
+                  "y0": 1069,
+                  "x1": 111,
+                  "y1": 1086
+                }
+              },
+              {
+                "text": "N/A",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 297,
+                  "y0": 1069,
+                  "x1": 332,
+                  "y1": 1086
+                }
+              },
+              {
+                "text": "penalties",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 135,
+                  "y0": 1555,
+                  "x1": 222,
+                  "y1": 1575
+                }
+              },
+              {
+                "text": "original",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 724,
+                  "y0": 1630,
+                  "x1": 794,
+                  "y1": 1650
+                }
+              },
+              {
+                "text": "SIGNATURE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 218,
+                  "y0": 1705,
+                  "x1": 345,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 1004,
+                  "y0": 1705,
+                  "x1": 1066,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "SIGNATURE,",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 428,
+                  "y0": 1923,
+                  "x1": 561,
+                  "y1": 1943
+                }
+              }
+            ],
+            "meanConfidence": 95
+          },
+          "label.brandName": {
+            "page": 3,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "SOPLICA",
+                "confidence": 92,
+                "bbox": {
+                  "x0": 40,
+                  "y0": 9,
+                  "x1": 201,
+                  "y1": 53
+                }
+              }
+            ],
+            "meanConfidence": 92
+          },
+          "label.producer": {
+            "page": 3,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "Produced",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 19,
+                  "y0": 60,
+                  "x1": 76,
+                  "y1": 75
+                }
+              },
+              {
+                "text": "by:",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 81,
+                  "y0": 56,
+                  "x1": 98,
+                  "y1": 83
+                }
+              },
+              {
+                "text": "bY",
+                "confidence": 29,
+                "bbox": {
+                  "x0": 157,
+                  "y0": 78,
+                  "x1": 171,
+                  "y1": 114
+                }
+              }
+            ],
+            "meanConfidence": 73
+          },
+          "label.countryOfOrigin": {
+            "page": 3,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "PRODUCT",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 352,
+                  "y0": 37,
+                  "x1": 422,
+                  "y1": 52
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 429,
+                  "y0": 37,
+                  "x1": 446,
+                  "y1": 52
+                }
+              },
+              {
+                "text": "POLAND",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 456,
+                  "y0": 37,
+                  "x1": 512,
+                  "y1": 52
+                }
+              },
+              {
+                "text": "Poland.",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 477,
+                  "y0": 60,
+                  "x1": 516,
+                  "y1": 75
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 391,
+                  "y0": 141,
+                  "x1": 404,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 461,
+                  "y0": 141,
+                  "x1": 474,
+                  "y1": 158
+                }
+              }
+            ],
+            "meanConfidence": 95
+          },
+          "label.governmentWarning": {
+            "page": 3,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "GOVERNMENT",
+                "confidence": 90,
+                "bbox": {
+                  "x0": 25,
+                  "y0": 122,
+                  "x1": 105,
+                  "y1": 139
+                }
+              },
+              {
+                "text": "WARNING:",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 110,
+                  "y0": 122,
+                  "x1": 169,
+                  "y1": 139
+                }
+              },
+              {
+                "text": "ACCORDING",
+                "confidence": 88,
+                "bbox": {
+                  "x0": 192,
+                  "y0": 122,
+                  "x1": 257,
+                  "y1": 139
+                }
+              },
+              {
+                "text": "THE",
+                "confidence": 94,
+                "bbox": {
+                  "x0": 281,
+                  "y0": 123,
+                  "x1": 300,
+                  "y1": 139
+                }
+              },
+              {
+                "text": "SURGEON",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 306,
+                  "y0": 122,
+                  "x1": 357,
+                  "y1": 139
+                }
+              },
+              {
+                "text": "GENERAL,",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 362,
+                  "y0": 122,
+                  "x1": 411,
+                  "y1": 139
+                }
+              },
+              {
+                "text": "WOMEN",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 419,
+                  "y0": 122,
+                  "x1": 460,
+                  "y1": 139
+                }
+              },
+              {
+                "text": "SHOULD",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 466,
+                  "y0": 122,
+                  "x1": 510,
+                  "y1": 139
+                }
+              },
+              {
+                "text": "NOT",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 25,
+                  "y0": 141,
+                  "x1": 45,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "DRINK",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 50,
+                  "y0": 141,
+                  "x1": 83,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "ALCOHOLIC",
+                "confidence": 86,
+                "bbox": {
+                  "x0": 87,
+                  "y0": 141,
+                  "x1": 174,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "BEVERAGES",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 155,
+                  "y0": 133,
+                  "x1": 217,
+                  "y1": 168
+                }
+              },
+              {
+                "text": "DURING",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 225,
+                  "y0": 141,
+                  "x1": 263,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "PREGNANCY",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 268,
+                  "y0": 141,
+                  "x1": 334,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "BECAUSE",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 338,
+                  "y0": 141,
+                  "x1": 386,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "THE",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 408,
+                  "y0": 137,
+                  "x1": 427,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "RISK",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 432,
+                  "y0": 141,
+                  "x1": 456,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "BIRTH",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 478,
+                  "y0": 141,
+                  "x1": 510,
+                  "y1": 158
+                }
+              },
+              {
+                "text": "DRIVE",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 479,
+                  "y0": 160,
+                  "x1": 510,
+                  "y1": 177
+                }
+              },
+              {
+                "text": "OPERATE",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 133,
+                  "y0": 179,
+                  "x1": 181,
+                  "y1": 196
+                }
+              },
+              {
+                "text": "MACHINERY,",
+                "confidence": 87,
+                "bbox": {
+                  "x0": 186,
+                  "y0": 179,
+                  "x1": 252,
+                  "y1": 197
+                }
+              },
+              {
+                "text": "AND",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 256,
+                  "y0": 179,
+                  "x1": 278,
+                  "y1": 195
+                }
+              },
+              {
+                "text": "MAY",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 283,
+                  "y0": 179,
+                  "x1": 306,
+                  "y1": 195
+                }
+              },
+              {
+                "text": "CAUSE",
+                "confidence": 89,
+                "bbox": {
+                  "x0": 310,
+                  "y0": 179,
+                  "x1": 345,
+                  "y1": 196
+                }
+              },
+              {
+                "text": "HEALTH",
+                "confidence": 89,
+                "bbox": {
+                  "x0": 349,
+                  "y0": 179,
+                  "x1": 390,
+                  "y1": 195
+                }
+              },
+              {
+                "text": "PROBLEMS.",
+                "confidence": 82,
+                "bbox": {
+                  "x0": 395,
+                  "y0": 179,
+                  "x1": 457,
+                  "y1": 196
+                }
+              }
+            ],
+            "meanConfidence": 92
+          },
+          "application.plantRegistryNumber": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.fancifulName": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.mailingAddress": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.applicant.name": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.email": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.phone": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.wineAppellation": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.applicationDate": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "label.abv": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "label.netContents": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          }
+        }
+      }
+    },
+    {
+      "filename": "26069001000391-super-cattivo-mandarino.pdf",
+      "sizeBytes": 478379,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 596832
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 465837
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 28122,
+      "totalLatencyMs": 28122,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "extraction": {
+        "application": {
+          "repId": null,
+          "plantRegistryNumber": "NY-22191",
+          "source": null,
+          "serialNumber": "260023 WINE",
+          "productType": "WINE",
+          "brandName": "CATTIVO SUPER",
+          "fancifulName": "MANDARINO",
+          "applicant": {
+            "name": "Dream Bottle Rotation, Dream Bottle Rotation LLC\n185 CLINTON AVE APT 6B\nBrooklyn NY 11205",
+            "addressLine1": null,
+            "city": null,
+            "state": null,
+            "postalCode": null
+          },
+          "mailingAddress": null,
+          "formula": "1678132 N/A",
+          "grapeVarietals": "N/A",
+          "wineAppellation": null,
+          "phone": "(347) 756-9541",
+          "email": null,
+          "applicationType": "CERTIFICATE OF LABEL APPROVAL",
+          "containerWording": null,
+          "applicationDate": "03/10/2022",
+          "applicantSignatureName": null
+        },
+        "label": {
+          "brandName": "characters per",
+          "abv": "20%",
+          "governmentWarning": {
+            "text": "GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.",
+            "appearsAllCaps": null,
+            "appearsBold": null
+          },
+          "netContents": "500 mL",
+          "classType": null,
+          "producer": "Bottled by:",
+          "countryOfOrigin": "Product of Austria",
+          "wineVarietal": null,
+          "wineAppellation": null,
+          "extractionConfidence": "medium"
+        },
+        "provenance": {},
+        "bboxes": {
+          "application.serialNumber": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "260023",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 39,
+                  "y0": 673,
+                  "x1": 111,
+                  "y1": 690
+                }
+              },
+              {
+                "text": "WINE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 343,
+                  "y0": 675,
+                  "x1": 386,
+                  "y1": 688
+                }
+              },
+              {
+                "text": "(Wine",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 552,
+                  "y0": 1034,
+                  "x1": 611,
+                  "y1": 1055
+                }
+              },
+              {
+                "text": "WINE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 51,
+                  "y0": 1165,
+                  "x1": 107,
+                  "y1": 1181
+                }
+              }
+            ],
+            "meanConfidence": 96
+          },
+          "application.productType": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "WINE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 343,
+                  "y0": 675,
+                  "x1": 386,
+                  "y1": 688
+                }
+              },
+              {
+                "text": "(Wine",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 552,
+                  "y0": 1034,
+                  "x1": 611,
+                  "y1": 1055
+                }
+              },
+              {
+                "text": "WINE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 51,
+                  "y0": 1165,
+                  "x1": 107,
+                  "y1": 1181
+                }
+              }
+            ],
+            "meanConfidence": 96
+          },
+          "application.brandName": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "SUPER",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 31,
+                  "y0": 901,
+                  "x1": 106,
+                  "y1": 917
+                }
+              },
+              {
+                "text": "CATTIVO",
+                "confidence": 90,
+                "bbox": {
+                  "x0": 114,
+                  "y0": 900,
+                  "x1": 206,
+                  "y1": 917
+                }
+              }
+            ],
+            "meanConfidence": 92
+          },
+          "application.applicationType": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 926,
+                  "y0": 63,
+                  "x1": 963,
+                  "y1": 84
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 1038,
+                  "y0": 157,
+                  "x1": 1082,
+                  "y1": 182
+                }
+              },
+              {
+                "text": "LABEL/BOTTLE",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 1095,
+                  "y0": 157,
+                  "x1": 1345,
+                  "y1": 182
+                }
+              },
+              {
+                "text": "APPROVAL",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 866,
+                  "y0": 194,
+                  "x1": 1047,
+                  "y1": 219
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 416,
+                  "y0": 436,
+                  "x1": 444,
+                  "y1": 452
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 823,
+                  "y0": 428,
+                  "x1": 852,
+                  "y1": 444
+                }
+              },
+              {
+                "text": "LABEL",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 842,
+                  "y0": 478,
+                  "x1": 913,
+                  "y1": 494
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 379,
+                  "y0": 613,
+                  "x1": 407,
+                  "y1": 630
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 97,
+                "bbox": {
+                  "x0": 792,
+                  "y0": 1034,
+                  "x1": 821,
+                  "y1": 1050
+                }
+              },
+              {
+                "text": "CERTIFICATE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 835,
+                  "y0": 1094,
+                  "x1": 943,
+                  "y1": 1107
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 949,
+                  "y0": 1094,
+                  "x1": 971,
+                  "y1": 1106
+                }
+              },
+              {
+                "text": "LABEL",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 977,
+                  "y0": 1094,
+                  "x1": 1031,
+                  "y1": 1106
+                }
+              },
+              {
+                "text": "APPROVAL",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1035,
+                  "y0": 1094,
+                  "x1": 1126,
+                  "y1": 1106
+                }
+              },
+              {
+                "text": "CERTIFICATE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 835,
+                  "y0": 1155,
+                  "x1": 943,
+                  "y1": 1167
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 949,
+                  "y0": 1155,
+                  "x1": 971,
+                  "y1": 1167
+                }
+              },
+              {
+                "text": "LABEL",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1134,
+                  "y0": 1155,
+                  "x1": 1187,
+                  "y1": 1167
+                }
+              },
+              {
+                "text": "APPROVAL",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 1192,
+                  "y0": 1154,
+                  "x1": 1283,
+                  "y1": 1167
+                }
+              },
+              {
+                "text": "label)",
+                "confidence": 92,
+                "bbox": {
+                  "x0": 336,
+                  "y0": 1165,
+                  "x1": 392,
+                  "y1": 1186
+                }
+              },
+              {
+                "text": "APPROVAL.",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 1083,
+                  "y0": 1223,
+                  "x1": 1178,
+                  "y1": 1236
+                }
+              },
+              {
+                "text": "LABELS",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 359,
+                  "y0": 1403,
+                  "x1": 440,
+                  "y1": 1419
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 959,
+                  "y0": 1402,
+                  "x1": 988,
+                  "y1": 1419
+                }
+              },
+              {
+                "text": "LABELS.",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 202,
+                  "y0": 1427,
+                  "x1": 289,
+                  "y1": 1444
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 229,
+                  "y0": 1555,
+                  "x1": 248,
+                  "y1": 1571
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1215,
+                  "y0": 1555,
+                  "x1": 1234,
+                  "y1": 1571
+                }
+              },
+              {
+                "text": "labels",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 609,
+                  "y0": 1580,
+                  "x1": 665,
+                  "y1": 1596
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 337,
+                  "y0": 1605,
+                  "x1": 355,
+                  "y1": 1621
+                }
+              },
+              {
+                "text": "labels",
+                "confidence": 92,
+                "bbox": {
+                  "x0": 656,
+                  "y0": 1605,
+                  "x1": 712,
+                  "y1": 1621
+                }
+              },
+              {
+                "text": "Certificate/Exemption",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 963,
+                  "y0": 1630,
+                  "x1": 1171,
+                  "y1": 1650
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 1179,
+                  "y0": 1630,
+                  "x1": 1198,
+                  "y1": 1646
+                }
+              },
+              {
+                "text": "Label/Bottle",
+                "confidence": 92,
+                "bbox": {
+                  "x0": 1205,
+                  "y0": 1630,
+                  "x1": 1320,
+                  "y1": 1646
+                }
+              },
+              {
+                "text": "Approval.",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 30,
+                  "y0": 1655,
+                  "x1": 122,
+                  "y1": 1675
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 82,
+                "bbox": {
+                  "x0": 122,
+                  "y0": 1705,
+                  "x1": 151,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 353,
+                  "y0": 1705,
+                  "x1": 382,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1075,
+                  "y0": 1705,
+                  "x1": 1104,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "CERTIFICATE",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 693,
+                  "y0": 1817,
+                  "x1": 872,
+                  "y1": 1838
+                }
+              },
+              {
+                "text": "certificate",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 71,
+                  "y0": 1861,
+                  "x1": 175,
+                  "y1": 1877
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 1267,
+                  "y0": 1861,
+                  "x1": 1288,
+                  "y1": 1877
+                }
+              }
+            ],
+            "meanConfidence": 95
+          },
+          "application.grapeVarietals": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 585,
+                  "y0": 428,
+                  "x1": 648,
+                  "y1": 444
+                }
+              },
+              {
+                "text": "TRADENAME",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 559,
+                  "y0": 478,
+                  "x1": 700,
+                  "y1": 494
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 131,
+                  "y0": 865,
+                  "x1": 194,
+                  "y1": 881
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 161,
+                  "y0": 949,
+                  "x1": 223,
+                  "y1": 965
+                }
+              },
+              {
+                "text": "N/A",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 297,
+                  "y0": 1069,
+                  "x1": 332,
+                  "y1": 1086
+                }
+              },
+              {
+                "text": "penalties",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 135,
+                  "y0": 1555,
+                  "x1": 222,
+                  "y1": 1575
+                }
+              },
+              {
+                "text": "original",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 724,
+                  "y0": 1630,
+                  "x1": 794,
+                  "y1": 1650
+                }
+              },
+              {
+                "text": "SIGNATURE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 218,
+                  "y0": 1705,
+                  "x1": 345,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1004,
+                  "y0": 1705,
+                  "x1": 1067,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "SIGNATURE,",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 428,
+                  "y0": 1923,
+                  "x1": 561,
+                  "y1": 1943
+                }
+              }
+            ],
+            "meanConfidence": 95
+          },
+          "application.formula": {
+            "page": 1,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 585,
+                  "y0": 428,
+                  "x1": 648,
+                  "y1": 444
+                }
+              },
+              {
+                "text": "TRADENAME",
+                "confidence": 91,
+                "bbox": {
+                  "x0": 559,
+                  "y0": 478,
+                  "x1": 700,
+                  "y1": 494
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 131,
+                  "y0": 865,
+                  "x1": 194,
+                  "y1": 881
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 161,
+                  "y0": 949,
+                  "x1": 223,
+                  "y1": 965
+                }
+              },
+              {
+                "text": "1678132",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 28,
+                  "y0": 1069,
+                  "x1": 111,
+                  "y1": 1086
+                }
+              },
+              {
+                "text": "N/A",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 297,
+                  "y0": 1069,
+                  "x1": 332,
+                  "y1": 1086
+                }
+              },
+              {
+                "text": "penalties",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 135,
+                  "y0": 1555,
+                  "x1": 222,
+                  "y1": 1575
+                }
+              },
+              {
+                "text": "original",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 724,
+                  "y0": 1630,
+                  "x1": 794,
+                  "y1": 1650
+                }
+              },
+              {
+                "text": "SIGNATURE",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 218,
+                  "y0": 1705,
+                  "x1": 345,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "NAME",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1004,
+                  "y0": 1705,
+                  "x1": 1067,
+                  "y1": 1721
+                }
+              },
+              {
+                "text": "SIGNATURE,",
+                "confidence": 95,
+                "bbox": {
+                  "x0": 428,
+                  "y0": 1923,
+                  "x1": 561,
+                  "y1": 1943
+                }
+              }
+            ],
+            "meanConfidence": 95
+          },
+          "label.brandName": {
+            "page": 2,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "characters",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 479,
+                  "y0": 71,
+                  "x1": 581,
+                  "y1": 88
+                }
+              },
+              {
+                "text": "per",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 589,
+                  "y0": 76,
+                  "x1": 620,
+                  "y1": 92
+                }
+              }
+            ],
+            "meanConfidence": 96
+          },
+          "label.abv": {
+            "page": 2,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "20%",
+                "confidence": 40,
+                "bbox": {
+                  "x0": 1209,
+                  "y0": 1115,
+                  "x1": 1272,
+                  "y1": 1132
+                }
+              },
+              {
+                "text": "(06-2016)",
+                "confidence": 90,
+                "bbox": {
+                  "x0": 178,
+                  "y0": 1500,
+                  "x1": 273,
+                  "y1": 1521
+                }
+              }
+            ],
+            "meanConfidence": 65
+          },
+          "label.producer": {
+            "page": 2,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "Bottled",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 961,
+                  "y0": 851,
+                  "x1": 1021,
+                  "y1": 865
+                }
+              },
+              {
+                "text": "by:",
+                "confidence": 93,
+                "bbox": {
+                  "x0": 1028,
+                  "y0": 851,
+                  "x1": 1051,
+                  "y1": 869
+                }
+              },
+              {
+                "text": "by",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1026,
+                  "y0": 1144,
+                  "x1": 1040,
+                  "y1": 1158
+                }
+              }
+            ],
+            "meanConfidence": 95
+          },
+          "label.countryOfOrigin": {
+            "page": 2,
+            "source": "tesseract",
+            "words": [
+              {
+                "text": "of",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 323,
+                  "y0": 121,
+                  "x1": 342,
+                  "y1": 138
+                }
+              },
+              {
+                "text": "OF",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 269,
+                  "y0": 448,
+                  "x1": 298,
+                  "y1": 465
+                }
+              },
+              {
+                "text": "Product",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 961,
+                  "y0": 826,
+                  "x1": 1026,
+                  "y1": 840
+                }
+              },
+              {
+                "text": "of",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1032,
+                  "y0": 826,
+                  "x1": 1047,
+                  "y1": 840
+                }
+              },
+              {
+                "text": "Austria",
+                "confidence": 96,
+                "bbox": {
+                  "x0": 1053,
+                  "y0": 826,
+                  "x1": 1112,
+                  "y1": 840
+                }
+              }
+            ],
+            "meanConfidence": 96
+          },
+          "application.plantRegistryNumber": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.fancifulName": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.mailingAddress": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.applicant.name": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.email": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.phone": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.wineAppellation": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "application.applicationDate": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "label.netContents": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          },
+          "label.governmentWarning": {
+            "page": 1,
+            "source": "vlm",
+            "words": [],
+            "meanConfidence": null
+          }
+        }
+      }
+    },
+    {
+      "filename": "26069001000588-country-and-western-ale.pdf",
+      "sizeBytes": 847419,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 611140
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 547313
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 43153,
+      "totalLatencyMs": 43153,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26069001000588-country-and-western-ale.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26075001000643-layback-coconut-blanco.pdf",
+      "sizeBytes": 1052758,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 630061
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 667651
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 630454
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7963,
+      "totalLatencyMs": 7963,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26075001000643-layback-coconut-blanco.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26075001000980-vina-la-rosa.pdf",
+      "sizeBytes": 2727753,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 603348
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 895380
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 797825
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7899,
+      "totalLatencyMs": 7899,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26075001000980-vina-la-rosa.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26082001000594-gary-farrell.pdf",
+      "sizeBytes": 523394,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 605740
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 471611
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 6901,
+      "totalLatencyMs": 6901,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26082001000594-gary-farrell.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26083001000522-chacewater.pdf",
+      "sizeBytes": 845268,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 627151
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 894983
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 885783
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7304,
+      "totalLatencyMs": 7304,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26083001000522-chacewater.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26084001000449-ironwood-cellars.pdf",
+      "sizeBytes": 397684,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 625578
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 347970
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 196855
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 6547,
+      "totalLatencyMs": 6547,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26084001000449-ironwood-cellars.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26084001000703-j-palacios-remondo.pdf",
+      "sizeBytes": 846323,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 614716
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 743082
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7724,
+      "totalLatencyMs": 7724,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26084001000703-j-palacios-remondo.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26084001000715-cointreau-spicy-margarita.pdf",
+      "sizeBytes": 876149,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 624846
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 846590
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 6223,
+      "totalLatencyMs": 6223,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26084001000715-cointreau-spicy-margarita.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26084001000723-cointreau-mango-margarita.pdf",
+      "sizeBytes": 905286,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 624617
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 839082
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 6302,
+      "totalLatencyMs": 6302,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26084001000723-cointreau-mango-margarita.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26086001000146-kim-hibiscus-sour.pdf",
+      "sizeBytes": 739513,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 597161
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 450164
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 6662,
+      "totalLatencyMs": 6662,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26086001000146-kim-hibiscus-sour.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26086001000600-chateau-montet.pdf",
+      "sizeBytes": 1532354,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 614794
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 608828
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 719388
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7902,
+      "totalLatencyMs": 7902,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26086001000600-chateau-montet.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26086001000651-bouchard-aine-fils.pdf",
+      "sizeBytes": 661398,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 632739
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 349993
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 132221
+        },
+        {
+          "pageNumber": 4,
+          "kind": "label",
+          "pngSizeBytes": 255128
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7644,
+      "totalLatencyMs": 7644,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26086001000651-bouchard-aine-fils.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26089001000452-eagle-ridge-blanc.pdf",
+      "sizeBytes": 1801405,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 615214
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 263066
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 227237
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7251,
+      "totalLatencyMs": 7251,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26089001000452-eagle-ridge-blanc.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26089001000771-el-mayoral-de-la-hacienda.pdf",
+      "sizeBytes": 1192171,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 606323
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 710602
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 299858
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7297,
+      "totalLatencyMs": 7297,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26089001000771-el-mayoral-de-la-hacienda.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26090001000206-castello-di-radda.pdf",
+      "sizeBytes": 697858,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 610214
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 534602
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 302229
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 6178,
+      "totalLatencyMs": 6178,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26090001000206-castello-di-radda.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26091001000783-chateau-sainte-genevieve.pdf",
+      "sizeBytes": 899218,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 615581
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 313783
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 232504
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7127,
+      "totalLatencyMs": 7127,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26091001000783-chateau-sainte-genevieve.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26092001000442-visuals-illuminate-the-sky.pdf",
+      "sizeBytes": 437848,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 610515
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 1686164
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 7821,
+      "totalLatencyMs": 7821,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26092001000442-visuals-illuminate-the-sky.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    },
+    {
+      "filename": "26092001000545-quibole-tequila.pdf",
+      "sizeBytes": 1559931,
+      "pages": [
+        {
+          "pageNumber": 1,
+          "kind": "form",
+          "pngSizeBytes": 606414
+        },
+        {
+          "pageNumber": 2,
+          "kind": "label",
+          "pngSizeBytes": 426317
+        },
+        {
+          "pageNumber": 3,
+          "kind": "label",
+          "pngSizeBytes": 694378
+        }
+      ],
+      "renderLatencyMs": 0,
+      "extractionLatencyMs": 6781,
+      "totalLatencyMs": 6781,
+      "modelId": "tesseract-eng-v6",
+      "providerName": "tesseract",
+      "errorMessage": "26092001000545-quibole-tequila.pdf: 429 You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors."
+    }
+  ],
+  "summary": {
+    "totalPdfs": 20,
+    "successCount": 2,
+    "errorCount": 18,
+    "meanRenderLatencyMs": 0,
+    "meanExtractionLatencyMs": 11872,
+    "meanTotalLatencyMs": 11872
+  }
+}

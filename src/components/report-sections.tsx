@@ -1,6 +1,14 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   Check,
@@ -8,40 +16,62 @@ import {
   AlertTriangle,
   HelpCircle,
   Info,
-  ChevronDown,
   ChevronUp,
 } from 'lucide-react';
 import { type ResultLine } from '@/lib/results/result-types';
 import { type FieldStatus } from '@/lib/validation/types';
 import {
   type CrossCheckFieldId,
-  type CrossCheckStatus,
-  CROSS_CHECK_FIELDS,
+  type CrossCheckFieldResult,
   CROSS_CHECK_FIELD_LABELS,
 } from '@/lib/cross-check/types';
+import { type CfrCitation } from '@/lib/validation/types';
 import { RULES } from '@/lib/validation/engine';
-import { type FieldPath, type ProvenanceMap } from '@/lib/extraction/types';
+import {
+  type FieldBboxes,
+  type FieldPath,
+  type ProvenanceMap,
+} from '@/lib/extraction/types';
 import { cn } from '@/lib/utils';
 
 type OkResultLine = Extract<ResultLine, { status: 'ok' }>;
 type WireReport = OkResultLine['report'];
 
-// Two paths per cross-check row — one for the application side (Item N on
-// the form) and one for the label side. Clicking each highlights the
-// corresponding region on the PDF.
-const CROSS_CHECK_PATHS: Record<
+// Two paths per app-vs-label comparison — one for the application side
+// (Item N on the form) and one for the label side. These now render inline
+// under the relevant TTB rule row instead of in a separate section.
+const COMPARISON_PATHS: Record<
   CrossCheckFieldId,
   { app: FieldPath | null; label: FieldPath | null }
 > = {
   brandName: { app: 'application.brandName', label: 'label.brandName' },
-  classType: { app: 'application.classType', label: 'label.classType' },
+  classType: { app: 'application.fancifulName', label: 'label.classType' },
   producer: { app: 'application.applicant.name', label: 'label.producer' },
-  countryOfOrigin: { app: null, label: 'label.countryOfOrigin' },
+  countryOfOrigin: { app: 'application.source', label: 'label.countryOfOrigin' },
   wineVarietal: { app: 'application.grapeVarietals', label: 'label.wineVarietal' },
   wineAppellation: {
     app: 'application.wineAppellation',
     label: 'label.wineAppellation',
   },
+};
+
+const RULE_TO_COMPARISON_IDS: Partial<Record<string, CrossCheckFieldId[]>> = {
+  brand: ['brandName'],
+  classType: ['classType'],
+  producerOrigin: ['producer', 'countryOfOrigin'],
+};
+
+const WINE_COMPARISON_IDS: ReadonlyArray<CrossCheckFieldId> = [
+  'wineVarietal',
+  'wineAppellation',
+];
+
+const WINE_CFR: CfrCitation = {
+  section: '27 CFR §4.23 / §4.25',
+  summary:
+    'Wine labels that state a grape varietal or appellation must be entitled to those designations and should match the submitted COLA application.',
+  quote:
+    'Varietal and appellation names may be used only for wines meeting the applicable wine-labeling requirements.',
 };
 
 const RULE_TO_LABEL_PATH: Record<string, FieldPath | null> = {
@@ -53,34 +83,19 @@ const RULE_TO_LABEL_PATH: Record<string, FieldPath | null> = {
   producerOrigin: 'label.producer',
 };
 
-type FormField = {
-  key: string;
-  label: string;
-  path: FieldPath | null;
-  value: (form: WireReport['extractedForm']) => string | null;
-};
-const APP_FORM_FIELDS: ReadonlyArray<FormField> = [
-  { key: 'repId', label: 'Rep ID (Item 1)', path: 'application.repId', value: (f) => f.repId },
-  { key: 'plantRegistry', label: 'Plant registry / permit (Item 2)', path: 'application.plantRegistryNumber', value: (f) => f.plantRegistryNumber },
-  { key: 'source', label: 'Source of product (Item 3)', path: 'application.source', value: (f) => f.source },
-  { key: 'serial', label: 'Serial number (Item 4)', path: 'application.serialNumber', value: (f) => f.serialNumber },
-  { key: 'productType', label: 'Type of product (Item 5)', path: 'application.productType', value: (f) => f.productType },
-  { key: 'brandName', label: 'Brand name (Item 6)', path: 'application.brandName', value: (f) => f.brandName },
-  { key: 'fancifulName', label: 'Fanciful name (Item 7)', path: 'application.fancifulName', value: (f) => f.fancifulName },
-  { key: 'applicantName', label: 'Applicant name (Item 8)', path: 'application.applicant.name', value: (f) => f.applicant.name },
-  { key: 'applicantAddress', label: 'Applicant street address (Item 8)', path: 'application.applicant.address', value: (f) => f.applicant.addressLine1 },
-  { key: 'applicantCity', label: 'Applicant city (Item 8)', path: 'application.applicant.city', value: (f) => f.applicant.city },
-  { key: 'applicantState', label: 'Applicant state (Item 8)', path: 'application.applicant.state', value: (f) => f.applicant.state },
-  { key: 'mailingAddress', label: 'Mailing address if different (Item 8a)', path: 'application.mailingAddress', value: (f) => f.mailingAddress },
-  { key: 'formula', label: 'Formula / SOP no. (Item 9)', path: 'application.formula', value: (f) => f.formula },
-  { key: 'grape', label: 'Grape varietal (Item 10)', path: 'application.grapeVarietals', value: (f) => f.grapeVarietals },
-  { key: 'appellation', label: 'Wine appellation (Item 11)', path: 'application.wineAppellation', value: (f) => f.wineAppellation },
-  { key: 'phone', label: 'Phone (Item 12)', path: 'application.phone', value: (f) => f.phone },
-  { key: 'email', label: 'Email (Item 13)', path: 'application.email', value: (f) => f.email },
-  { key: 'appType', label: 'Type of application (Item 14)', path: 'application.applicationType', value: (f) => f.applicationType },
-  { key: 'containerWording', label: 'Container wording / translations (Item 15)', path: 'application.containerWording', value: (f) => f.containerWording },
-  { key: 'date', label: 'Date of application (Item 16)', path: 'application.applicationDate', value: (f) => f.applicationDate },
-  { key: 'signer', label: 'Printed name of applicant (Item 18)', path: 'application.applicantSignatureName', value: (f) => f.applicantSignatureName },
+// Display order for the rules section — reading order on the actual label
+// (top-to-bottom: brand mark, fanciful name, ABV, net contents, producer +
+// country, then the small-print government warning at the bottom). This
+// is separate from the engine's `RULES` array which controls verdict
+// computation order (governmentWarning before netContents etc. so the
+// non_compliant verdict is decided early).
+const RULE_DISPLAY_ORDER: ReadonlyArray<string> = [
+  'brand',
+  'classType', // surfaces fanciful name + class/type designation
+  'abv',
+  'netContents',
+  'producerOrigin',
+  'governmentWarning',
 ];
 
 // ---------------------------------------------------------------------------
@@ -99,31 +114,11 @@ function statusToDotColor(status: FieldStatus | null): string {
   }
 }
 
-// Cross-check is informational, not a verdict driver — no red anywhere.
-// Reviewers use this section the way Sarah Chen described in the stakeholder
-// interview ("looks at the label artwork and checks that what's on the label
-// matches what's in the application") but TTB approves plenty of labels with
-// applicant-vs-producer or country-phrasing drift, so the colors reflect
-// "look at this" not "this is a problem."
-function crossCheckStatusToDot(status: CrossCheckStatus): string {
-  switch (status) {
-    case 'match':
-      return 'bg-emerald-500';
-    case 'mismatch':
-    case 'not_on_label':
-      return 'bg-amber-500';
-    case 'not_on_application':
-      return 'bg-sky-500';
-    default:
-      return 'bg-muted';
-  }
-}
-
-// Reason copy under each cross-check row should read in the same color
+// Reason copy under each comparison note should read in the same color
 // family as its icon — sky for "informational, label has extra info" and
 // amber for "values differ, reviewer should glance." Both stay
 // intentionally non-rose since cross-check never rejects a label.
-function crossCheckStatusToReasonText(status: CrossCheckStatus): string {
+function crossCheckStatusToReasonText(status: CrossCheckFieldResult['status']): string {
   switch (status) {
     case 'mismatch':
     case 'not_on_label':
@@ -135,155 +130,145 @@ function crossCheckStatusToReasonText(status: CrossCheckStatus): string {
   }
 }
 
-// ---------------------------------------------------------------------------
-
-export function CrossCheckSection({
-  report,
-  selectedFieldId,
-  onSelect,
-  provenance,
-}: {
-  report: WireReport['crossCheck'];
-  selectedFieldId: FieldPath | null;
-  onSelect(path: FieldPath | null): void;
-  provenance: ProvenanceMap;
-}) {
-  return (
-    <section className="rounded-xl border border-border bg-card">
-      <header className="flex items-start justify-between gap-3 border-b border-border px-3 py-2">
-        <div>
-          <h2 className="text-sm font-semibold">Side-by-side (application vs label)</h2>
-          <p className="text-[11px] text-muted-foreground">
-            Informational. Differences here don&apos;t reject the application
-            (e.g. importer-of-record vs producer-of-record are legitimately
-            different on imports). Click the App or Label side to highlight
-            that source on the PDF.
-          </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1 pt-0.5">
-          {CROSS_CHECK_FIELDS.map((id) => {
-            const f = report.fields[id];
-            if (!f || f.status === 'not_applicable') return null;
-            return (
-              <span
-                key={id}
-                title={`${CROSS_CHECK_FIELD_LABELS[id]}: ${f.status}`}
-                aria-label={`${CROSS_CHECK_FIELD_LABELS[id]}: ${f.status}`}
-                className={cn(
-                  'inline-block size-2.5 rounded-full',
-                  crossCheckStatusToDot(f.status),
-                )}
-              />
-            );
-          })}
-        </div>
-      </header>
-      <ul className="divide-y divide-border">
-        {CROSS_CHECK_FIELDS.map((id) => {
-          const field = report.fields[id];
-          if (!field || field.status === 'not_applicable') return null;
-          const paths = CROSS_CHECK_PATHS[id];
-
-          return (
-            <li key={id} className="px-3 py-2">
-              <div className="mb-1 flex items-center gap-2">
-                <CrossCheckIcon status={field.status} />
-                <span className="text-xs font-medium">
-                  {CROSS_CHECK_FIELD_LABELS[id]}
-                </span>
-              </div>
-              <div className="space-y-1 pl-6">
-                <SideRow
-                  side="Application"
-                  value={field.applicationValue}
-                  path={paths.app}
-                  selectedFieldId={selectedFieldId}
-                  onSelect={onSelect}
-                  provenance={provenance}
-                />
-                <SideRow
-                  side="Label"
-                  value={field.labelValue}
-                  path={paths.label}
-                  selectedFieldId={selectedFieldId}
-                  onSelect={onSelect}
-                  provenance={provenance}
-                />
-              </div>
-              {field.reason && (
-                <p
-                  className={cn(
-                    'mt-1 pl-6 text-[11px]',
-                    crossCheckStatusToReasonText(field.status),
-                  )}
-                >
-                  {field.reason}
-                </p>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
+function comparisonReason(
+  field: CrossCheckFieldResult,
+  labelIsAlreadyShown: boolean,
+): string | null {
+  if (!field.reason || field.status === 'match') return null;
+  if (!labelIsAlreadyShown) return field.reason;
+  if (field.status === 'mismatch') {
+    return 'Application value may differ from the label value above.';
+  }
+  if (field.status === 'not_on_label') {
+    return 'Application declares this value, but it may not have been detected on the label.';
+  }
+  return field.reason;
 }
 
-function SideRow({
-  side,
-  value,
-  path,
-  selectedFieldId,
-  onSelect,
-  provenance,
-}: {
-  side: 'Application' | 'Label';
-  value: string | null;
-  path: FieldPath | null;
-  selectedFieldId: FieldPath | null;
-  onSelect(path: FieldPath | null): void;
-  provenance: ProvenanceMap;
-}) {
-  const provenanceEntry = path ? provenance[path] : undefined;
-  const selected = path !== null && path === selectedFieldId;
-  const sideLabel = side === 'Application' ? 'App: ' : 'Label: ';
+// ---------------------------------------------------------------------------
+
+/**
+ * A field is "navigable" (clickable to highlight in the PDF) when EITHER
+ * source has an entry for its path:
+ *  - the legacy full-document OpenAI provenance map, OR
+ *  - the current FieldBbox sidecar (PDF/OCR word rects or VLM no-source marker).
+ *
+ * Under the Tesseract pipeline `provenance` is always `{}`, so this OR is
+ * what keeps the rows live during the swap.
+ */
+function isFieldNavigable(
+  path: FieldPath | null,
+  provenance: ProvenanceMap,
+  bboxes: FieldBboxes | undefined,
+): boolean {
+  if (!path) return false;
+  if (provenance[path]) return true;
+  if (bboxes && bboxes[path]) return true;
+  return false;
+}
+
+/**
+ * Surface the "low confidence" badge from whichever source has it. Legacy
+ * provenance uses a coarse 'low' enum; Tesseract carries a numeric
+ * meanConfidence and we treat <70 as low (matches the OCR threshold in
+ * src/lib/ocr/config.ts plus a small visual buffer).
+ */
+function isFieldLowConfidence(
+  path: FieldPath | null,
+  provenance: ProvenanceMap,
+  bboxes: FieldBboxes | undefined,
+): boolean {
+  if (!path) return false;
+  if (provenance[path]?.confidence === 'low') return true;
+  const bb = bboxes?.[path];
+  if (bb && bb.meanConfidence !== null && bb.meanConfidence < 70) return true;
+  return false;
+}
+
+/**
+ * Source-of-truth indicator for a single field: was the value pulled by
+ * Tesseract OCR (with a real bbox on the page), filled by the VLM fallback
+ * (text-only, no bbox coordinates), or missing entirely. Drives the
+ * per-row "OCR" vs "AI" badge so the reviewer knows what to trust before
+ * clicking.
+ */
+type FieldSource = 'pdf' | 'tesseract' | 'vlm' | 'none';
+
+function fieldSource(
+  path: FieldPath | null,
+  provenance: ProvenanceMap,
+  bboxes: FieldBboxes | undefined,
+): FieldSource {
+  if (!path) return 'none';
+  const bb = bboxes?.[path];
+  if (bb?.source === 'pdf' && bb.words.length > 0) return 'pdf';
+  if (bb?.source === 'tesseract' && bb.words.length > 0) return 'tesseract';
+  if (bb?.source === 'vlm') return 'vlm';
+  if (provenance[path]) return 'tesseract'; // legacy full-document bbox path
+  return 'none';
+}
+
+function SourceBadge({ source, confidence }: { source: FieldSource; confidence?: number | null }) {
+  if (source === 'none') return null;
+  if (source === 'pdf') {
+    return (
+      <span
+        title="Read from the PDF text layer. Click the field to highlight it on the form."
+        className="inline-flex items-center gap-1 rounded-sm border border-cyan-700/40 bg-cyan-950/30 px-1 py-[1px] text-[9px] font-medium uppercase tracking-wide text-cyan-400"
+      >
+        PDF
+      </span>
+    );
+  }
+  if (source === 'tesseract') {
+    return (
+      <span
+        title={
+          confidence != null
+            ? `Read by OCR with ${confidence}% confidence. Click the field to highlight on the label.`
+            : 'Read by OCR. Click the field to highlight on the label.'
+        }
+        className="inline-flex items-center gap-1 rounded-sm border border-emerald-700/40 bg-emerald-950/30 px-1 py-[1px] text-[9px] font-medium uppercase tracking-wide text-emerald-400"
+      >
+        OCR
+        {confidence != null && <span className="opacity-70">{confidence}</span>}
+      </span>
+    );
+  }
   return (
-    <button
-      type="button"
-      onClick={() => path && onSelect(path)}
-      disabled={!path || !provenanceEntry}
-      aria-pressed={selected}
-      className={cn(
-        'flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[11px] transition-colors',
-        path && provenanceEntry
-          ? 'cursor-pointer hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
-          : 'cursor-default text-muted-foreground',
-        selected && 'bg-accent/60',
-      )}
+    <span
+      title="Filled by AI fallback. No exact location on the label — value was extracted from the full page image."
+      className="inline-flex items-center gap-1 rounded-sm border border-sky-700/40 bg-sky-950/30 px-1 py-[1px] text-[9px] font-medium uppercase tracking-wide text-sky-400"
     >
-      <span className="w-16 shrink-0 text-muted-foreground">{sideLabel}</span>
-      <span className="truncate text-foreground/90">{value ?? '—'}</span>
-      {provenanceEntry?.confidence === 'low' && (
-        <span className="ml-auto text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
-          Low
-        </span>
-      )}
-    </button>
+      AI
+    </span>
   );
 }
 
 export function RulesSection({
-  fields,
+  report,
   selectedFieldId,
   onSelect,
   provenance,
+  bboxes,
 }: {
-  fields: Record<string, { status: FieldStatus; reason?: string; extractedValue?: string | null }>;
+  report: WireReport;
   selectedFieldId: FieldPath | null;
   onSelect(path: FieldPath | null): void;
   provenance: ProvenanceMap;
+  bboxes?: FieldBboxes;
 }) {
   const [openTooltipId, setOpenTooltipId] = useState<string | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
+  const fields = report.fields;
+  const crossCheck = report.crossCheck;
+  const wineComparisons = getComparisons(crossCheck, WINE_COMPARISON_IDS);
+  const visibleWineComparisons = wineComparisons.filter(shouldSurfaceWineComparison);
+  const showWineRow = visibleWineComparisons.length > 0;
+  const wineStatus = showWineRow
+    ? statusFromComparisons(visibleWineComparisons)
+    : null;
+  const wineLabel = wineRuleLabel(visibleWineComparisons);
 
   // Close the open tooltip on outside click or Escape. The dialog is rendered
   // via a portal (to escape ancestor `overflow:clip`/stacking contexts), so
@@ -313,12 +298,17 @@ export function RulesSection({
         <div>
           <h2 className="text-sm font-semibold">TTB label rules</h2>
           <p className="text-[11px] text-muted-foreground">
-            Six label-only rules. Click the ⓘ to see the actual CFR citation.
+            Label requirements and only the app matches needed to assess them.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 pt-0.5">
-          {RULES.map((rule) => {
-            const status = fields[rule.id]?.status ?? null;
+          {RULE_DISPLAY_ORDER.map((ruleId) => {
+            const rule = RULES.find((r) => r.id === ruleId);
+            if (!rule) return null;
+            const status = mergedRuleStatus(
+              fields[rule.id]?.status ?? null,
+              getComparisons(crossCheck, RULE_TO_COMPARISON_IDS[rule.id] ?? []),
+            );
             return (
               <span
                 key={rule.id}
@@ -328,72 +318,373 @@ export function RulesSection({
               />
             );
           })}
+          {showWineRow && (
+            <span
+              title={`${wineLabel}: ${wineStatus ?? 'pending'}`}
+              aria-label={`${wineLabel}: ${wineStatus ?? 'pending'}`}
+              className={cn('inline-block size-2.5 rounded-full', statusToDotColor(wineStatus))}
+            />
+          )}
         </div>
       </header>
       <ul className="divide-y divide-border">
-        {RULES.map((rule) => {
+        {RULE_DISPLAY_ORDER.map((ruleId) => {
+          const rule = RULES.find((r) => r.id === ruleId);
+          if (!rule) return null;
           const result = fields[rule.id];
+          const comparisons = getComparisons(
+            crossCheck,
+            RULE_TO_COMPARISON_IDS[rule.id] ?? [],
+          ).filter(shouldSurfaceComparison);
+          const rowStatus = mergedRuleStatus(result?.status ?? null, comparisons);
           const path = RULE_TO_LABEL_PATH[rule.id] ?? null;
-          const provenanceEntry = path ? provenance[path] : undefined;
+          const navigable = isFieldNavigable(path, provenance, bboxes);
+          const low = isFieldLowConfidence(path, provenance, bboxes);
           const selected = path !== null && path === selectedFieldId;
+          const source = fieldSource(path, provenance, bboxes);
+          const tesseractConf = path ? bboxes?.[path]?.meanConfidence ?? null : null;
           return (
-            <li key={rule.id} className="px-3 py-2">
-              <div className="flex items-start gap-2">
-                <RuleIcon status={result?.status ?? null} />
-                <div className="flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => path && onSelect(path)}
-                      disabled={!path || !provenanceEntry}
-                      aria-pressed={selected}
-                      className={cn(
-                        'truncate text-xs font-medium',
-                        path && provenanceEntry
-                          ? 'cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-sm'
-                          : 'cursor-default',
-                        selected && 'text-foreground',
-                      )}
-                    >
-                      {rule.label}
-                    </button>
-                    <CfrTooltip
-                      cfr={rule.cfr}
-                      open={openTooltipId === rule.id}
-                      onToggle={() =>
-                        setOpenTooltipId((cur) => (cur === rule.id ? null : rule.id))
-                      }
-                    />
+            <FragmentWithWineRow
+              key={rule.id}
+              ruleId={rule.id}
+              showWineRow={showWineRow}
+              wineComparisons={visibleWineComparisons}
+              selectedFieldId={selectedFieldId}
+              onSelect={onSelect}
+              provenance={provenance}
+              bboxes={bboxes}
+              openTooltipId={openTooltipId}
+              setOpenTooltipId={setOpenTooltipId}
+            >
+              <li className="px-3 py-2">
+                <div className="flex items-start gap-2">
+                  <RuleIcon status={rowStatus} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => path && onSelect(path)}
+                        disabled={!navigable}
+                        aria-pressed={selected}
+                        className={cn(
+                          'min-w-0 text-left text-xs font-medium',
+                          navigable
+                            ? 'cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded-sm'
+                            : 'cursor-default',
+                          selected && 'text-foreground',
+                        )}
+                      >
+                        {rule.label}
+                      </button>
+                      <SourceBadge source={source} confidence={tesseractConf} />
+                      <CfrTooltip
+                        cfr={rule.cfr}
+                        open={openTooltipId === rule.id}
+                        onToggle={() =>
+                          setOpenTooltipId((cur) => (cur === rule.id ? null : rule.id))
+                        }
+                      />
+                    </div>
+                    {result?.extractedValue && (
+                      <p className="min-w-0 text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
+                        Label:{' '}
+                        <span className="text-foreground/80">
+                          {result.extractedValue}
+                        </span>
+                      </p>
+                    )}
+                    {result?.reason && result.status !== 'pass' && (
+                      <p
+                        className={cn(
+                          'text-[11px] [overflow-wrap:anywhere]',
+                          result.status === 'fail'
+                            ? 'text-rose-600 dark:text-rose-400'
+                            : 'text-amber-600 dark:text-amber-400',
+                        )}
+                      >
+                        {result.reason}
+                      </p>
+                    )}
+                    {comparisons.map((comparison) => (
+                      <ComparisonNote
+                        key={comparison.id}
+                        comparison={comparison}
+                        selectedFieldId={selectedFieldId}
+                        onSelect={onSelect}
+                        provenance={provenance}
+                        bboxes={bboxes}
+                        currentRuleLabelPath={path}
+                      />
+                    ))}
                   </div>
-                  {result?.extractedValue && (
-                    <p className="text-[11px] text-muted-foreground">
-                      Read: <span className="text-foreground/80">{result.extractedValue}</span>
-                    </p>
-                  )}
-                  {result?.reason && result.status !== 'pass' && (
-                    <p
-                      className={cn(
-                        'text-[11px]',
-                        result.status === 'fail'
-                          ? 'text-rose-600 dark:text-rose-400'
-                          : 'text-amber-600 dark:text-amber-400',
-                      )}
-                    >
-                      {result.reason}
-                    </p>
+                  {low && (
+                    <span className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                      Low
+                    </span>
                   )}
                 </div>
-                {provenanceEntry?.confidence === 'low' && (
-                  <span className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                    Low
-                  </span>
-                )}
-              </div>
-            </li>
+              </li>
+            </FragmentWithWineRow>
           );
         })}
       </ul>
     </section>
+  );
+}
+
+function getComparisons(
+  crossCheck: WireReport['crossCheck'],
+  ids: ReadonlyArray<CrossCheckFieldId>,
+): CrossCheckFieldResult[] {
+  if (!crossCheck) return [];
+  return ids
+    .map((id) => crossCheck.fields[id])
+    .filter((field): field is CrossCheckFieldResult => Boolean(field));
+}
+
+function shouldSurfaceComparison(field: CrossCheckFieldResult): boolean {
+  return field.status === 'mismatch' || field.status === 'not_on_label';
+}
+
+function shouldSurfaceWineComparison(field: CrossCheckFieldResult): boolean {
+  return field.status !== 'not_applicable';
+}
+
+function wineRuleLabel(comparisons: ReadonlyArray<CrossCheckFieldResult>): string {
+  const hasVarietal = comparisons.some((comparison) => comparison.id === 'wineVarietal');
+  const hasAppellation = comparisons.some(
+    (comparison) => comparison.id === 'wineAppellation',
+  );
+  if (hasVarietal && hasAppellation) return 'Wine varietal / appellation';
+  if (hasVarietal) return CROSS_CHECK_FIELD_LABELS.wineVarietal;
+  if (hasAppellation) return CROSS_CHECK_FIELD_LABELS.wineAppellation;
+  return 'Wine details';
+}
+
+function mergedRuleStatus(
+  ruleStatus: FieldStatus | null,
+  comparisons: ReadonlyArray<CrossCheckFieldResult>,
+): FieldStatus | null {
+  if (ruleStatus === 'fail') return 'fail';
+  if (ruleStatus === 'warn' || ruleStatus === 'uncertain') return ruleStatus;
+  if (comparisons.some(shouldSurfaceComparison)) return 'warn';
+  return ruleStatus;
+}
+
+function statusFromComparisons(
+  comparisons: ReadonlyArray<CrossCheckFieldResult>,
+): FieldStatus | null {
+  if (comparisons.some(shouldSurfaceComparison)) return 'warn';
+  if (comparisons.some((field) => field.status === 'match')) return 'pass';
+  if (comparisons.some((field) => field.status === 'not_on_application')) return 'uncertain';
+  return null;
+}
+
+function FragmentWithWineRow({
+  children,
+  ruleId,
+  showWineRow,
+  wineComparisons,
+  selectedFieldId,
+  onSelect,
+  provenance,
+  bboxes,
+  openTooltipId,
+  setOpenTooltipId,
+}: {
+  children: ReactNode;
+  ruleId: string;
+  showWineRow: boolean;
+  wineComparisons: CrossCheckFieldResult[];
+  selectedFieldId: FieldPath | null;
+  onSelect(path: FieldPath | null): void;
+  provenance: ProvenanceMap;
+  bboxes?: FieldBboxes;
+  openTooltipId: string | null;
+  setOpenTooltipId: Dispatch<SetStateAction<string | null>>;
+}) {
+  return (
+    <>
+      {children}
+      {ruleId === 'classType' && showWineRow && (
+        <WineRuleRow
+          comparisons={wineComparisons}
+          selectedFieldId={selectedFieldId}
+          onSelect={onSelect}
+          provenance={provenance}
+          bboxes={bboxes}
+          open={openTooltipId === 'wine'}
+          onToggle={() => setOpenTooltipId((cur) => (cur === 'wine' ? null : 'wine'))}
+        />
+      )}
+    </>
+  );
+}
+
+function WineRuleRow({
+  comparisons,
+  selectedFieldId,
+  onSelect,
+  provenance,
+  bboxes,
+  open,
+  onToggle,
+}: {
+  comparisons: CrossCheckFieldResult[];
+  selectedFieldId: FieldPath | null;
+  onSelect(path: FieldPath | null): void;
+  provenance: ProvenanceMap;
+  bboxes?: FieldBboxes;
+  open: boolean;
+  onToggle(): void;
+}) {
+  const rowStatus = statusFromComparisons(comparisons);
+  const rowLabel = wineRuleLabel(comparisons);
+  return (
+    <li className="px-3 py-2">
+      <div className="flex items-start gap-2">
+        <RuleIcon status={rowStatus} />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <span className="text-xs font-medium">{rowLabel}</span>
+            <CfrTooltip cfr={WINE_CFR} open={open} onToggle={onToggle} />
+          </div>
+          <div className="mt-1 space-y-1">
+            {comparisons.map((comparison) => (
+              <ComparisonNote
+                key={comparison.id}
+                comparison={comparison}
+                selectedFieldId={selectedFieldId}
+                onSelect={onSelect}
+                provenance={provenance}
+                bboxes={bboxes}
+                alwaysShowValues
+                hideTitle={comparisons.length === 1}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function ComparisonNote({
+  comparison,
+  selectedFieldId,
+  onSelect,
+  provenance,
+  bboxes,
+  alwaysShowValues = false,
+  currentRuleLabelPath = null,
+  hideTitle = false,
+}: {
+  comparison: CrossCheckFieldResult;
+  selectedFieldId: FieldPath | null;
+  onSelect(path: FieldPath | null): void;
+  provenance: ProvenanceMap;
+  bboxes?: FieldBboxes;
+  alwaysShowValues?: boolean;
+  currentRuleLabelPath?: FieldPath | null;
+  hideTitle?: boolean;
+}) {
+  const paths = COMPARISON_PATHS[comparison.id];
+  const showValues = alwaysShowValues || comparison.status !== 'match';
+  const labelIsAlreadyShown = paths.label !== null && paths.label === currentRuleLabelPath;
+  const showTitle = !labelIsAlreadyShown && !hideTitle;
+  const reason = comparisonReason(comparison, labelIsAlreadyShown);
+  return (
+    <div className="mt-1 min-w-0 max-w-full overflow-hidden rounded-md border border-border/70 bg-muted/20 px-2 py-1">
+      {showTitle && (
+        <div className="flex min-w-0 items-center gap-1.5">
+          <ComparisonIcon status={comparison.status} />
+          <span className="min-w-0 text-[11px] font-medium text-foreground/85 [overflow-wrap:anywhere]">
+            {CROSS_CHECK_FIELD_LABELS[comparison.id]}
+          </span>
+        </div>
+      )}
+      {reason && (
+        <p
+          className={cn(
+            'mt-0.5 min-w-0 text-[11px] [overflow-wrap:anywhere]',
+            crossCheckStatusToReasonText(comparison.status),
+          )}
+        >
+          {reason}
+        </p>
+      )}
+      {showValues && (
+        <div className="mt-1 grid gap-1">
+          <ComparisonValue
+            label="Application"
+            value={comparison.applicationValue}
+            path={paths.app}
+            selectedFieldId={selectedFieldId}
+            onSelect={onSelect}
+            provenance={provenance}
+            bboxes={bboxes}
+          />
+          {!labelIsAlreadyShown && (
+            <ComparisonValue
+              label="Label"
+              value={comparison.labelValue}
+              path={paths.label}
+              selectedFieldId={selectedFieldId}
+              onSelect={onSelect}
+              provenance={provenance}
+              bboxes={bboxes}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ComparisonValue({
+  label,
+  value,
+  path,
+  selectedFieldId,
+  onSelect,
+  provenance,
+  bboxes,
+}: {
+  label: 'Application' | 'Label';
+  value: string | null;
+  path: FieldPath | null;
+  selectedFieldId: FieldPath | null;
+  onSelect(path: FieldPath | null): void;
+  provenance: ProvenanceMap;
+  bboxes?: FieldBboxes;
+}) {
+  const navigable = isFieldNavigable(path, provenance, bboxes);
+  const selected = path !== null && path === selectedFieldId;
+  const low = isFieldLowConfidence(path, provenance, bboxes);
+  return (
+    <button
+      type="button"
+      onClick={() => path && onSelect(path)}
+      disabled={!navigable}
+      aria-pressed={selected}
+      className={cn(
+        'grid w-full grid-cols-[4.25rem_minmax(0,1fr)_auto] items-start gap-2 rounded-sm px-1.5 py-0.5 text-left text-[11px]',
+        navigable
+          ? 'cursor-pointer hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          : 'cursor-default text-muted-foreground',
+        selected && 'bg-accent/60',
+      )}
+    >
+      <span className="text-muted-foreground">{label}:</span>
+      <span className="min-w-0 whitespace-normal text-foreground/85 [overflow-wrap:anywhere]">
+        {value ?? '—'}
+      </span>
+      {low && (
+        <span className="text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
+          Low
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -491,84 +782,8 @@ function CfrTooltipDialog({
   );
 }
 
-export function ApplicationFieldsSection({
-  form,
-  selectedFieldId,
-  onSelect,
-  provenance,
-}: {
-  form: WireReport['extractedForm'];
-  selectedFieldId: FieldPath | null;
-  onSelect(path: FieldPath | null): void;
-  provenance: ProvenanceMap;
-}) {
-  const [expanded, setExpanded] = useState(true);
-  return (
-    <section className="rounded-xl border border-border bg-card">
-      <button
-        type="button"
-        onClick={() => setExpanded((e) => !e)}
-        className="flex w-full items-center justify-between border-b border-border px-3 py-2 text-left"
-      >
-        <div>
-          <h2 className="text-sm font-semibold">Application form fields</h2>
-          <p className="text-[11px] text-muted-foreground">
-            Every value the extractor read off Form 5100.31. Click to highlight on the PDF.
-          </p>
-        </div>
-        {expanded ? (
-          <ChevronUp className="size-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="size-4 text-muted-foreground" />
-        )}
-      </button>
-      {expanded && (
-        <ul className="divide-y divide-border">
-          {APP_FORM_FIELDS.map((field) => {
-            const value = field.value(form);
-            const provenanceEntry = field.path ? provenance[field.path] : undefined;
-            const selected = field.path !== null && field.path === selectedFieldId;
-            return (
-              <li key={field.key}>
-                <button
-                  type="button"
-                  onClick={() => field.path && onSelect(field.path)}
-                  disabled={!field.path || !provenanceEntry}
-                  aria-pressed={selected}
-                  className={cn(
-                    'flex w-full items-baseline gap-2 px-3 py-1.5 text-left transition-colors',
-                    field.path && provenanceEntry
-                      ? 'cursor-pointer hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
-                      : 'cursor-default',
-                    selected && 'bg-accent/60',
-                  )}
-                >
-                  <span className="w-44 shrink-0 text-[11px] text-muted-foreground">
-                    {field.label}
-                  </span>
-                  <span className="flex-1 truncate text-xs text-foreground/90">
-                    {value && value.trim().length > 0 ? (
-                      value
-                    ) : (
-                      <span className="italic text-muted-foreground">not extracted</span>
-                    )}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-function CrossCheckIcon({ status }: { status: CrossCheckStatus }) {
+function ComparisonIcon({ status }: { status: CrossCheckFieldResult['status'] }) {
   if (status === 'match') return <Check className="size-3.5 text-emerald-600" />;
-  // mismatch and not_on_label are both informational warnings — they pull
-  // the reviewer's eye but they don't reject the application. TTB
-  // legitimately approves labels with differences on either side (importer
-  // vs producer, fanciful vs class, etc.).
   if (status === 'mismatch') return <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400" />;
   if (status === 'not_on_label') return <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400" />;
   if (status === 'not_on_application') return <Info className="size-3.5 text-sky-600" />;

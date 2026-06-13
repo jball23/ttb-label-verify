@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   ExtractedApplicationFormSchema,
   ExtractedFieldsSchema,
+  FieldBboxesSchema,
   ProvenanceMapSchema,
 } from '../extraction/types';
 
@@ -50,11 +51,30 @@ const CrossCheckReportSchema = z.object({
 
 const VerificationReportSchema = z.object({
   overallStatus: z.enum(['compliant', 'needs_review', 'non_compliant']),
-  crossCheck: CrossCheckReportSchema,
+  /**
+   * Optional for backwards compatibility with rows/results produced before
+   * the PDF form prepass populated application comparisons synchronously.
+   */
+  crossCheck: CrossCheckReportSchema.optional(),
   fields: z.record(z.string(), RuleResultSchema),
+  /** Legacy full-document OpenAI provenance map. Usually `{}` now. */
   provenance: ProvenanceMapSchema,
+  /** Per-field source sidecar from PDF text, OCR, or VLM fallback. */
+  bboxes: FieldBboxesSchema.optional(),
   extractedForm: ExtractedApplicationFormSchema,
   extractedLabel: ExtractedFieldsSchema,
+  /**
+   * Page-render metadata (1-indexed page number + classifier-emitted kind).
+   * Drives the source viewer independently of which pages have bboxes.
+   */
+  pages: z
+    .array(
+      z.object({
+        pageNumber: z.number().int().positive(),
+        kind: z.string(),
+      }),
+    )
+    .optional(),
 });
 
 export const ResultLineSchema = z.discriminatedUnion('status', [

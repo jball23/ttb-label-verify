@@ -5,6 +5,9 @@ import {
   producerMatches,
   countryMatches,
   classTypeMatches,
+  normalizeWineVarietalClaim,
+  normalizeWineAppellationClaim,
+  producerImpliesDomesticOrigin,
 } from './normalize';
 
 describe('normalizedExact', () => {
@@ -93,6 +96,24 @@ describe('producerMatches', () => {
     ).toBe(true);
   });
 
+  it('matches when the label producer text contains the applicant name plus address', () => {
+    expect(
+      producerMatches(
+        'CHATEAU SAINTE GENEVIEVE',
+        'Produced and Bottled by CHATEAU SAINTE GENEVIEVE Bloomsdale, Missouri',
+      ),
+    ).toBe(true);
+  });
+
+  it('matches the approved DBA line used on the label', () => {
+    expect(
+      producerMatches(
+        'Chateau Ste. Genevieve, Bartek Family Winery, LLC\n8921 JACKSON SCHOOL RD\nBloomsdale MO 63627\nCHATEAU SAINTE GENEVIEVE (Used on label)',
+        'Produced and Bottled by CHATEAU SAINTE GENEVIEVE Bloomsdale, Missouri American White Wine 2025',
+      ),
+    ).toBe(true);
+  });
+
   it('matches scenario 04 ironwood brewing asheville', () => {
     expect(
       producerMatches(
@@ -103,6 +124,23 @@ describe('producerMatches', () => {
   });
 });
 
+describe('producerImpliesDomesticOrigin', () => {
+  it('detects domestic origin from state names and abbreviations', () => {
+    expect(
+      producerImpliesDomesticOrigin(
+        'Produced and Bottled by Chateau Sainte Genevieve, Bloomsdale, Missouri',
+      ),
+    ).toBe(true);
+    expect(producerImpliesDomesticOrigin('Brewed by Twelve Percent, Westminster, MD')).toBe(true);
+  });
+
+  it('does not infer domestic country from importer addresses', () => {
+    expect(
+      producerImpliesDomesticOrigin('Imported by Boisset Collection, St Helena, CA'),
+    ).toBe(false);
+  });
+});
+
 describe('countryMatches', () => {
   it('matches USA ⇄ United States', () => {
     expect(countryMatches('USA', 'United States')).toBe(true);
@@ -110,9 +148,44 @@ describe('countryMatches', () => {
     expect(countryMatches('U.S.', 'USA')).toBe(true);
   });
 
+  it('matches domestic USA to Product of USA labels', () => {
+    expect(countryMatches('USA', 'Product of USA')).toBe(true);
+    expect(countryMatches('Domestic', 'Product of USA')).toBe(false);
+  });
+
   it('rejects different countries', () => {
     expect(countryMatches('USA', 'Mexico')).toBe(false);
     expect(countryMatches('Scotland', 'USA')).toBe(false);
+  });
+});
+
+describe('wine claim normalization', () => {
+  it('treats N/A as no grape varietal or appellation claim', () => {
+    expect(normalizeWineVarietalClaim('N/A')).toBeNull();
+    expect(normalizeWineVarietalClaim('null')).toBeNull();
+    expect(normalizeWineAppellationClaim('N/A')).toBeNull();
+  });
+
+  it('does not treat wine blends as grape varietals', () => {
+    expect(normalizeWineVarietalClaim('white wine blend')).toBeNull();
+    expect(normalizeWineVarietalClaim('Red Blend')).toBeNull();
+    expect(normalizeWineVarietalClaim('American White Wine')).toBeNull();
+    expect(normalizeWineVarietalClaim('Orange Wine')).toBeNull();
+  });
+
+  it('canonicalizes real varietals and appellations', () => {
+    expect(normalizeWineVarietalClaim('Cabernet Sauvignon')).toBe(
+      'Cabernet Sauvignon',
+    );
+    expect(normalizeWineVarietalClaim('Pinot Grigio')).toBe('Pinot Gris');
+    expect(normalizeWineAppellationClaim('AMERICAN')).toBe('American');
+    expect(normalizeWineAppellationClaim('American White Wine')).toBe('American');
+  });
+
+  it('preserves unknown appellation strings instead of dropping them', () => {
+    expect(normalizeWineAppellationClaim('Some Foreign Region')).toBe(
+      'Some Foreign Region',
+    );
   });
 });
 

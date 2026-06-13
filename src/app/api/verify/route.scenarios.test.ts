@@ -10,8 +10,8 @@ import { type ExtractedDocument } from '@/lib/extraction/types';
  * mocked so the test runs deterministically in CI without an OPENAI key.
  *
  * Each scenario's `makeDocument` returns an ExtractedDocument that mirrors
- * what GPT-4o would have read from a clean form, with scenario-specific
- * intentional mismatches injected on the label half.
+ * an extractor reading a clean form, with scenario-specific intentional
+ * mismatches injected on the label half.
  */
 
 const ORIGINAL_ENV = { ...process.env };
@@ -85,7 +85,7 @@ function applicantOf(
 
 function withProvenance(): ExtractedDocument['provenance'] {
   // Sample provenance — just enough to assert that the route forwards bboxes
-  // into the report. Real GPT-4o populates ~22 entries; one is enough here.
+  // into the report. One entry is enough for this route-level assertion.
   return {
     'application.brandName': {
       page: 0,
@@ -306,12 +306,16 @@ function calypso(): ExtractedDocument {
   };
 }
 
+/**
+ * Sync truth-table: `/api/verify` now returns the complete COLA report in one
+ * response — label rules plus application-vs-label cross-check. Clean labels
+ * remain `compliant`, cross-check drift routes to `needs_review`, and missing
+ * Government Warning remains `non_compliant`.
+ */
 const SCENARIOS: ReadonlyArray<{
   slug: string;
   makeDocument: () => ExtractedDocument;
   expectedVerdict: 'compliant' | 'needs_review' | 'non_compliant';
-  // What we expect to find in the verified report. Each predicate runs over the
-  // report and returns true when the per-scenario intentional behavior shows up.
   assertOutcome(report: NonNullable<Extract<ResultLine, { status: 'ok' }>>['report']): void;
 }> = [
   {
@@ -319,20 +323,19 @@ const SCENARIOS: ReadonlyArray<{
     makeDocument: ridgeCreek,
     expectedVerdict: 'compliant',
     assertOutcome(report) {
-      // Clean cross-check, all rules pass — the demo's green-path scenario.
-      expect(report.crossCheck.overallStatus).toBe('match');
+      expect(report.crossCheck?.overallStatus).toBe('match');
     },
   },
   {
     slug: '02-silver-birch-vodka',
-    // Brand drift is a judgment call for the human reviewer (see Dave
-    // Morrison's "STONE'S THROW" example in the stakeholder interviews) —
-    // never an auto-reject. Cross-check surfaces it, verdict stays soft.
+    // Brand drift is cross-check territory. It routes to needs_review, not
+    // non_compliant, because the label still contains a brand name.
     makeDocument: silverBirch,
     expectedVerdict: 'needs_review',
     assertOutcome(report) {
-      expect(report.crossCheck.overallStatus).toBe('mismatch');
-      expect(report.crossCheck.fields.brandName?.status).toBe('mismatch');
+      expect(report.crossCheck?.overallStatus).toBe('mismatch');
+      expect(report.crossCheck?.fields.brandName?.status).toBe('mismatch');
+      expect(report.fields.brand?.status).toBe('pass');
     },
   },
   {
@@ -340,31 +343,30 @@ const SCENARIOS: ReadonlyArray<{
     makeDocument: hawthorne,
     expectedVerdict: 'needs_review',
     assertOutcome(report) {
-      expect(report.crossCheck.overallStatus).toBe('mismatch');
-      expect(report.crossCheck.fields.wineVarietal?.status).toBe('mismatch');
-      expect(report.crossCheck.fields.wineAppellation?.status).toBe('mismatch');
+      expect(report.crossCheck?.overallStatus).toBe('mismatch');
+      expect(report.crossCheck?.fields.wineVarietal?.status).toBe('mismatch');
+      expect(report.crossCheck?.fields.wineAppellation?.status).toBe('mismatch');
     },
   },
   {
     slug: '04-ironwood-ipa',
-    // Government Warning missing is the §16.21 critical failure — hard reject.
+    // Government Warning missing is a label-rule failure — visible on the
+    // sync path. Verdict still routes to non_compliant.
     makeDocument: ironwood,
     expectedVerdict: 'non_compliant',
     assertOutcome(report) {
-      expect(report.crossCheck.overallStatus).toBe('match');
+      expect(report.crossCheck?.overallStatus).toBe('match');
       expect(report.fields.governmentWarning?.status).toBe('fail');
     },
   },
   {
     slug: '05-calypso-rum',
-    // Producer drift only (importer-of-record vs printed bottler). Not
-    // critical — stays in needs_review. The "80 PROOF" ABV format the
-    // fixture carries is now accepted by the ABV rule (TTB approves it),
-    // so this scenario exercises the producer-only soft path.
+    // Producer drift only — cross-check territory. It routes to needs_review.
     makeDocument: calypso,
     expectedVerdict: 'needs_review',
     assertOutcome(report) {
-      expect(report.crossCheck.fields.producer?.status).toBe('mismatch');
+      expect(report.crossCheck?.overallStatus).toBe('mismatch');
+      expect(report.crossCheck?.fields.producer?.status).toBe('mismatch');
       expect(report.fields.abv?.status).toBe('pass');
     },
   },

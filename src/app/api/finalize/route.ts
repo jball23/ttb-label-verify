@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { finalizeApplication } from '@/db/reviews';
 import { findApplicationById } from '@/db/applications';
 import { tryGetDb } from '@/db/client';
-import { isFinalized } from '@/db/schema';
 import { scrubError } from '@/lib/safety/scrub-error';
 
 export const runtime = 'nodejs';
@@ -16,11 +15,12 @@ const BodySchema = z.object({
 });
 
 /**
- * Finalize an application — the human's terminal decision.
+ * Finalize or revise an application decision.
  *
- * The decision (approve | reject) becomes the application's `current_status`,
- * pulling it out of the home-page triage tabs and into the /applications
- * archive. A review row is appended for audit; the row itself is immutable.
+ * The decision (approve | reject) becomes the application's `current_status`.
+ * Before archive, a reviewer may submit another decision to change that status;
+ * each submission appends an immutable review row. Once archived, the decision
+ * is locked for the archive.
  */
 export async function POST(req: NextRequest): Promise<Response> {
   if (!tryGetDb()) {
@@ -49,10 +49,10 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const existing = await findApplicationById(input.applicationId);
   if (!existing) return error(404, 'Application not found.');
-  if (isFinalized(existing.currentStatus)) {
+  if (existing.archivedAt) {
     return error(
       409,
-      `This application was already finalized as ${existing.currentStatus}.`,
+      'This application has been archived and its decision can no longer be changed.',
     );
   }
 

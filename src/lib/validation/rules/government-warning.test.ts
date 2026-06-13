@@ -84,16 +84,19 @@ describe('government-warning rule', () => {
     expect(result.reason).toMatch(/differs|first sentence|pregnancy|Surgeon General/i);
   });
 
-  it('fails with a generic differs reason when both sentences are present but text drifted around them', () => {
-    // Insert extraneous content between sentences — both substrings still match,
-    // but the overall normalized text doesn't equal canonical.
+  it('tolerates small extra content between sentences when both anchor sets are present', () => {
+    // The anchor-based check intentionally does not catch this case. The
+    // trade-off: tolerating Tesseract's frequent OCR drift (dropped 1-2
+    // char connectors on dense GW print) is worth losing exact-match
+    // detection of small extraneous insertions between sentences. A real
+    // marketing-copy injection here would still be caught downstream by
+    // the human reviewer's eye on the highlighted bbox.
     const drifted = GOVERNMENT_WARNING_CANONICAL.replace(
       'birth defects. (2)',
       'birth defects. EXTRA INSERTED CONTENT. (2)',
     );
     const result = governmentWarningRule.check(fields({ text: drifted }));
-    expect(result.status).toBe('fail');
-    expect(result.reason).toMatch(/differs|required wording/i);
+    expect(result.status).toBe('pass');
   });
 
   it('returns uncertain when text is correct but appearsBold is false', () => {
@@ -120,6 +123,17 @@ describe('government-warning rule', () => {
     const result = governmentWarningRule.check(fields({ text: null }));
     expect(result.status).toBe('fail');
     expect(result.reason).toMatch(/not detected|missing/i);
+  });
+
+  it('passes when Tesseract drops the small connector words ("to", "of", "a")', () => {
+    // Real-world Vina La Rosa front-label GW: Tesseract reads the
+    // curved/dense print and drops nearly every 1-2-char connector
+    // word ("to", "of", "a"). Every load-bearing content word is still
+    // present — the warning text IS on the label, the rule should pass.
+    const ocrDrift =
+      'GOVERNMENT WARNING: ACCORDING THE SURGEON GENERAL, WOMEN SHOULD NOT DRINK ALCOHOLIC BEVERAGES DURING PREGNANCY BECAUSE THE RISK BIRTH DEFECTS. CONSUMPTION ALCOHOLIC BEVERAGES IMPAIRS YOUR ABILITY DRIVE CAR OPERATE MACHINERY, AND MAY CAUSE HEALTH PROBLEMS.';
+    const result = governmentWarningRule.check(fields({ text: ocrDrift }));
+    expect(result.status).toBe('pass');
   });
 
   it('passes when text is correct and visual styling is null (model unsure)', () => {

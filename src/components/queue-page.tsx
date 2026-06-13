@@ -20,9 +20,8 @@ import {
   X,
 } from 'lucide-react';
 import ScenarioPicker from '@/components/scenario-picker';
-import DetailReportView from '@/components/detail-report-view';
+import DetailPageShell from '@/components/detail-page-shell';
 import FinalizeForm from '@/components/finalize-form';
-import PdfModal from '@/components/pdf-modal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { consumeResultStream } from '@/lib/results/stream-consumer';
@@ -32,16 +31,18 @@ import { cn } from '@/lib/utils';
 import { type QueueData } from '@/app/(app)/page';
 
 const MAX_PDF_BYTES = 25 * 1024 * 1024;
-const VERIFY_CONCURRENCY = 3;
+const VERIFY_CONCURRENCY = 1;
 
 type Tab = 'queue' | 'approved' | 'rejected' | 'finalized';
 
 interface InFlightItem {
   id: string;
   file: File;
-  status: 'processing' | 'failed';
+  status: 'queued' | 'processing' | 'failed';
   errorMessage?: string;
 }
+
+type FinalDecision = 'approved' | 'rejected';
 
 interface Props {
   initial: QueueData;
@@ -58,6 +59,11 @@ export default function QueuePage({ initial, databaseConnected }: Props) {
 
   const verify = useCallback(
     async (item: InFlightItem) => {
+      setInFlight((curr) =>
+        curr.map((c) =>
+          c.id === item.id ? { ...c, status: 'processing', errorMessage: undefined } : c,
+        ),
+      );
       try {
         const fd = new FormData();
         fd.append('pdf', item.file, item.file.name);
@@ -120,7 +126,7 @@ export default function QueuePage({ initial, databaseConnected }: Props) {
         accepted.push({
           id: `if_${Math.random().toString(36).slice(2)}_${Date.now()}`,
           file,
-          status: 'processing',
+          status: 'queued',
         });
       }
       if (accepted.length === 0) return;
@@ -221,6 +227,7 @@ export default function QueuePage({ initial, databaseConnected }: Props) {
           }}
           onDrop={handleDrop}
           handleFileInput={handleFileInput}
+          onScenarioError={setStageError}
         />
       )}
 
@@ -263,6 +270,7 @@ function QueueTab({
   onDragLeave,
   onDrop,
   handleFileInput,
+  onScenarioError,
 }: {
   inFlight: InFlightItem[];
   onRemove(id: string): void;
@@ -273,6 +281,7 @@ function QueueTab({
   onDragLeave(e: DragEvent<HTMLDivElement>): void;
   onDrop(e: DragEvent<HTMLDivElement>): void;
   handleFileInput(e: React.ChangeEvent<HTMLInputElement>): void;
+  onScenarioError(message: string): void;
 }) {
   if (inFlight.length === 0) {
     return (
@@ -280,7 +289,7 @@ function QueueTab({
         <div className="mb-6 text-center">
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
             <Sparkles className="size-3" />
-            GPT-4o vision · COLA cross-check + TTB rule engine
+            PDF OCR · COLA cross-check + TTB rule engine
           </div>
           <h1 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
             Verify TTB COLA applications
@@ -343,7 +352,7 @@ function QueueTab({
         <div className="mt-6">
           <ScenarioPicker
             onScenariosLoaded={(files) => onFilesPicked(files)}
-            onError={() => undefined}
+            onError={onScenarioError}
           />
         </div>
       </div>
@@ -355,6 +364,7 @@ function QueueTab({
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">
           {inFlight.filter((i) => i.status === 'processing').length} processing ·{' '}
+          {inFlight.filter((i) => i.status === 'queued').length} queued ·{' '}
           {inFlight.filter((i) => i.status === 'failed').length} failed
         </p>
         <label
@@ -387,7 +397,9 @@ function QueueTab({
                 {(item.file.size / 1024).toFixed(1)} KB ·{' '}
                 {item.status === 'processing'
                   ? 'analyzing…'
-                  : item.errorMessage ?? 'failed'}
+                  : item.status === 'queued'
+                    ? 'queued'
+                    : item.errorMessage ?? 'failed'}
               </p>
             </div>
             {item.status === 'failed' && (
@@ -417,6 +429,7 @@ function QueueTab({
 function InFlightIcon({ status }: { status: InFlightItem['status'] }) {
   if (status === 'processing')
     return <Loader2 className="size-4 animate-spin text-muted-foreground" />;
+  if (status === 'queued') return <FileText className="size-4 text-muted-foreground" />;
   return <AlertCircle className="size-4 text-rose-600" />;
 }
 
@@ -460,77 +473,101 @@ function DecisionTab({
     <ul className="space-y-2">
       {cards.map((card) => {
         const expanded = expandedId === card.id;
-        const aiVerdict = card.aiVerdict;
         return (
-          <li
+          <ReviewCard
             key={card.id}
-            className="rounded-xl border border-border bg-card [overflow:clip]"
-          >
-            <button
-              type="button"
-              onClick={() => toggle(card.id)}
-              aria-expanded={expanded}
-              className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/30 sm:px-4"
-            >
-              <CardIcon tab={tab} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {card.sourceFilename}
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {card.brandName ?? 'unknown brand'} · {card.ttbSerialNumber ?? 'no serial'} · {formatRelative(card.createdAt)}
-                </p>
-              </div>
-              <AiVerdictPill aiVerdict={aiVerdict} />
-              {expanded ? (
-                <ChevronUp className="size-4 text-muted-foreground" />
-              ) : (
-                <ChevronDown className="size-4 text-muted-foreground" />
-              )}
-            </button>
-            {expanded && (
-              <div className="border-t border-border bg-background p-2 sm:p-3">
-                <div className="mx-auto w-full max-w-[1500px] px-2 sm:px-4">
-                  <header className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                      <h2 className="text-base font-semibold tracking-tight sm:text-lg">
-                        {card.sourceFilename}
-                      </h2>
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        Processed {card.createdAt.toLocaleString()} ·{' '}
-                        {card.extractorModel} · prompt {card.promptVersion}
-                      </p>
-                    </div>
-                    <PdfModal
-                      filename={card.sourceFilename}
-                      source={{
-                        kind: 'stored',
-                        applicationId: card.id,
-                        hasStoredPdf: card.hasPdfBytes,
-                      }}
-                    />
-                  </header>
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-                    <DetailReportView report={card.validationReport} />
-                    <div className="space-y-4">
-                      <FinalizeForm
-                        applicationId={card.id}
-                        aiVerdict={aiVerdict}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </li>
+            card={card}
+            decision={tab}
+            expanded={expanded}
+            onToggle={() => toggle(card.id)}
+            statusPill={<AiVerdictPill aiVerdict={card.aiVerdict} />}
+          />
         );
       })}
     </ul>
   );
 }
 
-function CardIcon({ tab }: { tab: 'approved' | 'rejected' }) {
-  if (tab === 'approved')
+function ReviewCard({
+  card,
+  decision,
+  expanded,
+  onToggle,
+  statusPill,
+  archiveSelector,
+  selectedForArchive = false,
+}: {
+  card: ApplicationSummary;
+  decision: FinalDecision;
+  expanded: boolean;
+  onToggle(): void;
+  statusPill: React.ReactNode;
+  archiveSelector?: React.ReactNode;
+  selectedForArchive?: boolean;
+}) {
+  const finalized = card.currentStatus === 'approved' || card.currentStatus === 'rejected';
+  return (
+    <li
+      className={cn(
+        'rounded-xl border bg-card [overflow:clip]',
+        selectedForArchive ? 'border-primary/60 bg-primary/5' : 'border-border',
+      )}
+    >
+      <div className="flex items-center gap-3 px-3 py-2.5 transition-colors hover:bg-accent/30 sm:px-4">
+        {archiveSelector}
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
+          <DecisionIcon decision={decision} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">
+              {card.sourceFilename}
+            </p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {card.brandName ?? 'unknown brand'} ·{' '}
+              {card.ttbSerialNumber ?? 'no serial'} ·{' '}
+              {finalized
+                ? `finalized ${formatRelative(card.currentStatusAt)}`
+                : `processed ${card.createdAt.toLocaleString()}`}{' '}
+              · {card.extractorModel} · prompt {card.promptVersion}
+            </p>
+          </div>
+          {statusPill}
+          {expanded ? (
+            <ChevronUp className="size-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="size-4 text-muted-foreground" />
+          )}
+        </button>
+      </div>
+      {expanded && (
+        <div className="border-t border-border bg-background p-2 sm:p-3">
+          <div className="mx-auto w-full px-2 sm:px-4">
+            <DetailPageShell
+              report={card.validationReport}
+              applicationId={card.id}
+              hasStoredPdf={card.hasPdfBytes}
+              leftFooter={
+                <FinalizeForm
+                  applicationId={card.id}
+                  aiVerdict={card.aiVerdict}
+                  initialDecision={finalized ? decision : undefined}
+                  mode={finalized ? 'revise' : 'finalize'}
+                />
+              }
+            />
+          </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function DecisionIcon({ decision }: { decision: FinalDecision }) {
+  if (decision === 'approved')
     return <Check className="size-4 text-emerald-600" />;
   return <X className="size-4 text-rose-600" />;
 }
@@ -547,6 +584,9 @@ function FinalizedTab({
   onArchived(): void;
 }) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [expandedId, setExpandedId] = useState<string | null>(
+    cards.length === 1 ? cards[0]!.id : null,
+  );
   const [isArchiving, setIsArchiving] = useState(false);
   const [archiveError, setArchiveError] = useState<string | null>(null);
 
@@ -571,7 +611,7 @@ function FinalizedTab({
   const allSelected = selected.size === cards.length;
   const noneSelected = selected.size === 0;
 
-  function toggle(id: string): void {
+  function toggleSelection(id: string): void {
     setSelected((curr) => {
       const next = new Set(curr);
       if (next.has(id)) next.delete(id);
@@ -582,6 +622,10 @@ function FinalizedTab({
 
   function toggleAll(): void {
     setSelected(allSelected ? new Set() : new Set(cards.map((c) => c.id)));
+  }
+
+  function toggleExpanded(id: string): void {
+    setExpandedId((curr) => (curr === id ? null : id));
   }
 
   async function archiveSelected(): Promise<void> {
@@ -662,35 +706,29 @@ function FinalizedTab({
       <ul className="space-y-2">
         {cards.map((card) => {
           const isOn = selected.has(card.id);
-          const decision = card.currentStatus;
+          const decision = finalDecision(card.currentStatus);
+          if (!decision) return null;
+          const expanded = expandedId === card.id;
           return (
-            <li
+            <ReviewCard
               key={card.id}
-              className={cn(
-                'flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 sm:px-4',
-                isOn ? 'border-primary/60 bg-primary/5' : 'border-border',
-              )}
-            >
-              <input
-                type="checkbox"
-                checked={isOn}
-                onChange={() => toggle(card.id)}
-                aria-label={`Select ${card.sourceFilename}`}
-                className="size-3.5 shrink-0"
-              />
-              <FinalDecisionIcon decision={decision} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
-                  {card.sourceFilename}
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {card.brandName ?? 'unknown brand'} ·{' '}
-                  {card.ttbSerialNumber ?? 'no serial'} · finalized{' '}
-                  {formatRelative(card.currentStatusAt)}
-                </p>
-              </div>
-              <FinalDecisionPill decision={decision} />
-            </li>
+              card={card}
+              decision={decision}
+              expanded={expanded}
+              onToggle={() => toggleExpanded(card.id)}
+              statusPill={<FinalDecisionPill decision={decision} />}
+              selectedForArchive={isOn}
+              archiveSelector={
+                <input
+                  type="checkbox"
+                  checked={isOn}
+                  onChange={() => toggleSelection(card.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={`Select ${card.sourceFilename}`}
+                  className="size-3.5 shrink-0"
+                />
+              }
+            />
           );
         })}
       </ul>
@@ -698,22 +736,10 @@ function FinalizedTab({
   );
 }
 
-function FinalDecisionIcon({
-  decision,
-}: {
-  decision: ApplicationSummary['currentStatus'];
-}) {
-  if (decision === 'approved')
-    return <Check className="size-4 text-emerald-600" />;
-  if (decision === 'rejected')
-    return <X className="size-4 text-rose-600" />;
-  return null;
-}
-
 function FinalDecisionPill({
   decision,
 }: {
-  decision: ApplicationSummary['currentStatus'];
+  decision: FinalDecision;
 }) {
   if (decision === 'approved') {
     return (
@@ -729,6 +755,11 @@ function FinalDecisionPill({
       </span>
     );
   }
+  return null;
+}
+
+function finalDecision(status: ApplicationSummary['currentStatus']): FinalDecision | null {
+  if (status === 'approved' || status === 'rejected') return status;
   return null;
 }
 

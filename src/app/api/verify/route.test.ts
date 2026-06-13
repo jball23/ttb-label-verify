@@ -192,8 +192,8 @@ describe('POST /api/verify', () => {
     expect(lines[0]?.status).toBe('ok');
     if (lines[0]?.status === 'ok') {
       expect(lines[0].report.overallStatus).toBe('compliant');
-      expect(lines[0].report.crossCheck.overallStatus).toBe('match');
-      expect(lines[0].report.crossCheck.fields.brandName?.status).toBe('match');
+      expect(lines[0].report.crossCheck?.overallStatus).toBe('match');
+      expect(lines[0].report.crossCheck?.fields.brandName?.status).toBe('match');
       expect(Object.keys(lines[0].report.provenance).length).toBeGreaterThan(0);
     }
   });
@@ -254,5 +254,53 @@ describe('POST /api/verify', () => {
     const lines = await readNDJSON(res);
     expect(lines).toHaveLength(1);
     expect(lines[0]?.status).toBe('error');
+  });
+
+  it('serializes cache-miss verification work per server process', async () => {
+    let active = 0;
+    let maxActive = 0;
+    vi.doMock('@/db/client', () => ({
+      tryGetDb: () => null,
+    }));
+    vi.doMock('@/db/persist-verification', () => ({
+      persistVerification: async () => null,
+    }));
+    vi.doMock('@/lib/extraction/factory', () => ({
+      getExtractor: () => ({
+        providerName: 'fake',
+        modelId: 'fake-model',
+        extract: async () => {
+          active += 1;
+          maxActive = Math.max(maxActive, active);
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          active -= 1;
+          return fakeRidgeCreekDocument();
+        },
+      }),
+    }));
+    vi.doMock('@/lib/pdf/render', () => ({
+      renderApplicationPages: async () => [
+        {
+          pageNumber: 1,
+          kind: 'form+label' as const,
+          png: Buffer.from([0x89, 0x50, 0x4e, 0x47]),
+        },
+      ],
+      PdfRenderError: class extends Error {},
+    }));
+
+    const { POST } = await import('./route');
+    const [resA, resB] = await Promise.all([
+      POST(fakeRequest(buildFormData(makePdfFile('a.pdf'))) as never),
+      POST(fakeRequest(buildFormData(makePdfFile('b.pdf'))) as never),
+    ]);
+    const [linesA, linesB] = await Promise.all([
+      readNDJSON(resA),
+      readNDJSON(resB),
+    ]);
+
+    expect(linesA[0]?.status).toBe('ok');
+    expect(linesB[0]?.status).toBe('ok');
+    expect(maxActive).toBe(1);
   });
 });

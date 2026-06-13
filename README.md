@@ -1,27 +1,37 @@
 # TTB Label Verification
 
-Prototype for the U.S. Department of the Treasury / Alcohol and Tobacco Tax and Trade Bureau. A TTB reviewer drops one or more **COLA application PDFs** (TTB Form 5100.31 with the affixed label artwork) into a queue. The system reads the form and the label in one GPT-4o vision call, runs the six TTB label-only rules, surfaces any drift between the application and the label, and routes each row into a reviewer lifecycle: **Queue → Approved / Rejected → Finalized → Archive**.
+Prototype for reviewing U.S. Alcohol and Tobacco Tax and Trade Bureau COLA
+application PDFs. A reviewer uploads one or more filled TTB Form 5100.31 PDFs,
+the system reads only the form fields and affixed label artwork needed for the
+review, highlights the source regions it used, and routes each item through:
+**Queue → Approved / Rejected → Finalized → Archive**.
 
-Production-shaped, not production-ready.
+Production-shaped, not production-hardened.
 
 ---
 
 ## What it does
 
-1. Reviewer picks one or more PDFs from the demo dropdown (20 real TTB COLA Online exports under `public/samples/cola/`) or drops their own COLA PDFs onto the queue.
-2. For each PDF the server renders the form page plus every label page (real exports put labels on page 2+) to 200 DPI PNGs via `pdfjs-dist` + `@napi-rs/canvas`.
-3. One GPT-4o (`gpt-4o-2024-11-20`) vision call returns:
-   - the **application form** fields walked over TTB Form 5100.31 items 1–18
-   - the **label** fields (brand, ABV, government warning verbatim, net contents, class, producer, country, wine fields)
-4. Server synthesizes the canonical `Application` from the extracted form, then runs:
-   - **Six TTB label-only rules** (brand, ABV format, government warning verbatim, net contents, fanciful name, producer & origin) — these drive the verdict.
-   - **Cross-check** (informational) — per-field drift between the application and the label.
-5. **Three-tier verdict:**
-   - `non_compliant` — Government Warning rule **failed**. Auto-routes to the Rejected tab.
-   - `needs_review` — any non-GW rule warned (format quirks, missing brand, country phrasing) OR the cross-check surfaced drift. Routes to Approved with "AI suggests Approve" — the reviewer is the decider.
-   - `compliant` — every rule passed and cross-check is clean.
-6. Reviewer flips or keeps the AI's decision in the Finalize panel; the row moves to the **Finalized** tab. From there a multi-select "Archive Selected" button moves rows to `/applications` (the archive).
-7. Result streams back as NDJSON. The detail view (`/applications/[id]`) shows TTB Label Rules → Side-by-side (application vs label) → Application form fields, with the PDF on the left.
+1. Reviewer selects one or more real COLA PDFs from `public/samples/cola/` or
+   drops their own filled COLA PDFs onto the queue.
+2. The client processes uploads one PDF at a time so normal provider limits do
+   not turn a batch upload into rate-limit errors.
+3. `/api/verify` renders the relevant PDF pages at 200 DPI with `pdfjs-dist`
+   and `@napi-rs/canvas`.
+4. The server parses Form 5100.31's text layer first, reading only fields that
+   matter for this review: source/product type, brand, fanciful/class name,
+   applicant/producer context, grape varietal, and wine appellation.
+5. Label OCR runs on masked label-artwork images, not on the surrounding form
+   chrome. Tesseract supplies word-level bboxes for highlightable fields.
+6. OpenAI VLM fallback is used selectively for fields Tesseract cannot read
+   confidently. Fallback values are text-only; the UI marks them as AI-sourced
+   and does not pretend to have an exact source box.
+7. The rule engine evaluates the label requirements and folds in only the
+   application comparisons needed to assess the label.
+
+The detail view keeps the review compact: one **TTB label rules** panel on the
+left and the original PDF on the right. Click a rule row to jump to the source
+page and bbox when one is available.
 
 ---
 
@@ -34,205 +44,238 @@ git clone <repo-url>
 cd ttb-label-verify
 npm install
 cp .env.example .env.local
-# Edit .env.local: OPENAI_API_KEY (DATABASE_URL is optional but enables Queue persistence)
-npm run dev
+# Edit .env.local. OPENAI_API_KEY is optional for local OCR-only runs,
+# but recommended so hard fields can use the VLM fallback.
+npm run dev -- -p 3002
 ```
 
-Open <http://localhost:3000>. No login — the demo password gate was removed; the homepage is the queue.
+Open <http://localhost:3002>. The app has no login; the homepage is the queue.
 
 ### Commands
 
 | Command | What it does |
 |---------|--------------|
 | `npm run dev` | Next.js dev server with HMR |
-| `npm run build` | Production build (runs `next lint` as a hard gate) |
+| `npm run build` | Production build |
 | `npm start` | Production server |
-| `npm test` | Vitest — 293 tests across pdf render, extraction, cross-check, validation, results, exports, route |
+| `npm test` | Vitest unit/integration suite |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | `next lint` |
-| `npm run eval` | Legacy 5-case label-image eval (needs `OPENAI_API_KEY`; predates the PDF pivot — see `evals/README.md`) |
-| `npm run db:push` | Apply Drizzle migrations to Neon Postgres |
-| `npm run db:reset -- --yes` | Drop + recreate every table |
-
-### Demo flow
-
-The homepage opens on the **Queue** tab with four tabs across the top:
-
-| Tab | What's in it |
-|---|---|
-| **Queue** | In-flight uploads. Rows leave automatically as the AI verdict comes back. |
-| **Approved** | Verdict `compliant` or `needs_review`. AI default action = Approve. Awaiting reviewer Finalize. |
-| **Rejected** | Verdict `non_compliant` (GW failure). AI default action = Reject. Awaiting reviewer Finalize. |
-| **Finalized** | Reviewer finalized — multi-select + "Archive Selected" moves rows to `/applications`. |
-
-Pick one or many PDFs from the scenario dropdown (multi-select; "Run N selected") or drop your own PDFs onto the queue. Click any verified row to open the detail view at `/applications/[id]`.
+| `npm run eval` | Legacy label-image eval suite under `evals/` |
+| `npm run db:push` | Apply Drizzle schema to Postgres |
+| `npm run db:reset -- --yes` | Drop and recreate every table |
 
 ---
 
-## Verdict model
+## Reviewer Flow
 
-Only the Government Warning auto-rejects. Everything else is reviewer judgment.
+The homepage has four tabs:
+
+| Tab | What's in it |
+|---|---|
+| **Queue** | In-flight uploads. Rows leave automatically when verification finishes. |
+| **Approved** | AI verdict is `compliant` or `needs_review`; default human action is Approve. |
+| **Rejected** | AI verdict is `non_compliant`; default human action is Reject. |
+| **Finalized** | Human-reviewed rows that are not archived yet. They can still be revised here. |
+
+Use **Archive Selected** from the Finalized tab to move reviewed rows into
+`/applications`, the archive. Once a row is archived, its final decision is
+locked.
+
+---
+
+## Verdict Model
+
+Only the Government Warning rule auto-routes to Rejected. Everything else is
+reviewer judgment.
 
 | Rule outcome | Status | Verdict contribution | Where it lands |
 |---|---|---|---|
-| Government Warning text wrong / missing | `fail` | `non_compliant` | Rejected tab, AI suggests Reject |
-| Government Warning correct but visual styling (bold/all-caps) uncertain | `uncertain` | no change | as-is |
-| Any other rule (net contents format, ABV format, missing brand, etc.) | `warn` | `needs_review` | Approved tab, AI suggests Approve |
-| Cross-check mismatch (drift between application + label) | informational | `needs_review` | Approved tab |
-| All rules pass + cross-check clean | `pass` | `compliant` | Approved tab |
+| Government Warning text wrong / missing | `fail` | `non_compliant` | Rejected tab |
+| Government Warning correct but styling uncertain | `uncertain` | no change | as-is |
+| Any other rule warning | `warn` | `needs_review` | Approved tab |
+| Application/label comparison may differ | informational | `needs_review` | Approved tab |
+| All rules pass and comparisons are clean | `pass` | `compliant` | Approved tab |
 
-Why this shape: stakeholder framing places the Government Warning under 27 CFR §16.21 as the one word-for-word rule. Everything else (brand drift, importer-vs-producer, ABV phrasing) is the kind of judgment call a TTB reviewer applies in practice — surfacing it as "look here" beats auto-rejecting on a brittle regex.
-
-UI consequence: the rules panel uses red `X` only for the GW failure, amber `⚠` for warnings and cross-check drift, green `✓` for pass.
+The UI intentionally phrases comparison findings as "may differ" because OCR,
+PDF text extraction, and label layout can all be imperfect. The reviewer gets
+the source view and final say.
 
 ---
 
 ## Architecture
 
 ```
-POST /api/verify  (multipart, one or more `pdf` fields)
-  → pdf/render.ts             renderApplicationPages(buffer) → [{pageNumber, kind, png}]
-                              classifies pages: form (text markers), label (image XObject + low text)
-  → extraction/openai-extractor.ts
-                              extract(pngs) → ExtractedDocument
-                              ({ application, label, provenance? })
-  → application/loader.ts     synthesizeExpectations(form) → Application
-  → validation/engine.ts      runVerification(application, label) → VerificationReport
-                              ├── cross-check/engine.ts   runCrossCheck(...)   [informational]
-                              └── validation/rules/...    six TTB rules        [verdict-driving]
+POST /api/verify  (multipart, one `pdf` field)
+  → pdf/render.ts             renderApplicationPages(buffer)
+                              keeps full PDF pages for display and creates
+                              OCR-only label-artwork masks for extraction
+  → pdf/parse-form.ts         parseApplicationFormFromRenderedPages(...)
+                              reads needed Form 5100.31 fields from PDF text
+                              and emits PDF-source bboxes
+  → extraction/factory.ts     default LABEL_EXTRACTOR=tesseract
+  → extraction/tesseract-extractor.ts
+                              Tesseract OCR on label artwork + selective
+                              OpenAI VLM fallback for hard fields
+  → application/loader.ts     synthesizeExpectations(form)
+  → validation/engine.ts      runVerification(application, label)
+                              ├── cross-check/engine.ts   needed app/label checks
+                              └── validation/rules/...    TTB label rules
   → results/result-types.ts   ResultLine — NDJSON wire shape
-  → db/applications.ts        persistVerification → applications row, status pending_*
-  → queue-page.tsx            tabs + finalize + archive
+  → db/persist-verification.ts
+                              persists PDF bytes, extracted data, report,
+                              queue status, and bbox sidecars
+  → queue-page.tsx            Queue / Approved / Rejected / Finalized tabs
 
-GET /applications/[id]        detail view: TTB rules → side-by-side → form fields, PDF on the left
-POST /api/finalize            sets terminal status (approved | rejected) + reviewer attribution
-POST /api/archive             multi-row: sets archived_at, moves to /applications archive
-GET /api/applications/[id]/pdf  serves the persisted source PDF as bytea
+GET /applications/[id]        detail view: rules + finalized/review history + PDF
+POST /api/finalize            appends a review row and sets approved/rejected
+POST /api/archive             sets archived_at for finalized rows
+GET /api/applications/[id]/pdf serves the persisted source PDF
 ```
 
-### Key decisions
+### Key Decisions
 
-- **One vision call.** Form + label live on the same page (or adjacent pages); splitting doubles latency without accuracy gain.
-- **Multi-page render.** Real TTB COLA exports put the form on page 1, front label on page 2, back label on page 3. Selection picks the highest-marker form page + every page with a label marker + every text-light page with embedded image XObjects (catches back labels). Capped at 4 pages.
-- **3-tier severity.** Only GW failure → `non_compliant`. Every other rule failure is a `warn` that routes to `needs_review` → Approved bucket. The reviewer can still flip.
-- **Cross-check is informational, not a Rule.** Rules consume only `ExtractedFields`; cross-check needs both `Application` and `ExtractedFields`. Sibling module + amber icons keep cross-check from driving the verdict.
-- **Cross-check granularity is per-field, with intentional fuzziness inside comparators.** Corporate-suffix strip, token-set producer match, "IMPORTED" as wildcard for any non-USA country, case-insensitive GW canonical compare.
-- **Deterministic extractor settings.** `temperature: 0`, `seed: 1`. `EXTRACT_PROVENANCE` defaults `false` (no bbox map) for ~4× speedup; flip to `true` to enable click-to-highlight on the detail view.
-- **PROMPT_VERSION bumped on every substantive prompt change** (`2026-06-11.v7`, `2026-06-11.v7-nobbox`) so Langfuse traces don't conflate revisions.
+- **PDF text first for the form.** The app reads a small set of known Form
+  5100.31 fields from the PDF text layer before OCR. This is faster and more
+  reliable than asking a vision model to reread the whole form.
+- **OCR only label artwork.** Rendered pages stay intact for review, but OCR
+  images are masked to the embedded label regions so form text such as
+  `Image Type: Back` cannot become a label field.
+- **Side-agnostic label extraction.** The verifier looks for required fields
+  wherever label artwork appears. A page is tagged as back only when the PDF
+  actually marks a following label as `Image Type: Back`.
+- **Word-level bboxes.** PDF text and Tesseract values carry word rectangles in
+  rendered-page pixel coordinates. VLM fallback values carry no fake bbox.
+- **One-at-a-time uploads.** Batch upload is supported in the UI, but each PDF
+  is verified sequentially. Field-level OpenAI fallback calls are throttled and
+  retried separately.
+- **Finalized is not archived.** Approved/rejected rows stay editable in the
+  Finalized tab until the reviewer explicitly archives them.
 
 ### Stack
 
-- **Next.js 15.5** App Router, React 19. Tailwind 4 + shadcn-style components, `next-themes` for the toggle.
-- **OpenAI** `gpt-4o-2024-11-20` via the `openai` SDK with structured output (Zod → JSON Schema).
-- **pdfjs-dist 4.x** + `@napi-rs/canvas` for server-side page rendering.
-- **react-pdf 9.x** for the client viewer (dynamic import).
-- **Drizzle + Neon Postgres** for application + review + archive persistence. Migrations in `drizzle/0000-0003`.
-- **Zod 3** for every wire boundary.
-- **Langfuse** for prompt/trace observability when keys are set; no-op otherwise.
-- **Vitest** for unit + integration tests. No live LLM in CI.
+- **Next.js 15.5** App Router, React 19, Tailwind 4.
+- **pdfjs-dist 4.x** + `@napi-rs/canvas` for server-side PDF rendering.
+- **Tesseract.js 7** for OCR and native word-level bboxes.
+- **OpenAI SDK** for optional VLM fallback and the legacy full-document
+  extractor path.
+- **Drizzle + Neon Postgres** for application, review, PDF, and archive state.
+- **Zod 3** for environment, extraction, validation, and NDJSON contracts.
+- **Langfuse** for tracing when keys are configured; no-op otherwise.
+- **Vitest** for deterministic tests. No live OpenAI calls in CI.
 
-### File map
+### File Map
 
 ```
 src/lib/
-  pdf/render.ts              multi-page PNG render + page classification
-  extraction/types.ts        ExtractedDocument, ExtractedApplicationForm, ExtractedFields
-  extraction/prompt.ts       dual-extraction prompt (PROMPT_VERSION 2026-06-11.v7)
+  pdf/render.ts              PDF render, page classification, label masks
+  pdf/parse-form.ts          Form 5100.31 text-layer parser + PDF bboxes
+  extraction/types.ts        ExtractedDocument, FieldBbox, provider contracts
+  extraction/tesseract-extractor.ts
+                              OCR-first extraction + VLM fallback orchestration
   extraction/openai-extractor.ts
-  extraction/factory.ts      DI for provider swap (openai / azure-openai)
-  application/types.ts       Application Zod schema
-  application/loader.ts      parseApplication + synthesizeExpectations
-  cross-check/engine.ts      runCrossCheck (informational)
-  cross-check/normalize.ts   token-set, corporate-suffix strip, class-type aliases
-  validation/engine.ts       runVerification (cross-check ∘ rules, 3-tier verdict)
-  validation/rules/...       six TTB rule modules (only GW emits 'fail')
-  validation/types.ts        FieldStatus = 'pass' | 'warn' | 'fail' | 'uncertain'
-  results/result-types.ts    ResultLineSchema (Zod wire contract)
-  observability/             Langfuse client + span helpers
+                              legacy full-document extractor + single-field fallback
+  extraction/openai-throttle.ts
+                              provider concurrency + retry guard
+  application/loader.ts      synthesize form expectations for comparison
+  cross-check/engine.ts      application/label comparison helpers
+  validation/engine.ts       verdict tiers + rule orchestration
+  validation/rules/...       TTB label rule modules
+  wine/                      grape varietal and appellation lexicon helpers
+  detail-view/select-field.ts
+                              click target selection for bboxes/no-source states
 
 src/db/
-  schema.ts                  applications + reviews; aiVerdictToInitialStatus
-  applications.ts            listFinalizedNotArchived, archiveApplications, countByQueueBucket
-  client.ts                  Drizzle + Neon HTTP
+  schema.ts                  applications + reviews lifecycle
+  applications.ts            queue, finalized, archive listing helpers
+  persist-verification.ts    insert verified PDF/report rows
 
 src/components/
-  queue-page.tsx             Queue / Approved / Rejected / Finalized tabs
-  detail-report-view.tsx     section ordering for /applications/[id]
-  report-sections.tsx        TTB rules + Side-by-side + Application form panels
-  finalize-form.tsx          AI verdict pill + Approve/Reject + reason + finalize
-  pdf-viewer.tsx             react-pdf + bbox overlay (dynamic-imported)
-  scenario-picker.tsx        multi-select demo dropdown
-  site-header.tsx            top nav: TTB Label Verification · Archive
+  queue-page.tsx             upload queue and four review tabs
+  detail-report-view.tsx     detail page layout
+  report-sections.tsx        compact TTB label rules panel
+  source-viewer.tsx          PDF page viewer + bbox overlays
+  finalize-form.tsx          approve/reject/revise form
 
 src/app/
-  (app)/page.tsx             server entry — fetches queue + finalized + counts
-  (app)/applications/page.tsx          archived list
+  (app)/page.tsx             server entry for queue data
+  (app)/applications/page.tsx          archived list only
   (app)/applications/[id]/page.tsx     detail view
-  api/verify/route.ts        POST: render → extract → synthesize → verify → stream + persist
-  api/finalize/route.ts      POST: terminal decision + reviewer attribution
-  api/archive/route.ts       POST {applicationIds[]}: sets archived_at
-  api/applications/[id]/pdf  GET: serves persisted PDF bytea
-
-public/samples/
-  cola/                      20 real TTB COLA exports (the demo picker uses these)
-  applications/              5 legacy synthetic fixtures (kept only for route.test.ts)
-  Blank-COLA-Form-1513.pdf   the empty form
+  api/verify/route.ts        render → parse → extract → verify → stream + persist
+  api/finalize/route.ts      human decision; locked only after archive
+  api/archive/route.ts       archive finalized rows
 ```
 
 ---
 
-## Cost
+## Environment
 
-A single verify call against a real multi-page COLA export runs ~**$0.02–$0.05** on `gpt-4o-2024-11-20` and ~**8–15s** end-to-end (the vision call dominates). `PROMPT_VERSION` + per-trace cost surface in Langfuse when keys are set.
+Default local/deploy path:
 
-`EXTRACT_PROVENANCE=false` (the default) drops the bounding-box map from the model's output and is ~4× faster than the bbox-on path. Flip to `true` if you want click-to-highlight provenance on the detail view.
+```bash
+LABEL_EXTRACTOR=tesseract
+OPENAI_API_KEY=sk-...          # optional but recommended for fallback
+OPENAI_VLM_MODEL=              # optional override, e.g. gpt-5.4-mini
+DATABASE_URL=                  # optional locally; required for queue persistence
+```
+
+`LABEL_EXTRACTOR=openai` and `LABEL_EXTRACTOR=azure-openai` are retained for
+legacy comparison/testing, not for the default deployed flow.
+
+`EXTRACT_PROVENANCE` only affects the legacy full-document OpenAI extractor.
+The Tesseract path always uses `bboxes` for source highlighting.
 
 ---
 
 ## Testing
 
-`npm test` runs 293 tests against a clean tree:
+Run before merging:
 
-- `src/lib/pdf/render.test.ts` — renders a real scenario PDF, asserts PNG magic bytes, deterministic dimensions, multi-page classification.
-- `src/lib/extraction/` — schemas, prompt version pin.
-- `src/lib/application/loader.test.ts` — `parseApplication` + `synthesizeExpectations`.
-- `src/lib/cross-check/` — engine + normalize.
-- `src/lib/validation/` — rules + engine 3-tier severity (only GW fails to `non_compliant`; everything else routes to `needs_review`).
-- `src/lib/results/` — Zod round-trip, NDJSON stream consumer.
-- `src/app/api/verify/route.test.ts` — happy path + error cases through the in-process route with a mocked extractor.
-- `src/app/api/verify/route.scenarios.test.ts` — 5-scenario truth table (synthetic fixtures only).
+```bash
+npm run typecheck
+npm run lint
+npm test
+```
 
-No live LLM calls in CI. `npm run eval` is the legacy label-image suite under `evals/` and predates the PDF pivot — see `evals/README.md`.
+The tests cover PDF rendering/classification, form parsing, OCR extraction
+helpers, wine lexicon matching, cross-check normalization, validation rules,
+result schemas, and API route behavior with mocked extraction.
 
 ---
 
 ## Deployment
 
-Auto-deploys to Vercel on push to `main`.
+Vercel deploys from `main`.
 
-- **Env vars (Vercel project):** `OPENAI_API_KEY`, `DATABASE_URL` (Neon connection string). Optional: `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_HOST`.
-- **Migrations to prod:** `npm run db:push` against the Neon production branch after schema changes.
-- **`next.config.mjs`:**
-  - `serverExternalPackages: ['@napi-rs/canvas', 'pdfjs-dist']` keeps the native binary + pdfjs worker out of the webpack bundle.
-  - `transpilePackages: ['react-pdf']` so the client viewer initializes cleanly.
-  - `outputFileTracingIncludes['/api/verify']` force-includes `pdfjs-dist/legacy/build/{pdf.worker.mjs,pdf.mjs}` and `pdfjs-dist/standard_fonts/**`. The render module computes those paths via `process.cwd() + path.join(...)` to defeat webpack's static analyzer — that same dodge blinds Vercel's file tracer, so they have to be force-included.
+- Required production env for persistence: `DATABASE_URL`.
+- Recommended production env for extraction quality: `OPENAI_API_KEY`.
+- Optional: `OPENAI_VLM_MODEL`, `OPENAI_MAX_CONCURRENT_REQUESTS`,
+  `OPENAI_MAX_RETRIES`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`,
+  `LANGFUSE_HOST`.
+- Run `npm run db:push` against the production Neon branch after schema
+  changes.
+
+`next.config.mjs` keeps `@napi-rs/canvas` and `pdfjs-dist` external and
+force-includes the pdfjs worker and standard fonts so server rendering works
+inside Vercel.
 
 ---
 
 ## What this prototype isn't
 
-- **Not a COLAs system integration.** Standalone verifier; the COLAs system is out of scope.
-- **No multi-label model awareness.** The COLA form allows multiple physical labels (front + back + neck); the prototype reads the full set as a single "label" surface and isn't asked to split.
-- **No reviewer accounts, no roles, no anti-abuse.** The Finalize panel takes an optional initials field for the audit trail.
-- **No production hardening.** No rate limiting, no privilege separation, no public-demo throttling.
-- **PDF storage scales with the Neon free tier.** PDFs are persisted as `bytea`; Neon free is 0.5 GB. Migrate to Vercel Blob if you need more headroom.
+- **Not a COLAs system integration.** It is a standalone verifier.
+- **No reviewer accounts or roles.** The Finalize form stores optional
+  reviewer initials only.
+- **No production security hardening.** There is no public-demo rate limiting
+  beyond the app's sequential verify queue and provider fallback throttling.
+- **PDF storage uses Postgres `bytea`.** Fine for the prototype; move to object
+  storage for larger deployments.
 
 ---
 
-## Project history
+## Historical Notes
 
-Pivots that shaped the current architecture:
-
-- `docs/plans/2026-06-09-001-feat-ttb-label-verify-plan.md` — initial label-only verifier.
-- `docs/plans/2026-06-10-001-feat-cross-check-plan.md` — pivot to application + label cross-check.
-- `docs/plans/2026-06-10-002-feat-pdf-verifier-plan.md` — pivot to single-PDF input + bounding-box provenance + the Queue/Finalize/Archive lifecycle.
+Dated files under `docs/brainstorms/` and `docs/plans/` are retained as design
+history. They may describe earlier GPT-4o-only, two-file, async patch, or
+side-by-side UI ideas. Treat this README and the code on the current branch as
+the source of truth for the deployable architecture.

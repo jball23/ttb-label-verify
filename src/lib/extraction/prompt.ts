@@ -1,9 +1,8 @@
 /**
- * Prompt template for the dual extractor.
+ * Prompt template for the legacy full-document OpenAI extractor.
  *
- * One vision call against a rendered page-1 PNG returns three structures:
- * the application form half, the affixed-label half, and a provenance map of
- * bounding boxes + confidence per extracted field. Bump PROMPT_VERSION on any
+ * The default deploy path is Tesseract/PDF parsing. This prompt remains for
+ * LABEL_EXTRACTOR=openai and comparison tests. Bump PROMPT_VERSION on any
  * substantive change so Langfuse traces don't conflate revisions.
  */
 
@@ -11,6 +10,13 @@ export const PROMPT_VERSION = '2026-06-11.v7';
 // Distinct version when provenance is disabled — keeps Langfuse traces from
 // conflating runs with and without bbox output.
 export const PROMPT_VERSION_NO_PROVENANCE = '2026-06-11.v7-nobbox';
+
+/**
+ * Audit-trail version for the single-field VLM fallback. Each persisted
+ * application records `promptVersion`; bumping when the fallback prompt
+ * changes keeps trace-level replay coherent across extractor revisions.
+ */
+export const PROMPT_VERSION_TESSERACT_FALLBACK_V1 = '2026-06-12.v10-tesseract-fallback';
 
 export function getPromptVersion(includeProvenance: boolean): string {
   return includeProvenance ? PROMPT_VERSION : PROMPT_VERSION_NO_PROVENANCE;

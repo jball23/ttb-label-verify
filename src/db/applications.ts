@@ -74,6 +74,25 @@ export async function findApplicationByHash(
   return rows[0] ?? null;
 }
 
+export async function findApplicationByProcessingRun(
+  contentHash: string,
+  promptVersion: string,
+  extractorModel: string,
+): Promise<ApplicationSummary | null> {
+  const rows = await getDb()
+    .select(SUMMARY_COLUMNS)
+    .from(applications)
+    .where(
+      and(
+        eq(applications.contentHash, contentHash),
+        eq(applications.promptVersion, promptVersion),
+        eq(applications.extractorModel, extractorModel),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function listApplications(
   limit = 50,
 ): Promise<ApplicationSummary[]> {

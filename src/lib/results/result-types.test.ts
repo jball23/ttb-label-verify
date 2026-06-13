@@ -91,11 +91,13 @@ describe('ResultLineSchema', () => {
     expect(result.success).toBe(true);
   });
 
-  it('rejects an ok line missing crossCheck', () => {
+  it('accepts an ok line without crossCheck for older result shapes', () => {
+    // Older streamed/archived rows may not carry a crossCheck block. Keep the
+    // wire schema tolerant so those records remain readable.
     const line = validOkLine();
     delete (line as { report: { crossCheck?: unknown } }).report.crossCheck;
     const result = ResultLineSchema.safeParse(line);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
   it('rejects crossCheck.overallStatus outside the enum', () => {

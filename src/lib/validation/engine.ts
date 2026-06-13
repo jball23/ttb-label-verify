@@ -73,20 +73,27 @@ function runRulesInternal(extracted: ExtractedFields): {
  * `uncertain` rules do NOT trip the verdict (preserves existing behavior).
  */
 export function runVerification(
-  application: Application,
+  application: Application | undefined,
   extracted: ExtractedFields,
   provenance: ProvenanceMap = {},
   extractedForm?: ExtractedApplicationForm,
+  bboxes?: import('../extraction/types').FieldBboxes,
+  pages?: Array<{ pageNumber: number; kind: string }>,
 ): VerificationReport {
-  const crossCheck: CrossCheckReport = runCrossCheck(application, extracted);
+  // Legacy/compat path: if a caller only has label fields, skip cross-check
+  // and compute the verdict from the label rules alone.
+  const crossCheck: CrossCheckReport | undefined = application
+    ? runCrossCheck(application, extracted)
+    : undefined;
   const { fields, anyFailOrWarn } = runRulesInternal(extracted);
 
   const govWarningFailed = fields['governmentWarning']?.status === 'fail';
+  const crossCheckMismatch = crossCheck?.overallStatus === 'mismatch';
 
   let overallStatus: VerificationReport['overallStatus'];
   if (govWarningFailed) {
     overallStatus = 'non_compliant';
-  } else if (crossCheck.overallStatus === 'mismatch' || anyFailOrWarn) {
+  } else if (crossCheckMismatch || anyFailOrWarn) {
     overallStatus = 'needs_review';
   } else {
     overallStatus = 'compliant';
@@ -97,8 +104,12 @@ export function runVerification(
     crossCheck,
     fields,
     provenance,
-    extractedForm: extractedForm ?? extractedFormFromApplication(application),
+    bboxes,
+    extractedForm:
+      extractedForm ??
+      (application ? extractedFormFromApplication(application) : blankExtractedForm()),
     extractedLabel: extracted,
+    pages,
   };
 }
 

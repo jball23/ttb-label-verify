@@ -161,9 +161,9 @@ export function snapApplicationProvenance<T extends ProvenanceLike>(
  * values to decide which paths to populate and FORM_WIDGET_RECTS for the
  * deterministic coordinates.
  *
- * Used when EXTRACT_PROVENANCE is disabled: the model returned no provenance,
- * but we still want app-side click-to-highlight to work in the UI. Label-side
- * provenance stays empty in that mode — those clicks become inert.
+ * Used by the legacy OpenAI provenance path when no model provenance is
+ * available but app-side click-to-highlight still needs deterministic form
+ * coordinates. The current PDF prepass emits FieldBboxes directly.
  */
 export function synthesizeApplicationProvenance(
   form: ExtractedApplicationForm,
@@ -210,3 +210,11 @@ export function synthesizeApplicationProvenance(
   }
   return out;
 }
+
+// TODO: re-calibrate PDF_RECTS against the current TTB Form 5100.31 revision
+// in samples — the captured values target a 612×1008pt template but the
+// real sample PDFs are 612×792pt with a different cell layout. Until that
+// recalibration ships, the current pipeline uses PDF text boxes or
+// landmark-text matching, and only the legacy OpenAI provenance path uses
+// these rects via
+// snapApplicationProvenance / synthesizeApplicationProvenance below.

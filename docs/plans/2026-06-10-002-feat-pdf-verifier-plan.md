@@ -1,11 +1,14 @@
 ---
 title: "feat: PDF-only verifier with bounding-box provenance"
-status: pending
+status: superseded
 created: 2026-06-10
 plan_type: feat
 origin: .claude/HANDOFF.md (2026-06-10 evening — work order section)
 deadline: 2026-06-10
 ---
+
+> Historical plan: kept for design history. `README.md` documents the current
+> deployable architecture.
 
 # feat: PDF-only verifier with bounding-box provenance
 

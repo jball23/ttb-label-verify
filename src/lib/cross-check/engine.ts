@@ -12,6 +12,9 @@ import {
   producerMatches,
   countryMatches,
   classTypeMatches,
+  normalizeWineVarietalClaim,
+  normalizeWineAppellationClaim,
+  producerImpliesDomesticOrigin,
 } from './normalize';
 
 /**
@@ -81,12 +84,14 @@ function checkField(
   }
 
   const rawApplicationValue = readApplicationValue(id, application);
-  const labelValue = readLabelValue(id, extracted);
+  const rawLabelValue = readLabelValue(id, extracted);
   const applicationValue =
     rawApplicationValue != null && rawApplicationValue.trim() === ''
       ? null
       : rawApplicationValue;
-  const labelHasValue = labelValue != null && labelValue.trim() !== '';
+  const labelValue =
+    rawLabelValue != null && rawLabelValue.trim() === '' ? null : rawLabelValue;
+  const labelHasValue = labelValue != null;
 
   // Application doesn't declare an expectation for this field.
   if (applicationValue == null) {
@@ -121,7 +126,7 @@ function checkField(
       status: 'not_on_label',
       applicationValue,
       labelValue,
-      reason: `Application declares ${label.toLowerCase()} but the label is missing this field.`,
+      reason: `Application declares ${label.toLowerCase()}, but it may not have been detected on the label.`,
     };
   }
 
@@ -134,7 +139,7 @@ function checkField(
     labelValue,
     reason: matched
       ? undefined
-      : `Application declares "${applicationValue}" but label shows "${labelValue}".`,
+      : `Application value may differ from the label value: application "${applicationValue}", label "${labelValue}".`,
   };
 }
 
@@ -153,9 +158,9 @@ function readApplicationValue(
     case 'countryOfOrigin':
       return ex.countryOfOrigin;
     case 'wineVarietal':
-      return ex.wineVarietal ?? null;
+      return normalizeWineVarietalClaim(ex.wineVarietal);
     case 'wineAppellation':
-      return ex.wineAppellation ?? null;
+      return normalizeWineAppellationClaim(ex.wineAppellation);
   }
 }
 
@@ -171,11 +176,12 @@ function readLabelValue(
     case 'producer':
       return extracted.producer;
     case 'countryOfOrigin':
-      return extracted.countryOfOrigin;
+      return extracted.countryOfOrigin ??
+        (producerImpliesDomesticOrigin(extracted.producer) ? 'USA' : null);
     case 'wineVarietal':
-      return extracted.wineVarietal;
+      return normalizeWineVarietalClaim(extracted.wineVarietal);
     case 'wineAppellation':
-      return extracted.wineAppellation;
+      return normalizeWineAppellationClaim(extracted.wineAppellation);
   }
 }
 

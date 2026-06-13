@@ -1,0 +1,35 @@
+[conf= 96] Approval based on certification by the Accredited Certifying Agent (ACA) and subject to compliance with the
+
+[conf= 96] Organic Foods Production Act of 1990 and the National Organic Program Regulations at 7 CFR Part 205,
+
+[conf= 95] administered by the U.S. Department of Agriculture- Agricultural Marketing Service
+
+[conf= 96] TTB has not reviewed this label for type size, characters per inch or contrasting background. The responsible
+
+[conf= 96] industry member must continue to ensure that the mandatory information on the actual labels is displayed in
+
+[conf= 96] the correct type size, number of characters per inch, and on a contrasting background in accordance with the
+
+[conf= 96] TTB labeling regulations, 27 CFR parts 4, 5, 7, and 16, as applicable.
+
+[conf= 95] STATUS
+
+[conf= 96] THE STATUS IS APPROVED.
+
+[conf= 92] CLASS/TYPE DESCRIPTION
+
+[conf= 93] DESSERT /PORT/SHERRY/(COOKING) WINE
+
+[conf= 95] AFFIX COMPLETE SET OF LABELS BELOW
+
+[conf= 95] Image Type:
+
+[conf= 96] Brand (front) or keg collar
+
+[conf= 93] Actual Dimensions: 2.69 inches W X 4 inches H
+
+[conf= 95] Image Type:
+
+[conf= 96] Back
+
+[conf= 93] Actual Dimensions: 2.69 inches W X 4 inches H

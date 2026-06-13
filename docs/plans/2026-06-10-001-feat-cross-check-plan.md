@@ -7,6 +7,9 @@ origin: docs/brainstorms/2026-06-09-ttb-label-verify-requirements.md
 deadline: 2026-06-10
 ---
 
+> Historical plan: kept for design history. `README.md` documents the current
+> deployable architecture.
+
 # feat: Application + Label Cross-check
 
 ## Summary
@@ -19,7 +22,7 @@ This builds on the demo dataset shipped earlier today under `public/samples/appl
 
 ## Problem Frame
 
-The current prototype validates a label image in isolation against six TTB rules. In reality, a TTB reviewer looks at the COLA application **and** the submitted labels together — they verify the label matches what the applicant certified on Form 5100.31, then check the label against the rules. Validating labels without the application is a partial workflow. Pivoting to the cross-check model:
+At the time this plan was written, the prototype validated a label image in isolation against six TTB rules. In reality, a TTB reviewer looks at the COLA application **and** the submitted labels together — they verify the label matches what the applicant certified on Form 5100.31, then check the label against the rules. Validating labels without the application is a partial workflow. Pivoting to the cross-check model:
 
 1. Matches what TTB reviewers actually do, making the demo narrative truer to the domain.
 2. Naturally produces mixed outcomes (clean pass / cross-check fail / label-rule fail / both) — better demo than "every label that has a Government Warning passes".
