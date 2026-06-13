@@ -81,6 +81,20 @@ export default function QueuePage({ initial, databaseConnected }: Props) {
         for await (const entry of consumeResultStream(res.body.getReader())) {
           if (entry.kind === 'value') final = entry.value;
         }
+        if (!final) {
+          setInFlight((curr) =>
+            curr.map((c) =>
+              c.id === item.id
+                ? {
+                    ...c,
+                    status: 'failed',
+                    errorMessage: 'Verify did not return a result. Retry this PDF.',
+                  }
+                : c,
+            ),
+          );
+          return;
+        }
         if (final && final.status === 'error') {
           setInFlight((curr) =>
             curr.map((c) =>
@@ -867,6 +881,9 @@ async function safeErrorText(res: Response): Promise<string> {
       }
     } catch {
       /* not JSON */
+    }
+    if (/FUNCTION_INVOCATION_TIMEOUT/i.test(text)) {
+      return 'Verification timed out on the server. Retry this PDF after the deploy finishes.';
     }
     return text;
   } catch {

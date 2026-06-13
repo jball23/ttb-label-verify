@@ -147,8 +147,9 @@ GET /api/applications/[id]/pdf serves the persisted source PDF
 - **Word-level bboxes.** PDF text and Tesseract values carry word rectangles in
   rendered-page pixel coordinates. VLM fallback values carry no fake bbox.
 - **One-at-a-time uploads.** Batch upload is supported in the UI, but each PDF
-  is verified sequentially. Field-level OpenAI fallback calls are throttled and
-  retried separately.
+  is verified sequentially. Vercel does not use the process-local API queue
+  because it can make a timed-out request block the next warm invocation.
+  Field-level OpenAI fallback calls are throttled and retried separately.
 - **Finalized is not archived.** Approved/rejected rows stay editable in the
   Finalized tab until the reviewer explicitly archives them.
 
@@ -216,6 +217,7 @@ Default local/deploy path:
 LABEL_EXTRACTOR=tesseract
 OPENAI_API_KEY=sk-...          # optional but recommended for fallback
 OPENAI_VLM_MODEL=              # optional override, e.g. gpt-5.4-mini
+OCR_POOL_SIZE=                 # optional; defaults to 2 local, 1 on Vercel
 DATABASE_URL=                  # optional locally; required for queue persistence
 ```
 

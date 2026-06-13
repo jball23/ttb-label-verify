@@ -3,9 +3,10 @@
  *
  * Exposes `runOcr(png)` (page-level recognise) and `getWorker()` (raw worker
  * handle, used by tests). Both are backed by a fixed-size pool of N Tesseract
- * workers; pool size defaults to 2. Workers are created lazily on first
- * acquire, so a single-page request still pays one cold start, not N. Vercel
- * reuses warm lambdas across requests, so warm pages pay nothing.
+ * workers. Pool size defaults to 2 locally and 1 on Vercel. Workers are
+ * created lazily on first acquire, so a single-page request still pays one
+ * cold start, not N. Vercel reuses warm lambdas across requests, so warm pages
+ * pay nothing.
  *
  * Concurrency model:
  *   - Each `runOcr` call ACQUIRES a free worker, runs `recognize()`, then
@@ -47,13 +48,20 @@ const WORKER_SCRIPT_PATH = path.join(
   'index.js',
 );
 
-// Default to 2. Tesseract.js workers are single-threaded internally — a worker
-// recognise() blocks the worker until it finishes — so parallel OCR requires
-// distinct worker instances. Two is enough to overlap the 3–4 label pages a
-// typical COLA carries against the form page's render+decode while staying
-// well within Vercel's 1 GB lambda memory floor (one warm worker ≈ 50 MB
-// trained-data + WASM heap).
-const POOL_SIZE = Number(process.env.OCR_POOL_SIZE ?? 2);
+// Tesseract.js workers are single-threaded internally — a worker recognize()
+// blocks until it finishes — so parallel OCR requires distinct worker
+// instances. Two is good locally. On Vercel, however, starting multiple WASM
+// workers during a cold lambda invocation can turn one upload into a timeout,
+// so production defaults to one worker and lets the page OCR jobs queue.
+const DEFAULT_POOL_SIZE = process.env.VERCEL === '1' ? 1 : 2;
+const CONFIGURED_POOL_SIZE = Number.parseInt(
+  process.env.OCR_POOL_SIZE ?? String(DEFAULT_POOL_SIZE),
+  10,
+);
+const POOL_SIZE =
+  Number.isFinite(CONFIGURED_POOL_SIZE) && CONFIGURED_POOL_SIZE > 0
+    ? Math.min(CONFIGURED_POOL_SIZE, 4)
+    : DEFAULT_POOL_SIZE;
 
 interface Slot {
   promise: Promise<Worker> | null;

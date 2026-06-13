@@ -18,10 +18,11 @@ import { synthesizeExpectations } from '@/lib/application/loader';
 import type { ProvenanceMap } from '@/lib/extraction/types';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const MAX_PDF_BYTES = 25 * 1024 * 1024; // 25 MB headroom for a multi-page COLA PDF
 let verifyQueue: Promise<void> = Promise.resolve();
+const USE_PROCESS_LOCAL_VERIFY_QUEUE = process.env.VERCEL !== '1';
 
 export async function POST(req: NextRequest): Promise<Response> {
   let formData: FormData;
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest): Promise<Response> {
             }
 
             const queueStart = Date.now();
-            await runOneVerificationAtATime(async () => {
+            await runVerificationWork(async () => {
               mark('queue', queueStart);
               const renderStart = Date.now();
               const renderedPages = await renderApplicationPages(pdfBuffer);
@@ -242,6 +243,13 @@ async function runOneVerificationAtATime<T>(work: () => Promise<T>): Promise<T> 
   } finally {
     release();
   }
+}
+
+function runVerificationWork<T>(work: () => Promise<T>): Promise<T> {
+  // The browser queue already sends PDFs one at a time. A module-level queue is
+  // useful in local dev, but on Vercel it is only per-instance and can let one
+  // timed-out request block the next request that lands on the same warm lambda.
+  return USE_PROCESS_LOCAL_VERIFY_QUEUE ? runOneVerificationAtATime(work) : work();
 }
 
 function errorResponse(status: number, message: string): Response {
