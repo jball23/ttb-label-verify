@@ -53,7 +53,7 @@ describe('parseApplicationFormFromRenderedPages', () => {
     expect(parsed.application.brandName).toBe('LAYBACK');
     expect(parsed.application.fancifulName).toBe("BETTY'S COCONUT BLANCO");
     expect(synthesized.crossCheckExpectations.classType).toBe(
-      "BETTY'S COCONUT BLANCO",
+      'DISTILLED SPIRITS',
     );
     expect(
       parsed.bboxes['application.fancifulName']?.words.map((word) => word.text),

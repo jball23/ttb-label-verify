@@ -44,10 +44,16 @@ import {
   isWineTypeOnly,
   normalizeWineLexiconText,
 } from '../wine/lexicon';
+import { inferProductFamilyFromText } from '../cross-check/normalize';
 
 const DEFAULT_MODEL = 'tesseract-eng-v22-gw-region';
 const US_STATE_RE =
   /\b(?:A[LKZR]|C[AOT]|D[CE]|FL|GA|HI|I[ADLN]|K[SY]|LA|M[ADEHINOST]|N[CDEHJMVY]|O[HKR]|PA|RI|S[CD]|T[NX]|UT|V[AIT]|W[AIVY])\b/;
+const CLASS_TYPE_TEXT_PATTERNS = [
+  /\b(?:india\s+pale\s+ale|pale\s+ale|ale|lager|stout|porter|pilsner|saison|beer)\b/i,
+  /\b(?:straight\s+bourbon\s+whiskey|bourbon\s+whiskey|whiskey|whisky|vodka|rum|gin|tequila|brandy|cognac|mezcal|liqueur|cordial|schnapps|distilled\s+spirits?|flavored\s+tequila)\b/i,
+  /\b(?:red|white|rose|rosé|pink|table|dessert|sparkling|carbonated|fruit|honey|rice)\s+(?:wine|blend)\b/i,
+] as const;
 
 const GOVERNMENT_WARNING_SENTENCE_1_ANCHORS = [
   'according',
@@ -755,6 +761,19 @@ function assignLabelFields(
   }
 
   if (!label.classType) {
+    const candidate = findClassTypeCandidate(pages, application.productType);
+    if (candidate) {
+      label.classType = candidate.text;
+      labelBboxes['label.classType'] = {
+        page: candidate.page.pageNumber,
+        source: 'tesseract',
+        words: candidate.words,
+        meanConfidence: candidate.meanConfidence,
+      };
+    }
+  }
+
+  if (!label.classType) {
     const candidate = findProminentLabelName(pages, application.brandName ?? label.brandName);
     if (candidate) {
       label.classType = candidate.text;
@@ -991,6 +1010,102 @@ function tokensSimilar(a: string, b: string): boolean {
   if (a.length >= 4 && b.length >= 4) {
     if (a.slice(0, 4) === b.slice(0, 4)) return true;
   }
+  return false;
+}
+
+function findClassTypeCandidate(
+  pages: PageOcr[],
+  expectedFamily: ExtractedApplicationForm['productType'],
+): {
+  page: PageOcr;
+  text: string;
+  words: WordRect[];
+  meanConfidence: number;
+} | null {
+  const frontPages = pages.filter((p) => p.kind.includes('front'));
+  const searchPages = [
+    ...frontPages,
+    ...pages.filter((p) => !frontPages.includes(p)),
+  ];
+  let best: {
+    page: PageOcr;
+    text: string;
+    words: WordRect[];
+    meanConfidence: number;
+    score: number;
+  } | null = null;
+
+  for (const page of searchPages) {
+    const lines = groupVisualLines(page.words);
+    const pageMaxY = Math.max(...page.words.map((w) => w.bbox.y1), 1);
+    const pageMaxX = Math.max(...page.words.map((w) => w.bbox.x1), 1);
+    for (const line of lines) {
+      const lineWords = line.words.filter(
+        (w) => w.confidence >= 30 && /[A-Za-z0-9]/.test(w.text),
+      );
+      if (lineWords.length === 0 || lineWords.length > 12) continue;
+      const lineText = cleanLabelLine(lineWords.map((w) => w.text).join(' '));
+      if (!lineText || rejectClassTypeLine(lineText)) continue;
+      const family = inferProductFamilyFromText(lineText);
+      if (!family) continue;
+      const classWords = classTypeWordsFromLine(lineWords, lineText);
+      const text = cleanLabelLine(classWords.map((w) => w.text).join(' '));
+      if (!text) continue;
+      const meanConfidence = Math.round(
+        classWords.reduce((a, w) => a + w.confidence, 0) / classWords.length,
+      );
+      if (meanConfidence < 45) continue;
+
+      const span = rectForWords(classWords);
+      const centerY = (span.y0 + span.y1) / 2;
+      const centerX = (span.x0 + span.x1) / 2;
+      const height = span.y1 - span.y0;
+      const centerBonus = 1 - Math.min(1, Math.abs(centerX - pageMaxX / 2) / (pageMaxX / 2));
+      const expectedBonus = expectedFamily && family === expectedFamily ? 60 : 0;
+      const frontBonus = page.kind.includes('front') ? 10 : 0;
+      const upperHalfBonus = centerY <= pageMaxY * 0.7 ? 8 : 0;
+      const score =
+        expectedBonus +
+        frontBonus +
+        upperHalfBonus +
+        centerBonus * 10 +
+        height;
+      if (!best || score > best.score) {
+        best = {
+          page,
+          text,
+          words: classWords,
+          meanConfidence,
+          score,
+        };
+      }
+    }
+  }
+
+  return best;
+}
+
+function classTypeWordsFromLine(words: WordRect[], text: string): WordRect[] {
+  const candidates = [
+    canonicalWineVarietal(text),
+    ...CLASS_TYPE_TEXT_PATTERNS.flatMap((pattern) => {
+      const match = pattern.exec(text);
+      return match?.[0] ? [match[0]] : [];
+    }),
+  ].filter((value): value is string => Boolean(value));
+
+  for (const candidate of candidates) {
+    const runs = findNormalizedWordRuns(words, candidate);
+    const best = runs.sort((a, b) => b.score - a.score || a.start - b.start)[0];
+    if (best) return words.slice(best.start, best.end);
+  }
+  return words;
+}
+
+function rejectClassTypeLine(value: string): boolean {
+  if (/(government|warning|attention|caution|contains|sulfites|alc|vol|proof|net|contents|gallons?|ounces?|ml|liters?)/i.test(value)) return true;
+  if (/(brewed|bottled|produced|distilled|imported)\s+by/i.test(value)) return true;
+  if (/(image type|actual dimensions|ttb|status|approved|surrendered|qualifications|expiration date|affix|omb no|ttbonline|front|back|keg\s+collar)/i.test(value)) return true;
   return false;
 }
 

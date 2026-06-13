@@ -15,6 +15,8 @@ import {
   isWineTypeOnly,
 } from '../wine/lexicon';
 
+export type ProductFamily = 'WINE' | 'DISTILLED SPIRITS' | 'MALT BEVERAGES';
+
 const STATE_NAME_TO_CODE: Record<string, string> = {
   alabama: 'al',
   alaska: 'ak',
@@ -301,10 +303,52 @@ export function classTypeMatches(applicationValue: string, labelValue: string): 
   const appNorm = normalizedExact(applicationValue);
   const labelNorm = normalizedExact(labelValue);
   if (appNorm === labelNorm) return true;
+
+  const appFamily = inferProductFamilyFromText(applicationValue);
+  const labelFamily = inferProductFamilyFromText(labelValue);
+  if (appFamily && isProductFamilyValue(appNorm)) {
+    return labelFamily === appFamily;
+  }
+
   if (aliasEquivalent(appNorm, labelNorm)) return true;
   // Bidirectional token containment: label "Hop Forge IPA" contains "ipa";
   // application "India Pale Ale" expanded via alias matches "ipa" tokens.
   return tokenContainment(appNorm, labelNorm);
+}
+
+export function inferProductFamilyFromText(
+  value: string | null | undefined,
+): ProductFamily | null {
+  if (!value) return null;
+  const normalized = normalizedExact(value);
+  if (!normalized) return null;
+  const wineHit =
+    /\b(?:wine|port|sherry|vermouth|champagne|riesling|chardonnay|cabernet|merlot|pinot|sauvignon|moscato|zinfandel|barbera|syrah|shiraz|malbec)\b/.test(
+      normalized,
+    ) ||
+    canonicalWineVarietal(value) != null ||
+    isWineTypeOnly(value);
+  const maltHit =
+    /\b(?:malt|beer|ale|lager|stout|porter|ipa|pilsner|weisse|saison)\b/.test(
+      normalized,
+    );
+  const spiritsHit =
+    /\b(?:spirits?|whiskey|whisky|vodka|rum|gin|tequila|bourbon|brandy|cognac|mezcal|liqueur|cordial|schnapps|absinthe|amaro|aquavit|ouzo|sotol|pisco|grappa|distilled|blanco|reposado|anejo)\b/.test(
+      normalized,
+    );
+  const families: ProductFamily[] = [];
+  if (wineHit) families.push('WINE');
+  if (maltHit) families.push('MALT BEVERAGES');
+  if (spiritsHit) families.push('DISTILLED SPIRITS');
+  return families.length === 1 ? families[0]! : null;
+}
+
+function isProductFamilyValue(normalized: string): boolean {
+  return (
+    normalized === 'wine' ||
+    normalized === 'distilled spirits' ||
+    normalized === 'malt beverages'
+  );
 }
 
 function aliasEquivalent(a: string, b: string): boolean {

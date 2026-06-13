@@ -130,12 +130,10 @@ describe('synthesizeExpectations', () => {
     );
   });
 
-  it('matches scenario 01 classType (uses fancifulName)', () => {
+  it('uses Item 5 productType for classType comparison', () => {
     const form = formFromScenario('01-ridge-creek-bourbon');
     const synth = synthesizeExpectations(form);
-    expect(synth.crossCheckExpectations.classType).toBe(
-      'Kentucky Straight Bourbon Whiskey',
-    );
+    expect(synth.crossCheckExpectations.classType).toBe('DISTILLED SPIRITS');
   });
 
   it('omits wineVarietal/wineAppellation for non-wine product types', () => {

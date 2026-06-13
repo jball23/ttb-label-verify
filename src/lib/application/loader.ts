@@ -61,9 +61,8 @@ function strOrFallback(value: string | null | undefined): string {
  * reuse it unchanged.
  *
  * Synthesis rules:
- *  - crossCheckExpectations.classType prefers fancifulName (which holds the
- *    commercial class designation, e.g. "Kentucky Straight Bourbon Whiskey")
- *    and falls back to productType when fanciful is missing.
+ *  - crossCheckExpectations.classType uses Item 5 productType. Item 7 is the
+ *    optional fanciful name and should not drive class/type mismatches.
  *  - producer is "<applicant name>, <city>, <state>" — the same shape the
  *    canonical scenario fixtures encode.
  *  - countryOfOrigin derives from source: Domestic → "USA".
@@ -79,15 +78,9 @@ export function synthesizeExpectations(
     (form.grapeVarietals || form.wineAppellation ? 'WINE' : 'DISTILLED SPIRITS');
   const isWine = productType === 'WINE';
 
-  // classType in the cross-check carries the SPECIFIC class designation,
-  // which lives in Item 7 (Fanciful Name). Item 5 is the regulatory
-  // category — too coarse to compare against a label that says e.g.
-  // "TEQUILA" or "STRAIGHT BOURBON WHISKEY". When Item 7 is blank, leave
-  // the expectation as empty string; the cross-check engine treats empty
-  // application values as "not declared" and routes to `not_on_application`
-  // (informational, not a mismatch).
-  const fancifulTrimmed = form.fancifulName?.trim();
-  const classType = fancifulTrimmed ? fancifulTrimmed : '';
+  // Class/type is a label requirement. The application field we can compare
+  // directly is Item 5's broad product family; Item 7 is only a fanciful name.
+  const classType = form.productType ?? '';
 
   const producerParts = [
     form.applicant.name,

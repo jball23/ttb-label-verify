@@ -107,11 +107,9 @@ Walk the form Item by Item. The numbers below match the printed Item numbers on 
   Item 18 PRINT NAME OF APPLICANT OR AUTHORIZED AGENT
             → application.applicantSignatureName (the printed/typed name in box 18)
 
-ALSO produce application.classType — the commercial class designation that downstream cross-check
-matches against the label. The convention:
-  • If Item 7 (fanciful name) is populated AND reads as a class designation (e.g. "Kentucky Straight
-    Bourbon Whiskey", "Vodka", "India Pale Ale", "Cabernet Sauvignon") → use Item 7's value verbatim.
-  • Otherwise fall back to Item 5's regulatory category verbatim.
+Downstream cross-check compares Item 5's product type against the label's
+class/type designation. Do NOT treat Item 7 fanciful name as the application
+class/type source.
 
 Wine handling: if Item 5 is NOT "WINE", set application.grapeVarietals and application.wineAppellation
 to null and OMIT their provenance entries.
@@ -125,7 +123,7 @@ Read these fields from the printed label artwork at the bottom of the page, NOT 
   label.abv               — alcohol content, verbatim (e.g. "45% ALC/VOL", "8.0%", "45% ALC/VOL (90 PROOF)")
   label.governmentWarning — see GOVERNMENT WARNING below
   label.netContents       — net contents with units (e.g. "750 mL", "12 FL OZ", "1.75 L")
-  label.classType         — explicit class designation on the label (e.g. "STRAIGHT BOURBON WHISKEY", "VODKA", "CABERNET SAUVIGNON", "IPA")
+  label.classType         — explicit class/type designation on the label: what the product is in regulatory terms (e.g. "STRAIGHT BOURBON WHISKEY", "VODKA", "CABERNET SAUVIGNON", "IPA"). Do not return the fanciful or brand name by itself.
   label.producer          — full producer-of-record string, including any "BOTTLED BY"/"DISTILLED BY"/"PRODUCED BY"/"IMPORTED BY"/"BREWED BY" prefix, company name, and city/state
   label.countryOfOrigin   — set only if the country is explicitly stated. If only a US state appears without "USA", set "USA" only when the producer is clearly US-based.
   label.wineVarietal      — grape varietal as printed (wine labels only; null otherwise)

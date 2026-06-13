@@ -44,7 +44,7 @@ const FIELD_LABELS: Partial<Record<FieldPath, string>> = {
   'application.fancifulName': 'Fanciful name (Item 7)',
   'application.productType': 'Type of product (Item 5)',
   'application.applicant.name': 'Applicant name (Item 8)',
-  'application.classType': 'Class / type (application)',
+  'application.classType': 'Type of product (application)',
   'application.wineAppellation': 'Wine appellation (Item 11)',
   'application.grapeVarietals': 'Grape varietal (Item 10)',
 };

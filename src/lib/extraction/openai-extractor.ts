@@ -243,7 +243,7 @@ function describeField(fieldPath: FieldPath): string {
     'label.abv': 'Alcohol by Volume (e.g. "12.6% ALC/VOL")',
     'label.governmentWarning': 'The complete Government Warning statement verbatim',
     'label.netContents': 'Net Contents (e.g. "750 mL", "1.5 L", "12 fl oz")',
-    'label.classType': 'Fanciful/product name or class/type designation printed prominently on the label (e.g. "Debutante", "STRAIGHT BOURBON WHISKEY")',
+    'label.classType': 'Explicit class/type designation printed on the label: what the product is in regulatory terms (e.g. "Ale", "Barbera", "Vodka", "Straight Bourbon Whiskey"). Do not return the fanciful or brand name by itself.',
     'label.producer': 'Producer attribution (e.g. "Produced by ...", "Imported by ...")',
     'label.countryOfOrigin': 'Country of Origin (e.g. "Product of France")',
     'label.wineVarietal': 'Wine varietal printed on the label',

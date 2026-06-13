@@ -160,6 +160,30 @@ describe('runCrossCheck — status fan-out', () => {
     expect(report.overallStatus).toBe('match');
   });
 
+  it('compares synthesized Item 5 product type against label class/type', () => {
+    const application = loadApplication('03-hawthorne-cabernet');
+    const productTypeApp: Application = {
+      ...application,
+      crossCheckExpectations: {
+        ...application.crossCheckExpectations,
+        classType: 'WINE',
+      },
+    };
+    const extracted: ExtractedFields = {
+      ...baseExtracted,
+      brandName: productTypeApp.crossCheckExpectations.brandName,
+      classType: 'White Wine Blend',
+      producer: productTypeApp.crossCheckExpectations.producer,
+      countryOfOrigin: 'Product of USA',
+      wineVarietal: null,
+      wineAppellation: null,
+    };
+
+    const report = runCrossCheck(productTypeApp, extracted);
+
+    expect(report.fields.classType.status).toBe('match');
+  });
+
   it('treats wine Item 10 N/A and label wine blend as no grape-varietal claim', () => {
     const application = loadApplication('03-hawthorne-cabernet');
     const appWithNoVarietal: Application = {

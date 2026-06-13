@@ -24,8 +24,9 @@ import {
  *
  * Field rules:
  * - brandName / wineVarietal / wineAppellation: normalized exact
- * - classType: normalized exact OR alias OR token containment (handles
- *   IPA ⇄ India Pale Ale, Bourbon Whiskey ⇄ Kentucky Straight Bourbon Whiskey)
+ * - classType: compares Item 5's broad product family against the label's
+ *   class/type designation (WINE ⇄ Barbera, MALT BEVERAGES ⇄ IPA, etc.),
+ *   then falls back to normalized alias matching for legacy scenario fixtures.
  * - producer: token-set Jaccard (handles "Distilled and Bottled by" prefixes
  *   and city/state drift between Kentucky ⇄ KY etc.)
  * - countryOfOrigin: normalized exact with USA aliases
@@ -48,9 +49,8 @@ export function runCrossCheck(
     const result = checkField(id, application, extracted);
     fields[id] = result;
     // `not_on_application` is informational: the app form didn't declare a
-    // value but the label has one. Item 7 (fanciful name) is the common
-    // offender here — it's optional on the form. Don't drag the overall
-    // status into mismatch on its account.
+    // value but the label has one. Don't drag the overall status into mismatch
+    // on its account.
     if (result.status === 'mismatch' || result.status === 'not_on_label') {
       anyMismatchOrMissing = true;
     }
@@ -95,9 +95,8 @@ function checkField(
 
   // Application doesn't declare an expectation for this field.
   if (applicationValue == null) {
-    // Asymmetric: label has data the application omitted (Item 7 fanciful
-    // name on the form is optional; the label often carries the class
-    // designation regardless). Surface it as informational, not a mismatch.
+    // Asymmetric: label has data the application omitted. Surface it as
+    // informational, not a mismatch.
     if (labelHasValue) {
       return {
         id,

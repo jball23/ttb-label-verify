@@ -43,7 +43,7 @@ export interface CrossCheckReport {
 
 export const CROSS_CHECK_FIELD_LABELS: Record<CrossCheckFieldId, string> = {
   brandName: 'Brand name',
-  classType: 'Class / type designation (Item 7)',
+  classType: 'Type of product',
   producer: 'Producer',
   countryOfOrigin: 'Country of origin',
   wineVarietal: 'Grape varietal',

@@ -102,10 +102,9 @@ function rect(key: keyof typeof PDF_RECTS): BoundingBox {
 export const FORM_WIDGET_RECTS: Partial<Record<FieldPath, BoundingBox>> = {
   'application.brandName': rect('brandName'),
   'application.fancifulName': rect('fancifulName'),
-  // For cross-check, classType is rendered as the applicant's commercial class
-  // designation but visually it lives in Item 5 (productType checkboxes) plus
-  // Item 7 (fanciful name). Snap to the productType checkbox group so a click
-  // on "Class / type designation" lands on the explicit regulatory category.
+  // For cross-check, classType is Item 5's product family. Snap to the
+  // productType checkbox group so a click on the comparison lands on the
+  // explicit regulatory category.
   'application.classType': rect('productType'),
   'application.productType': rect('productType'),
   'application.source': rect('source'),

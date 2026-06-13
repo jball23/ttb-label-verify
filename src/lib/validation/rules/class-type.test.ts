@@ -30,7 +30,7 @@ describe('class-type rule', () => {
   it('warns when null', () => {
     const result = classTypeRule.check(fields(null));
     expect(result.status).toBe('warn');
-    expect(result.reason).toMatch(/class.*type|designation|fanciful/i);
+    expect(result.reason).toMatch(/class.*type|designation/i);
   });
 
   it('warns when empty string', () => {

@@ -45,7 +45,7 @@ const COMPARISON_PATHS: Record<
   { app: FieldPath | null; label: FieldPath | null }
 > = {
   brandName: { app: 'application.brandName', label: 'label.brandName' },
-  classType: { app: 'application.fancifulName', label: 'label.classType' },
+  classType: { app: 'application.productType', label: 'label.classType' },
   producer: { app: 'application.applicant.name', label: 'label.producer' },
   countryOfOrigin: { app: 'application.source', label: 'label.countryOfOrigin' },
   wineVarietal: { app: 'application.grapeVarietals', label: 'label.wineVarietal' },
@@ -84,14 +84,14 @@ const RULE_TO_LABEL_PATH: Record<string, FieldPath | null> = {
 };
 
 // Display order for the rules section — reading order on the actual label
-// (top-to-bottom: brand mark, fanciful name, ABV, net contents, producer +
+// (top-to-bottom: brand mark, class/type, ABV, net contents, producer +
 // country, then the small-print government warning at the bottom). This
 // is separate from the engine's `RULES` array which controls verdict
 // computation order (governmentWarning before netContents etc. so the
 // non_compliant verdict is decided early).
 const RULE_DISPLAY_ORDER: ReadonlyArray<string> = [
   'brand',
-  'classType', // surfaces fanciful name + class/type designation
+  'classType',
   'abv',
   'netContents',
   'producerOrigin',

@@ -19,7 +19,7 @@ Production-shaped, not production-hardened.
 3. `/api/verify` renders the relevant PDF pages at 200 DPI with `pdfjs-dist`
    and `@napi-rs/canvas`.
 4. The server parses Form 5100.31's text layer first, reading only fields that
-   matter for this review: source/product type, brand, fanciful/class name,
+   matter for this review: source/product type, brand, Item 7 fanciful name,
    applicant/producer context, grape varietal, and wine appellation.
 5. Label OCR runs on masked label-artwork images, not on the surrounding form
    chrome. Tesseract supplies word-level bboxes for highlightable fields.
@@ -138,6 +138,9 @@ GET /api/applications/[id]/pdf serves the persisted source PDF
 - **PDF text first for the form.** The app reads a small set of known Form
   5100.31 fields from the PDF text layer before OCR. This is faster and more
   reliable than asking a vision model to reread the whole form.
+- **Class/type is not Item 7.** The app keeps Item 7 fanciful name available as
+  form context, but class/type comparison uses Item 5 product type against the
+  label's detected class/type designation.
 - **OCR only label artwork.** Rendered pages stay intact for review, but OCR
   images are masked to the embedded label regions so form text such as
   `Image Type: Back` cannot become a label field.

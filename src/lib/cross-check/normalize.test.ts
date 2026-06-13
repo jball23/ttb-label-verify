@@ -217,4 +217,17 @@ describe('classTypeMatches', () => {
   it('matches Vodka ⇄ Premium Vodka via token containment', () => {
     expect(classTypeMatches('Vodka', 'Premium Vodka')).toBe(true);
   });
+
+  it('matches broad form product families to specific label class/types', () => {
+    expect(classTypeMatches('WINE', 'Barbera')).toBe(true);
+    expect(classTypeMatches('WINE', 'White Wine Blend')).toBe(true);
+    expect(classTypeMatches('MALT BEVERAGES', 'India Pale Ale')).toBe(true);
+    expect(classTypeMatches('DISTILLED SPIRITS', 'Flavored Tequila')).toBe(true);
+  });
+
+  it('rejects contradictory broad product families', () => {
+    expect(classTypeMatches('WINE', 'Vodka')).toBe(false);
+    expect(classTypeMatches('MALT BEVERAGES', 'Cabernet Sauvignon')).toBe(false);
+    expect(classTypeMatches('DISTILLED SPIRITS', 'India Pale Ale')).toBe(false);
+  });
 });
