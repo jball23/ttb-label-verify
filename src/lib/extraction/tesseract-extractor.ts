@@ -120,6 +120,7 @@ export interface VlmSingleFieldExtractor {
   extractField(input: {
     fieldPath: FieldPath;
     pages: Array<{ pageNumber: number; png: Buffer; kind: RenderedPageKind }>;
+    trace?: ExtractorOptions['trace'];
   }): Promise<string | null>;
 }
 
@@ -156,14 +157,33 @@ export class TesseractExtractor implements DocumentExtractor {
     }
 
     const parsedForm = options.parsedForm ?? null;
+    const trace = options.trace;
     const pagesToOcr = parsedForm
       ? pages.filter((p) => p.kind.includes('label'))
       : pages;
+    trace?.('tesseract.pages.selected', {
+      parsedForm: Boolean(parsedForm),
+      pageCount: pagesToOcr.length,
+      pages: pagesToOcr.map((p) => ({
+        pageNumber: p.pageNumber,
+        kind: p.kind,
+        imageBytes: (p.ocrPng ?? p.png).byteLength,
+      })),
+    });
 
     // OCR each selected label page exactly once. When the PDF prepass parsed
     // the form, leave the form page out of OCR entirely; compound
     // form+label pages still pass through because they include label artwork.
-    const pageOcr = await runOcrPages(pagesToOcr);
+    trace?.('tesseract.ocr.start');
+    const pageOcr = await runOcrPages(pagesToOcr, trace);
+    trace?.('tesseract.ocr.done', {
+      pages: pageOcr.map((p) => ({
+        pageNumber: p.pageNumber,
+        kind: p.kind,
+        words: p.words.length,
+        meanConfidence: p.meanConfidence,
+      })),
+    });
 
     const application = parsedForm
       ? cloneApplication(parsedForm.application)
@@ -182,6 +202,7 @@ export class TesseractExtractor implements DocumentExtractor {
               ? [{ pageNumber: sourcePage.pageNumber, png: sourcePage.png, kind: sourcePage.kind }]
               : [],
             fallback: this.fallback,
+            trace,
           });
           normalizeWineOnlyFormFields(application, formBboxes);
         }
@@ -191,7 +212,13 @@ export class TesseractExtractor implements DocumentExtractor {
     }
 
     const labelPageOcr = pageOcr.filter((p) => p.kind.includes('label'));
+    trace?.('tesseract.label.assign.start', { pageCount: labelPageOcr.length });
     const { label, labelBboxes } = assignLabelFields(labelPageOcr, application);
+    trace?.('tesseract.label.assign.done', {
+      fields: Object.keys(labelBboxes),
+      brandName: label.brandName,
+      classType: label.classType,
+    });
 
     let bboxes: FieldBboxes = { ...formBboxes, ...labelBboxes };
 
@@ -209,6 +236,7 @@ export class TesseractExtractor implements DocumentExtractor {
         bboxes,
         pages: fallbackPages,
         fallback: this.fallback,
+        trace,
       });
     }
 
@@ -254,10 +282,27 @@ export class TesseractExtractor implements DocumentExtractor {
  * `src/lib/ocr/worker.ts` caps real parallelism — extra calls queue
  * automatically inside the pool.
  */
-async function runOcrPages(pages: RenderedPage[]): Promise<PageOcr[]> {
+async function runOcrPages(
+  pages: RenderedPage[],
+  trace?: ExtractorOptions['trace'],
+): Promise<PageOcr[]> {
   return Promise.all(
     pages.map(async (page) => {
-      const result = await runOcr(page.ocrPng ?? page.png);
+      const image = page.ocrPng ?? page.png;
+      trace?.('tesseract.ocr.page.start', {
+        pageNumber: page.pageNumber,
+        kind: page.kind,
+        imageBytes: image.byteLength,
+      });
+      const start = Date.now();
+      const result = await runOcr(image);
+      trace?.('tesseract.ocr.page.done', {
+        pageNumber: page.pageNumber,
+        kind: page.kind,
+        ms: Date.now() - start,
+        words: result.words.length,
+        meanConfidence: result.meanConfidence,
+      });
       return {
         pageNumber: page.pageNumber,
         kind: page.kind,
@@ -1358,8 +1403,9 @@ async function runLabelFallback(args: {
   bboxes: FieldBboxes;
   pages: Array<{ pageNumber: number; png: Buffer; kind: RenderedPageKind }>;
   fallback: VlmSingleFieldExtractor;
+  trace?: ExtractorOptions['trace'];
 }): Promise<FieldBboxes> {
-  const { application, label, bboxes, pages, fallback } = args;
+  const { application, label, bboxes, pages, fallback, trace } = args;
   const updated: FieldBboxes = { ...bboxes };
 
   const targets: FieldPath[] = [];
@@ -1401,15 +1447,21 @@ async function runLabelFallback(args: {
 
   // Dedup — LABEL_PATTERNS has multiple entries per field (e.g. ABV).
   const unique = Array.from(new Set(targets));
+  trace?.('tesseract.label.fallback.targets', { fields: unique });
 
   // Queue every fallback read through the provider limiter. Promise.all keeps
   // this code simple, while OpenAIVlmFallback enforces process-wide concurrency
   // and retries so bulk uploads do not burst into provider 429s.
   const results = await Promise.all(
-    unique.map(async (fieldPath) => ({
-      fieldPath,
-      value: await fallback.extractField({ fieldPath, pages }),
-    })),
+    unique.map(async (fieldPath) => {
+      trace?.('tesseract.label.fallback.field.queued', { fieldPath });
+      const value = await fallback.extractField({ fieldPath, pages, trace });
+      trace?.('tesseract.label.fallback.field.done', {
+        fieldPath,
+        hasValue: value !== null,
+      });
+      return { fieldPath, value };
+    }),
   );
   // Pick the page that's most likely to visually contain the field. VLM
   // doesn't return coordinates, so the page is a routing hint, not a
@@ -1519,8 +1571,9 @@ async function runFormFallback(args: {
   bboxes: FieldBboxes;
   pages: Array<{ pageNumber: number; png: Buffer; kind: RenderedPageKind }>;
   fallback: VlmSingleFieldExtractor;
+  trace?: ExtractorOptions['trace'];
 }): Promise<FieldBboxes> {
-  const { application, bboxes, pages, fallback } = args;
+  const { application, bboxes, pages, fallback, trace } = args;
   const updated: FieldBboxes = { ...bboxes };
 
   const formFallbackFields: FieldPath[] = [
@@ -1553,7 +1606,7 @@ async function runFormFallback(args: {
   const results = await Promise.all(
     targets.map(async (fieldPath) => ({
       fieldPath,
-      value: await fallback.extractField({ fieldPath, pages }),
+      value: await fallback.extractField({ fieldPath, pages, trace }),
     })),
   );
   for (const { fieldPath, value } of results) {

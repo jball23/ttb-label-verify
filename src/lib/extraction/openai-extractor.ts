@@ -158,8 +158,9 @@ export class OpenAIVlmFallback implements VlmSingleFieldExtractor {
   async extractField(input: {
     fieldPath: FieldPath;
     pages: Array<{ pageNumber: number; png: Buffer; kind: RenderedPageKind }>;
+    trace?: (stage: string, extra?: Record<string, unknown>) => void;
   }): Promise<string | null> {
-    const { fieldPath, pages } = input;
+    const { fieldPath, pages, trace } = input;
     const imageContent = pages.map((p) => ({
       type: 'image_url' as const,
       image_url: {
@@ -171,30 +172,42 @@ export class OpenAIVlmFallback implements VlmSingleFieldExtractor {
     const fieldDescription = describeField(fieldPath);
     const fieldInstruction = describeFieldInstruction(fieldPath);
     const response = await runOpenAIRequest(() =>
-      this.client.chat.completions.create({
-        model: this.modelId,
-        response_format: zodResponseFormatWrapper(SingleFieldResponseSchema, 'single_field'),
-        temperature: 0,
-        seed: 1,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a TTB COLA reviewer reading one specific field from an application PDF. Return only that field\'s value or null if it does not appear.',
-          },
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: `Read the value of "${fieldDescription}" (${fieldPath}) from the supplied page images. ${fieldInstruction} Return JSON: { "value": "<verbatim text>" } or { "value": null } if you cannot find it.`,
-              },
-              ...imageContent,
-            ],
-          },
-        ],
-      }),
+      {
+        trace?.('openai.field.request.start', {
+          fieldPath,
+          model: this.modelId,
+          pageCount: pages.length,
+          totalPngBytes: pages.reduce((sum, p) => sum + p.png.byteLength, 0),
+        });
+        return this.client.chat.completions.create({
+          model: this.modelId,
+          response_format: zodResponseFormatWrapper(SingleFieldResponseSchema, 'single_field'),
+          temperature: 0,
+          seed: 1,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a TTB COLA reviewer reading one specific field from an application PDF. Return only that field\'s value or null if it does not appear.',
+            },
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: `Read the value of "${fieldDescription}" (${fieldPath}) from the supplied page images. ${fieldInstruction} Return JSON: { "value": "<verbatim text>" } or { "value": null } if you cannot find it.`,
+                },
+                ...imageContent,
+              ],
+            },
+          ],
+        });
+      },
     );
+    trace?.('openai.field.request.done', {
+      fieldPath,
+      model: this.modelId,
+    });
 
     const raw = response.choices[0]?.message?.content;
     if (!raw) return null;

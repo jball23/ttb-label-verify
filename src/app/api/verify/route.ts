@@ -197,7 +197,10 @@ export async function POST(req: NextRequest): Promise<Response> {
                   imageSha256: pdfSha,
                 },
                 () =>
-                  extractor.extract(renderedPages, { parsedForm }),
+                  extractor.extract(renderedPages, {
+                    parsedForm,
+                    trace: (stage, extra) => trace(`extract.${stage}`, extra),
+                  }),
               );
               mark('llm', llmStart);
               trace('extract.done', {

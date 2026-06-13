@@ -210,6 +210,7 @@ export interface ParsedApplicationFormPrepass {
 
 export interface ExtractorOptions {
   parsedForm?: ParsedApplicationFormPrepass | null;
+  trace?: (stage: string, extra?: Record<string, unknown>) => void;
 }
 
 // The provider abstraction the verify route depends on. The input is the set
