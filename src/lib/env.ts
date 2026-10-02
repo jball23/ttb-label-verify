@@ -13,8 +13,14 @@ const baseSchema = z.object({
   LABEL_EXTRACTOR: z
     .enum(['openai', 'azure-openai', 'tesseract'])
     .default('tesseract'),
+  /** Which label reader verifies images. `fake` is for offline demos and tests. */
+  LABEL_READER: z.enum(['openai', 'azure-openai', 'fake']).default('openai'),
+  LABEL_READER_TIMEOUT_MS: integerEnv('15000', { min: 1000, max: 60000 }),
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_VLM_MODEL: z.string().optional(),
+  OPENAI_REASONING_EFFORT: z
+    .enum(['none', 'minimal', 'low', 'medium', 'high'])
+    .optional(),
   OPENAI_MAX_CONCURRENT_REQUESTS: integerEnv('4', {
     min: 1,
     max: 8,
@@ -26,6 +32,7 @@ const baseSchema = z.object({
   AZURE_OPENAI_ENDPOINT: z.string().url().optional(),
   AZURE_OPENAI_API_KEY: z.string().optional(),
   AZURE_OPENAI_DEPLOYMENT: z.string().optional(),
+  AZURE_OPENAI_API_VERSION: z.string().default('2024-10-21'),
   LANGFUSE_PUBLIC_KEY: z.string().optional(),
   LANGFUSE_SECRET_KEY: z.string().optional(),
   LANGFUSE_HOST: z.string().url().optional(),
