@@ -1,231 +1,164 @@
-#!/usr/bin/env tsx
-/* eslint-disable no-console */
-import fs from 'node:fs';
+/* eslint-disable no-console -- a command-line report */
+/**
+ * Live eval: reads every case with the configured label reader (real API
+ * calls), checks the conclusions, and measures latency.
+ *
+ *   npm run eval                 # cases one at a time, then all at once
+ *   npm run eval -- --repeat 3   # run each case 3 times (catches flaky reads)
+ *   npm run eval -- --only calypso --repeat 10
+ *
+ * Exits non-zero if any conclusion is wrong or p95 latency is over 5 s.
+ */
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import crypto from 'node:crypto';
-import { fileURLToPath } from 'node:url';
-import { getExtractor } from '../src/lib/extraction/factory';
-import { getDataset } from './dataset';
-import { fieldExtractionAccuracy } from './evaluators/field-extraction-accuracy';
-import { governmentWarningMatch } from './evaluators/government-warning-match';
-import { getLangfuseClient } from '../src/lib/observability/langfuse';
-import { type ExtractedFields } from '../src/lib/extraction/types';
+import { createWorkQueue } from '@/lib/concurrency/work-queue';
+import { parseEnv } from '@/lib/env';
+import { type LabelReader } from '@/lib/labels/label-reader';
+import { createLabelReader } from '@/lib/labels/reader-factory';
+import { assessReading, readLabel, type LabelReport } from '@/lib/labels/verify-label';
+import { EVAL_CASES, type EvalCase } from './cases';
 
-// NOTE: this legacy eval was written against the label-only extractor. The
-// dual extractor (PDF input → application + label + provenance) expects a
-// rendered COLA page, not a raw label image. The eval still runs, but it
-// feeds raw label images into the new extractor and reads only the `.label`
-// half of the response — application + provenance will be empty/garbage on
-// these inputs. A PDF-based replacement evaluator should be added when there
-// is time; the new scenario integration test already exercises the pipeline
-// end-to-end against the 5 scenario PDFs.
+const LATENCY_BUDGET_MS = 5000;
+const CONCURRENCY = 6;
+const IMAGES = path.resolve(__dirname, '../public/samples/labels');
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const REPO_ROOT = path.resolve(__dirname, '..');
-
-const FIELD_ACCURACY_THRESHOLD = 0.85;
-const WARNING_MATCH_THRESHOLD = 1.0;
-
-interface CaseRun {
-  id: string;
-  fieldAccuracy: number | null;
-  warningMatch: number;
-  durationMs: number;
-  errorMessage?: string;
+interface Outcome {
+  file: string;
+  ms: number;
+  verdict: string;
+  problems: string[];
 }
 
-async function runCase(extractor: ReturnType<typeof getExtractor>, eval_case: ReturnType<typeof getDataset>[number]): Promise<CaseRun> {
-  const absoluteImagePath = path.join(REPO_ROOT, eval_case.imagePath);
-  if (!fs.existsSync(absoluteImagePath)) {
-    return {
-      id: eval_case.id,
-      fieldAccuracy: null,
-      warningMatch: 0,
-      durationMs: 0,
-      errorMessage: `Image not found at ${eval_case.imagePath}. Add a real label image to run this case.`,
-    };
-  }
-
-  const image = fs.readFileSync(absoluteImagePath);
-  const imageSha = crypto.createHash('sha256').update(image).digest('hex').slice(0, 16);
-
-  const langfuse = getLangfuseClient();
-  let trace;
-  try {
-    trace = langfuse?.trace({
-      name: `eval:${eval_case.id}`,
-      metadata: {
-        evalCaseId: eval_case.id,
-        imageSha256: imageSha,
-        byteSize: image.byteLength,
-      },
-    });
-  } catch {
-    trace = undefined;
-  }
-
-  const start = Date.now();
-  let actual: ExtractedFields | null = null;
-  let errorMessage: string | undefined;
-  try {
-    const document = await extractor.extract([
-      { pageNumber: 1, kind: 'form+label-front', png: image },
-    ]);
-    actual = document.label;
-  } catch (e) {
-    errorMessage = (e as Error).message;
-  }
-  const durationMs = Date.now() - start;
-
-  if (!actual) {
-    try {
-      (trace as { update?: (d: Record<string, unknown>) => void } | undefined)?.update?.({
-        error: errorMessage,
-        durationMs,
-      });
-    } catch {
-      /* swallow */
-    }
-    return {
-      id: eval_case.id,
-      fieldAccuracy: null,
-      warningMatch: 0,
-      durationMs,
-      errorMessage,
-    };
-  }
-
-  const accuracy = fieldExtractionAccuracy(eval_case.expected, actual);
-  const warning = governmentWarningMatch(eval_case.expected, actual);
-
-  try {
-    const t = trace as
-      | {
-          score?: (s: { name: string; value: number; comment?: string }) => void;
-          update?: (d: Record<string, unknown>) => void;
-        }
-      | undefined;
-    t?.score?.({
-      name: 'field-extraction-accuracy',
-      value: accuracy.aggregate ?? 0,
-    });
-    t?.score?.({
-      name: 'government-warning-match',
-      value: warning.score,
-      comment: warning.reason,
-    });
-    t?.update?.({ durationMs, output: actual });
-  } catch {
-    /* swallow */
-  }
-
+async function runCase(reader: LabelReader, testCase: EvalCase): Promise<Outcome> {
+  const bytes = await readFile(path.join(IMAGES, testCase.file));
+  const started = performance.now();
+  const reading = await readLabel(reader, { bytes, mimeType: 'image/jpeg' });
+  const ms = Math.round(performance.now() - started);
+  const report = assessReading(reading, { expected: testCase.expected });
   return {
-    id: eval_case.id,
-    fieldAccuracy: accuracy.aggregate,
-    warningMatch: warning.score,
-    durationMs,
+    file: testCase.file,
+    ms,
+    verdict: report.verdict,
+    problems: judge(testCase, report),
   };
 }
 
-function printTable(runs: CaseRun[]): void {
-  console.log('\nEval results:');
-  console.log(
-    'case'.padEnd(28) +
-      'field-acc'.padEnd(12) +
-      'warning'.padEnd(10) +
-      'ms'.padEnd(8) +
-      'status',
+function judge(testCase: EvalCase, report: LabelReport): string[] {
+  const problems: string[] = [];
+  if (!testCase.verdicts.includes(report.verdict)) {
+    problems.push(
+      `verdict ${report.verdict}, expected ${testCase.verdicts.join(' or ')}`,
+    );
+    for (const rule of report.rules.filter((r) => r.status !== 'pass')) {
+      problems.push(
+        `  because ${rule.id} ${rule.status}: ${rule.reason} (read: ${JSON.stringify(rule.value)?.slice(0, 160)})`,
+      );
+    }
+  }
+  for (const [id, status] of Object.entries(testCase.rules ?? {})) {
+    const rule = report.rules.find((r) => r.id === id);
+    if (rule?.status !== status)
+      problems.push(
+        `${id} ${rule?.status ?? 'missing'}, expected ${status}: ${rule?.reason ?? ''}`,
+      );
+  }
+  for (const [field, status] of Object.entries(testCase.comparisons ?? {})) {
+    const comparison = report.comparisons.find((c) => c.field === field);
+    if (comparison?.status !== status) {
+      problems.push(
+        `${field} comparison ${comparison?.status}, expected ${status} (read "${comparison?.found}")`,
+      );
+    }
+  }
+  return problems;
+}
+
+function percentile(values: number[], p: number): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return (
+    sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)] ?? 0
   );
-  console.log('-'.repeat(70));
-  for (const r of runs) {
-    const acc = r.fieldAccuracy === null ? 'n/a' : r.fieldAccuracy.toFixed(2);
-    const w = r.warningMatch === 1 ? 'pass' : 'fail';
-    const status = r.errorMessage ?? 'ok';
+}
+
+async function runAll(
+  reader: LabelReader,
+  cases: EvalCase[],
+  limit: number,
+): Promise<{ outcomes: Outcome[]; wallMs: number }> {
+  const outcomes: Outcome[] = [];
+  const started = performance.now();
+  await new Promise<void>((resolve) => {
+    let remaining = cases.length;
+    const queue = createWorkQueue<EvalCase>(limit, async (testCase) => {
+      try {
+        outcomes.push(await runCase(reader, testCase));
+      } catch (error) {
+        outcomes.push({
+          file: testCase.file,
+          ms: NaN,
+          verdict: 'error',
+          problems: [(error as Error).message],
+        });
+      } finally {
+        if (--remaining === 0) resolve();
+      }
+    });
+    queue.push(...cases);
+  });
+  return { outcomes, wallMs: Math.round(performance.now() - started) };
+}
+
+function report(
+  title: string,
+  { outcomes, wallMs }: { outcomes: Outcome[]; wallMs: number },
+) {
+  console.log(`\n${title}`);
+  for (const o of outcomes) {
     console.log(
-      r.id.padEnd(28) +
-        acc.padEnd(12) +
-        w.padEnd(10) +
-        String(r.durationMs).padEnd(8) +
-        status,
+      `  ${o.problems.length ? '✗' : '✓'} ${o.file.padEnd(34)} ${String(o.ms).padStart(5)} ms  ${o.verdict}`,
     );
+    for (const p of o.problems) console.log(`      ${p}`);
   }
-}
-
-async function main(): Promise<void> {
-  console.log('Running eval suite...');
-  const dataset = getDataset();
-  console.log(`Loaded ${dataset.length} cases.\n`);
-
-  let extractor;
-  try {
-    extractor = getExtractor();
-  } catch (e) {
-    console.error(`Failed to construct extractor: ${(e as Error).message}`);
-    process.exit(2);
-  }
-
-  const runs: CaseRun[] = [];
-  for (const case_ of dataset) {
-    const result = await runCase(extractor, case_);
-    runs.push(result);
-  }
-
-  printTable(runs);
-
-  const scored = runs.filter((r) => r.fieldAccuracy !== null && !r.errorMessage);
-  const aggregateAccuracy =
-    scored.length > 0
-      ? scored.reduce((acc, r) => acc + (r.fieldAccuracy ?? 0), 0) / scored.length
-      : null;
-  const warningPassRate =
-    scored.length > 0
-      ? scored.filter((r) => r.warningMatch === 1).length / scored.length
-      : 0;
-  const errors = runs.filter((r) => r.errorMessage);
-
+  const latencies = outcomes.map((o) => o.ms).filter(Number.isFinite);
+  const correct = outcomes.filter((o) => o.problems.length === 0).length;
+  const p50 = percentile(latencies, 50);
+  const p95 = percentile(latencies, 95);
   console.log(
-    `\nAggregate field-accuracy: ${aggregateAccuracy?.toFixed(3) ?? 'n/a'}`,
+    `  correct ${correct}/${outcomes.length} · p50 ${p50} ms · p95 ${p95} ms · wall ${wallMs} ms`,
   );
-  console.log(`Warning-match pass rate:  ${warningPassRate.toFixed(3)}`);
-  console.log(`Errors:                   ${errors.length} of ${runs.length}`);
-
-  try {
-    await getLangfuseClient()?.flushAsync();
-  } catch {
-    /* swallow */
-  }
-
-  if (errors.length === runs.length) {
-    console.error(
-      '\nNo cases ran successfully. Most likely cause: missing sample images in evals/dataset/images/.',
-    );
-    console.error('Add real label images at the paths listed in each dataset JSON.');
-    process.exit(3);
-  }
-
-  if (
-    aggregateAccuracy !== null &&
-    aggregateAccuracy < FIELD_ACCURACY_THRESHOLD
-  ) {
-    console.error(
-      `\nFAIL: field-accuracy ${aggregateAccuracy.toFixed(3)} below threshold ${FIELD_ACCURACY_THRESHOLD}`,
-    );
-    process.exit(1);
-  }
-
-  if (warningPassRate < WARNING_MATCH_THRESHOLD) {
-    console.error(
-      `\nFAIL: warning-match pass rate ${warningPassRate.toFixed(3)} below threshold ${WARNING_MATCH_THRESHOLD}`,
-    );
-    process.exit(1);
-  }
-
-  console.log('\nPASS');
-  process.exit(0);
+  return { correct: correct === outcomes.length, p95 };
 }
 
-main().catch((e) => {
-  console.error('Eval run crashed:', e);
-  process.exit(2);
-});
+async function main() {
+  const repeatIndex = process.argv.indexOf('--repeat');
+  const repeat = repeatIndex > 0 ? Number(process.argv[repeatIndex + 1]) : 1;
+  const onlyIndex = process.argv.indexOf('--only');
+  const only = onlyIndex > 0 ? process.argv[onlyIndex + 1] : undefined;
+  const selected = EVAL_CASES.filter((c) => !only || c.file.includes(only));
+  const cases = Array.from({ length: repeat }, () => selected).flat();
+  const reader = createLabelReader(parseEnv(process.env));
+  console.log(`Label reader: ${reader.modelId} · ${cases.length} reads`);
+
+  // Warm the connection so the first case is not charged for TLS setup.
+  await runCase(reader, EVAL_CASES[0]!).catch(() => undefined);
+
+  const sequential = report('One at a time', await runAll(reader, cases, 1));
+  const parallel = report(
+    `${CONCURRENCY} at a time (batch)`,
+    await runAll(reader, cases, CONCURRENCY),
+  );
+
+  const passed =
+    sequential.correct &&
+    parallel.correct &&
+    sequential.p95 <= LATENCY_BUDGET_MS &&
+    parallel.p95 <= LATENCY_BUDGET_MS;
+  console.log(
+    passed
+      ? '\nPASS'
+      : `\nFAIL (all conclusions must be correct and p95 ≤ ${LATENCY_BUDGET_MS} ms)`,
+  );
+  process.exit(passed ? 0 : 1);
+}
+
+void main();

@@ -51,3 +51,6 @@ scripts/.cola-template-*.pdf
 /eng.traineddata
 scripts/spike-output/*.png
 scripts/spike-output/*-words.json
+
+# in-browser OCR assets, copied from node_modules by scripts/copy-ocr-assets.mjs
+/public/ocr/

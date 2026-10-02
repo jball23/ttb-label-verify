@@ -57,9 +57,8 @@ export function Dialog({ open, onOpenChange, children, contentClassName }: Dialo
     // Focus the dialog after mount
     queueMicrotask(() => {
       const target =
-        contentRef.current?.querySelector<HTMLElement>(
-          '[autofocus], button, a, input',
-        ) ?? contentRef.current;
+        contentRef.current?.querySelector<HTMLElement>('[autofocus], button, a, input') ??
+        contentRef.current;
       target?.focus();
     });
 
@@ -107,20 +106,36 @@ export function Dialog({ open, onOpenChange, children, contentClassName }: Dialo
   );
 }
 
-export function DialogHeader({ className, children }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('flex flex-col gap-1.5 px-6 pt-6 pb-4', className)}>{children}</div>;
+export function DialogHeader({
+  className,
+  children,
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={cn('flex flex-col gap-1.5 px-6 pt-6 pb-4', className)}>
+      {children}
+    </div>
+  );
 }
 
-export function DialogTitle({ className, children }: React.HTMLAttributes<HTMLHeadingElement>) {
+export function DialogTitle({
+  className,
+  children,
+}: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h2 className={cn('text-lg font-semibold tracking-tight', className)}>{children}</h2>
   );
 }
 
-export function DialogDescription({ className, children }: React.HTMLAttributes<HTMLParagraphElement>) {
+export function DialogDescription({
+  className,
+  children,
+}: React.HTMLAttributes<HTMLParagraphElement>) {
   return <p className={cn('text-sm text-muted-foreground', className)}>{children}</p>;
 }
 
-export function DialogContent({ className, children }: React.HTMLAttributes<HTMLDivElement>) {
+export function DialogContent({
+  className,
+  children,
+}: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn('px-6 pb-6 text-sm', className)}>{children}</div>;
 }

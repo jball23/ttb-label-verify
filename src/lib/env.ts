@@ -1,41 +1,39 @@
 import { z } from 'zod';
 
 /**
- * Environment-variable contract for the app.
- *
- * Required vars throw on first access. Optional vars (Langfuse) silently fall through
- * so the demo continues working when observability isn't configured.
- *
- * Azure OpenAI vars are conditionally required based on LABEL_EXTRACTOR.
+ * Environment-variable contract for the app. Everything is optional here so
+ * the app boots for local demos; the label reader factory reports a missing
+ * provider key when a label is first checked.
  */
 
+/** An unset variable often arrives as an empty string (e.g. from Vercel); treat it as unset. */
+const blankAsUnset = (value: unknown) => (value === '' ? undefined : value);
+const optional = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess(blankAsUnset, schema.optional());
+
 const baseSchema = z.object({
-  LABEL_EXTRACTOR: z
-    .enum(['openai', 'azure-openai', 'tesseract'])
-    .default('tesseract'),
-  OPENAI_API_KEY: z.string().optional(),
-  OPENAI_VLM_MODEL: z.string().optional(),
-  OPENAI_MAX_CONCURRENT_REQUESTS: integerEnv('4', {
-    min: 1,
-    max: 8,
-  }),
-  OPENAI_MAX_RETRIES: integerEnv('4', {
-    min: 0,
-    max: 10,
-  }),
-  AZURE_OPENAI_ENDPOINT: z.string().url().optional(),
-  AZURE_OPENAI_API_KEY: z.string().optional(),
-  AZURE_OPENAI_DEPLOYMENT: z.string().optional(),
-  LANGFUSE_PUBLIC_KEY: z.string().optional(),
-  LANGFUSE_SECRET_KEY: z.string().optional(),
-  LANGFUSE_HOST: z.string().url().optional(),
-  DATABASE_URL: z.string().url().optional(),
-  // Legacy full-document OpenAI extractor flag. The default Tesseract/PDF-text
-  // pipeline ignores this and emits FieldBbox sidecars directly.
-  EXTRACT_PROVENANCE: z
-    .enum(['true', 'false', '1', '0'])
-    .default('false')
-    .transform((v) => v === 'true' || v === '1'),
+  /** Which label reader verifies images. `fake` is for offline demos and tests. */
+  LABEL_READER: z.preprocess(
+    blankAsUnset,
+    z.enum(['openai', 'azure-openai', 'fake']).default('openai'),
+  ),
+  LABEL_READER_TIMEOUT_MS: z.preprocess(
+    blankAsUnset,
+    integerEnv('15000', { min: 1000, max: 60000 }),
+  ),
+  OPENAI_API_KEY: optional(z.string()),
+  OPENAI_VLM_MODEL: optional(z.string()),
+  /** Optional stronger model for re-reading a warning that looks wrong. */
+  OPENAI_WARNING_MODEL: optional(z.string()),
+  OPENAI_REASONING_EFFORT: optional(z.enum(['none', 'minimal', 'low', 'medium', 'high'])),
+  AZURE_OPENAI_ENDPOINT: optional(z.string().url()),
+  AZURE_OPENAI_API_KEY: optional(z.string()),
+  AZURE_OPENAI_DEPLOYMENT: optional(z.string()),
+  AZURE_OPENAI_API_VERSION: z.preprocess(blankAsUnset, z.string().default('2024-10-21')),
+  LANGFUSE_PUBLIC_KEY: optional(z.string()),
+  LANGFUSE_SECRET_KEY: optional(z.string()),
+  LANGFUSE_HOST: optional(z.string().url()),
+  DATABASE_URL: optional(z.string().url()),
 });
 
 function integerEnv(
@@ -66,38 +64,10 @@ function integerEnv(
     });
 }
 
-const envSchema = baseSchema.superRefine((data, ctx) => {
-  if (data.LABEL_EXTRACTOR === 'openai' && !data.OPENAI_API_KEY) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['OPENAI_API_KEY'],
-      message: 'OPENAI_API_KEY is required when LABEL_EXTRACTOR=openai',
-    });
-  }
-  if (data.LABEL_EXTRACTOR === 'azure-openai') {
-    if (!data.AZURE_OPENAI_ENDPOINT) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['AZURE_OPENAI_ENDPOINT'],
-        message:
-          'AZURE_OPENAI_ENDPOINT is required when LABEL_EXTRACTOR=azure-openai',
-      });
-    }
-    if (!data.AZURE_OPENAI_API_KEY) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['AZURE_OPENAI_API_KEY'],
-        message:
-          'AZURE_OPENAI_API_KEY is required when LABEL_EXTRACTOR=azure-openai',
-      });
-    }
-  }
-});
-
 export type Env = z.infer<typeof baseSchema>;
 
 export function parseEnv(source: Record<string, string | undefined>): Env {
-  const result = envSchema.safeParse(source);
+  const result = baseSchema.safeParse(source);
   if (!result.success) {
     const issues = result.error.issues
       .map((issue) => `  • ${issue.path.join('.')}: ${issue.message}`)

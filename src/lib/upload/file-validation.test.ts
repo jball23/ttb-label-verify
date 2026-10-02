@@ -1,70 +1,46 @@
-import { describe, it, expect } from 'vitest';
-import { validateBatch, MAX_BATCH_SIZE } from './file-validation';
+import { describe, expect, it } from 'vitest';
+import {
+  MAX_BATCH_SIZE,
+  MAX_FILE_BYTES,
+  partitionLabelFiles,
+  validateLabelFile,
+} from './file-validation';
 
-function makeFile(
-  name: string,
-  type: string,
-  size: number = 1024,
-): File {
-  const blob = new Blob([new Uint8Array(size)], { type });
-  return new File([blob], name, { type });
-}
+const file = (type: string, size = 1024) => ({ type, size });
 
-describe('validateBatch', () => {
-  it('rejects empty input', () => {
-    const result = validateBatch([]);
-    expect(result.ok).toBe(false);
-    expect(result.reason).toMatch(/at least one/i);
+describe('validateLabelFile', () => {
+  it.each(['image/jpeg', 'image/png', 'image/webp'])('accepts %s', (type) => {
+    expect(validateLabelFile(file(type))).toBeNull();
   });
 
-  it(`rejects more than ${MAX_BATCH_SIZE} files`, () => {
-    const files = Array.from({ length: MAX_BATCH_SIZE + 1 }, (_, i) =>
-      makeFile(`l-${i}.jpg`, 'image/jpeg'),
+  it('rejects PDFs and other types', () => {
+    expect(validateLabelFile(file('application/pdf'))).toMatch(/not a label photo/);
+    expect(validateLabelFile(file(''))).toMatch(/not a label photo/);
+  });
+
+  it('rejects empty and oversized images', () => {
+    expect(validateLabelFile(file('image/jpeg', 0))).toMatch(/empty/);
+    expect(validateLabelFile(file('image/jpeg', MAX_FILE_BYTES + 1))).toMatch(
+      /larger than/,
     );
-    const result = validateBatch(files);
-    expect(result.ok).toBe(false);
-    expect(result.reason).toMatch(new RegExp(`Maximum ${MAX_BATCH_SIZE}`));
   });
+});
 
-  it('accepts a single valid image', () => {
-    const result = validateBatch([makeFile('a.jpg', 'image/jpeg')]);
-    expect(result.ok).toBe(true);
-    expect(result.files).toHaveLength(1);
-    expect(result.rejected).toHaveLength(0);
-  });
-
-  it('accepts mixed valid types', () => {
-    const result = validateBatch([
-      makeFile('a.jpg', 'image/jpeg'),
-      makeFile('b.png', 'image/png'),
-      makeFile('c.webp', 'image/webp'),
-      makeFile('d.pdf', 'application/pdf'),
+describe('partitionLabelFiles', () => {
+  it('keeps good files and explains each rejected one', () => {
+    const good = file('image/jpeg');
+    const bad = file('application/pdf');
+    const { accepted, rejected } = partitionLabelFiles([good, bad]);
+    expect(accepted).toEqual([good]);
+    expect(rejected).toEqual([
+      { file: bad, reason: expect.stringMatching(/not a label photo/) },
     ]);
-    expect(result.ok).toBe(true);
-    expect(result.files).toHaveLength(4);
   });
 
-  it('partial-accepts when some files are invalid', () => {
-    const result = validateBatch([
-      makeFile('good.jpg', 'image/jpeg'),
-      makeFile('bad.txt', 'text/plain'),
-    ]);
-    expect(result.ok).toBe(true);
-    expect(result.files).toHaveLength(1);
-    expect(result.rejected).toHaveLength(1);
-    expect(result.rejected[0]?.reason).toMatch(/unsupported file type/i);
-  });
-
-  it('rejects a file over 10 MB with a clear reason', () => {
-    const oversized = makeFile('big.jpg', 'image/jpeg', 11 * 1024 * 1024);
-    const result = validateBatch([oversized]);
-    expect(result.ok).toBe(false); // single file, all rejected, batch invalid
-    expect(result.rejected[0]?.reason).toMatch(/10 MB limit/i);
-  });
-
-  it('returns ok=false when all files are rejected', () => {
-    const result = validateBatch([makeFile('bad.txt', 'text/plain')]);
-    expect(result.ok).toBe(false);
-    expect(result.reason).toMatch(/no valid files/i);
+  it('rejects files beyond the batch limit', () => {
+    const files = Array.from({ length: MAX_BATCH_SIZE + 2 }, () => file('image/jpeg'));
+    const { accepted, rejected } = partitionLabelFiles(files);
+    expect(accepted).toHaveLength(MAX_BATCH_SIZE);
+    expect(rejected).toHaveLength(2);
   });
 });
