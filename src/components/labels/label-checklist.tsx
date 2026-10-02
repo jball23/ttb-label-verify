@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState, type FormEvent } from 'react';
-import { AlertTriangle, Check, Minus, Pencil, RotateCcw, X } from 'lucide-react';
+import { AlertTriangle, Check, Minus, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -267,9 +267,15 @@ function ChecklistRow({
         ) : null}
 
         {corrected ? (
-          <div className="pl-7">
-            <button type="button" onClick={onUndo} className={LINK_BUTTON}>
-              <RotateCcw aria-hidden className="size-3.5" /> Use the original reading
+          // Drops the correction and goes back to what was read.
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onUndo}
+              aria-label={`Cancel the change to ${item.label}`}
+              className="rounded px-2 py-1 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Cancel
             </button>
           </div>
         ) : null}
@@ -310,9 +316,6 @@ function EditButton({ label, onEdit }: { label: string; onEdit(): void }) {
     </button>
   );
 }
-
-const LINK_BUTTON =
-  'inline-flex items-center gap-1 text-sm font-medium underline underline-offset-4 hover:no-underline';
 
 /** "Read as X · corrected by JP", "Confirmed by JP", or a not-yet-saved note. */
 function CorrectionNote({ item }: { item: ChecklistItem }) {
