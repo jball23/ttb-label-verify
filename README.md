@@ -24,9 +24,13 @@ to see a batch run without uploading anything.
 | Marcus Williams | The network blocks many cloud endpoints | One provider interface with an **Azure OpenAI** implementation: one setting points it at Treasury's own Azure tenant | `LABEL_READER=azure-openai` |
 | Marcus Williams | Standalone; no COLA integration | No COLA connection. Application values are typed in by the reviewer (optional) | — |
 
-Measured by `npm run eval -- --repeat 3`: real API calls, each of the 10 sample
-labels read 3 times one by one and 3 times in a batch, from a laptop. **60/60
-conclusions correct.** Labels are read with `gpt-5.4-mini`, and a warning that looks wrong
+Measured by `npm run eval -- --repeat 3`: real API calls, each of the 13 sample
+labels read 3 times one by one and 3 times in a batch, from a laptop. **65/78
+conclusions correct, and every miss is the bold check on the warning lead-in**:
+the model says "GOVERNMENT WARNING:" may not be bold on Russkaya (6/6) and
+Tenuta (6/6), where it is. That gives "needs a look", never a wrong pass or
+fail. Wording, importer and country conclusions are all correct. p95 is 4.7 s
+one by one and 4.2 s in a batch. Labels are read with `gpt-5.4-mini`, and a warning that looks wrong
 is re-read with `gpt-5.4`. Times are server-side read time; the browser adds
 upload time, which is small because it shrinks photos to 1600 px first.
 
@@ -224,7 +228,7 @@ local demo. With a Neon/Postgres URL, run `npm run db:migrate` first.
 
 ### Test labels
 
-`public/samples/labels/` holds ten labels:
+`public/samples/labels/` holds thirteen labels:
 
 - five AI-generated in the earlier build (bourbon, vodka, wine, a beer missing
   its warning, a rum stating only proof)
@@ -232,6 +236,12 @@ local demo. With a Neon/Postgres URL, run `npm run db:migrate` first.
   each with one known property: the brief's OLD TOM DISTILLERY sample, a
   title-case warning, a warning with one word added, the same label photographed
   at an angle with glare, and STONE'S THROW gin
+- three imports: Russkaya vodka (a correct "Imported by" statement, glare on the
+  front), Tenuta San Vincenzo Valpolicella ("ITALIA", no US importer named) and
+  a photo of a König Ludwig Hell bottle (a German beer with no US warning)
+
+**Try sample labels** loads ten of them. The three flawed Old Tom variants are
+eval-only, because in a review list they look like copies of the same label.
 
 [evals/cases.ts](evals/cases.ts) lists what a correct check concludes for each.
 [docs/samples/label-prompts](docs/samples/label-prompts) has the image-generation

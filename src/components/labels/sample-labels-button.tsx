@@ -4,18 +4,21 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useBatch } from './batch-provider';
 
-/** Test labels covering the brief's scenarios (see evals/cases.ts). Served from /public. */
+/**
+ * Demo labels, one of each kind (see evals/cases.ts). The flawed Old Tom
+ * variants are eval-only: in a demo list they look like duplicates.
+ */
 const SAMPLE_LABELS = [
   'old-tom-bourbon.jpg',
-  'old-tom-title-case-warning.jpg',
-  'old-tom-reworded-warning.jpg',
-  'old-tom-glare-angle.jpg',
   'stones-throw-gin.jpg',
   'ridge-creek-bourbon.jpg',
   'silver-birch-vodka.jpg',
   'hawthorne-cabernet.jpg',
   'ironwood-ipa-no-warning.jpg',
   'calypso-rum-proof-only.jpg',
+  'russkaya-vodka.jpg',
+  'tenuta-san-vincenzo.jpg',
+  'koenig-ludwig-hell.jpg',
 ];
 
 export function SampleLabelsButton() {

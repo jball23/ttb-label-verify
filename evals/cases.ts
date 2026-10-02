@@ -83,4 +83,26 @@ export const EVAL_CASES: EvalCase[] = [
     rules: { alcoholContent: 'review' },
     why: 'Alcohol shown only as "80 PROOF"; spirits must state a percentage.',
   },
+  {
+    file: 'russkaya-vodka.jpg',
+    verdicts: ['looks_good'],
+    rules: { importer: 'pass', governmentWarning: 'pass' },
+    expected: { countryOfOrigin: 'Russia' },
+    comparisons: { countryOfOrigin: 'match' },
+    why: 'Imported vodka done right: "Imported by" a New York importer, with glare across the front label.',
+  },
+  {
+    file: 'tenuta-san-vincenzo.jpg',
+    verdicts: ['problems_found'],
+    rules: { importer: 'fail', governmentWarning: 'pass' },
+    expected: { countryOfOrigin: 'Italy' },
+    comparisons: { countryOfOrigin: 'match' },
+    why: 'Italian wine ("ITALIA") with no US importer named. The warning is all capitals, which is allowed.',
+  },
+  {
+    file: 'koenig-ludwig-hell.jpg',
+    verdicts: ['problems_found'],
+    rules: { governmentWarning: 'fail' },
+    why: 'A real photo of a German beer bottle: curved label, no US warning or importer statement.',
+  },
 ];
