@@ -46,8 +46,6 @@ export const LabelReadingSchema = z.object({
   governmentWarning: z.object({
     /** The full warning transcribed verbatim — original case and wording. */
     verbatimText: z.string().nullable(),
-    /** Whether "GOVERNMENT WARNING:" looks bold; null when it cannot be told. */
-    prefixAppearsBold: z.boolean().nullable(),
   }),
   imageQuality: z.object({
     /** False when the label cannot be read reliably enough to verify. */

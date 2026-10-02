@@ -13,6 +13,8 @@ export interface RuleCheck {
   reason: string;
   /** What the label says, for display. */
   value: string | null;
+  /** Something the reviewer should confirm on the photo, without it counting against the label. */
+  reminder?: string;
 }
 
 /** Requirement text and citations live in ../requirements.ts, keyed by the same id. */

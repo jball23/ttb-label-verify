@@ -3,6 +3,7 @@ import { DatabaseError, ReaderTimeoutError } from '@/lib/labels/errors';
 import { compliantReading, FakeLabelReader } from '@/lib/labels/fake-label-reader';
 import { type LabelServiceDeps } from '@/lib/labels/label-service';
 import { MemoryLabelRepository } from '@/lib/labels/memory-label-repository';
+import { runLabelRules } from '@/lib/labels/rules';
 
 let deps: LabelServiceDeps;
 
@@ -153,5 +154,5 @@ describe('label follow-up routes', () => {
 
 // Sanity: the fake reader really is compliant, so verdict assertions above are meaningful.
 it('uses a compliant default reading', () => {
-  expect(compliantReading().governmentWarning.prefixAppearsBold).toBe(true);
+  expect(runLabelRules(compliantReading()).every((r) => r.status === 'pass')).toBe(true);
 });

@@ -5,7 +5,7 @@ export const governmentWarningRule: LabelRule = {
   id: 'governmentWarning',
   label: 'Government warning',
   check(reading) {
-    const { verbatimText, prefixAppearsBold } = reading.governmentWarning;
+    const { verbatimText } = reading.governmentWarning;
     const findings = analyzeGovernmentWarning(verbatimText);
     const problems = findings.filter((f) => f.kind !== 'ok');
 
@@ -16,26 +16,13 @@ export const governmentWarningRule: LabelRule = {
         value: verbatimText,
       };
     }
-    // Text is exact. Boldness is a visual judgment, so it never auto-fails.
-    if (prefixAppearsBold === false) {
-      return {
-        status: 'review',
-        reason:
-          'The wording is exact, but "GOVERNMENT WARNING:" may not be in bold type.',
-        value: verbatimText,
-      };
-    }
-    if (prefixAppearsBold === null) {
-      return {
-        status: 'review',
-        reason: 'The wording is exact. Check that "GOVERNMENT WARNING:" is in bold type.',
-        value: verbatimText,
-      };
-    }
+    // Bold type is left to the reviewer: the model's judgment of type weight
+    // was wrong too often (bold lead-ins on Russkaya and Tenuta read as plain).
     return {
       status: 'pass',
       reason: describeWarningFinding({ kind: 'ok' }),
       value: verbatimText,
+      reminder: 'Check on the photo that "GOVERNMENT WARNING:" is in bold type.',
     };
   },
 };

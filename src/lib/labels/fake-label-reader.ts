@@ -17,7 +17,6 @@ export function compliantReading(overrides: Partial<LabelReading> = {}): LabelRe
     },
     governmentWarning: {
       verbatimText: GOVERNMENT_WARNING_CANONICAL,
-      prefixAppearsBold: true,
     },
     imageQuality: { legible: true, issues: [] },
     ...overrides,

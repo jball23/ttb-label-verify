@@ -37,6 +37,8 @@ export interface ChecklistItem {
   /** Null for the warning, which has no application value. */
   comparison: Comparison | null;
   requirement: Requirement;
+  /** A check left to the reviewer's eye, such as bold type. */
+  reminder: string | null;
 }
 
 const STATUS_RANK: Record<ChecklistStatus, number> = {
@@ -77,6 +79,7 @@ export function buildChecklist(report: LabelReport): ChecklistItem[] {
       correctionKind: correctionKind(report, field),
       comparison,
       requirement: REQUIREMENTS[field],
+      reminder: rule?.reminder ?? null,
     };
   });
   return items

@@ -10,7 +10,6 @@ describe('summarizeReport', () => {
       compliantReading({
         governmentWarning: {
           verbatimText: CANONICAL.replace('GOVERNMENT', 'Government'),
-          prefixAppearsBold: true,
         },
       }),
       { expected: { alcoholContent: '40%' } },

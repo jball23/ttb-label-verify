@@ -3,7 +3,7 @@
  * text changes: it is part of the cache key, so a stale reading is never
  * reused under new instructions.
  */
-export const PROMPT_VERSION = 'label-reader-v3';
+export const PROMPT_VERSION = 'label-reader-v4';
 
 export const LABEL_READER_PROMPT = `You read U.S. alcohol beverage labels for a federal compliance reviewer.
 
@@ -24,7 +24,6 @@ Set confidence to "low" for any field you cannot read clearly (glare, blur, angl
 
 governmentWarning:
 - verbatimText: the complete health warning statement, character for character, starting at its first word. Preserve the exact capitalization of every word, including the "GOVERNMENT WARNING:" lead-in. null if there is no warning.
-- prefixAppearsBold: true if the "GOVERNMENT WARNING:" lead-in is visibly bolder than the rest of the warning, false if it is clearly not bold, null if you cannot tell.
 
 imageQuality:
 - legible: false if the image is too blurry, dark, glared, cropped or angled to read the label reliably.

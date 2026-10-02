@@ -32,7 +32,7 @@ describe('applyCorrections', () => {
 
   it('corrects the warning text', () => {
     const reading = compliantReading({
-      governmentWarning: { verbatimText: null, prefixAppearsBold: null },
+      governmentWarning: { verbatimText: null },
     });
     const effective = applyCorrections(reading, {
       governmentWarning: {
@@ -117,7 +117,7 @@ describe('reconcileCorrections', () => {
 describe('assessReading with corrections', () => {
   it('re-runs the rules on the corrected text', () => {
     const reading = compliantReading({
-      governmentWarning: { verbatimText: null, prefixAppearsBold: true },
+      governmentWarning: { verbatimText: null },
     });
     expect(assessReading(reading).verdict).toBe('problems_found');
     const corrected = assessReading(reading, {

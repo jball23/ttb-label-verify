@@ -25,12 +25,9 @@ to see a batch run without uploading anything.
 | Marcus Williams | Standalone; no COLA integration | No COLA connection. Application values are typed in by the reviewer (optional) | — |
 
 Measured by `npm run eval -- --repeat 3`: real API calls, each of the 13 sample
-labels read 3 times one by one and 3 times in a batch, from a laptop. **65/78
-conclusions correct, and every miss is the bold check on the warning lead-in**:
-the model says "GOVERNMENT WARNING:" may not be bold on Russkaya (6/6) and
-Tenuta (6/6), where it is. That gives "needs a look", never a wrong pass or
-fail. Wording, importer and country conclusions are all correct. p95 is 4.7 s
-one by one and 4.2 s in a batch. Labels are read with `gpt-5.4-mini`, and a warning that looks wrong
+labels read 3 times one by one and 3 times in a batch, from a laptop. **78/78
+conclusions correct**, p50 2.0 s and p95 3.8 s one by one, p95 4.0 s in a batch
+(13 labels in 13.4 s). Labels are read with `gpt-5.4-mini`, and a warning that looks wrong
 is re-read with `gpt-5.4`. Times are server-side read time; the browser adds
 upload time, which is small because it shrinks photos to 1600 px first.
 
@@ -63,7 +60,7 @@ model.
 
 | Check | Fails when | Needs a look when | Rule |
 |---|---|---|---|
-| Government warning | Missing; lead-in not exactly "GOVERNMENT WARNING:"; wording differs by even one word (the rest of the statement may be in any case, e.g. all capitals) | Wording is exact but the lead-in may not be bold | 27 CFR §16.21–16.22 |
+| Government warning | Missing; lead-in not exactly "GOVERNMENT WARNING:"; wording differs by even one word (the rest of the statement may be in any case, e.g. all capitals) | — (bold type is left to the reviewer: an exact warning passes with a reminder to check it on the photo) | 27 CFR §16.21–16.22 |
 | Brand name | Not on the label | Hard to read | §4.33 / §5.63 / §7.51 |
 | Class / type | Not on the label | Hard to read | §4.34 / §5.35 / §7.24 |
 | Alcohol content | — | Missing (some wines and beers are exempt); shown only as proof; hard to read | §4.36 / §5.65 / §7.65 |
@@ -153,9 +150,12 @@ drawn otherwise.
   serverless request, so N requests in flight means N workers with no queue
   service to run. The trade-off: closing the tab stops the batch, and the page
   warns before that happens. A server-side queue is the production upgrade.
-- **Bold type is a judgment.** The model reports whether the lead-in looks bold.
-  Because that's a visual impression rather than text, a "not bold" answer means
-  "needs a look", never an automatic failure.
+- **Bold type is left to the reviewer.** Asked whether the lead-in was bold, the
+  model said "not bold" on every read of two labels where it plainly is
+  (Russkaya, Tenuta), and a focused second look with `gpt-5.4` missed Tenuta
+  too while pushing those labels past 5 s. So the model no longer judges type
+  weight: an exact warning passes, with a reminder to check bold on the photo,
+  which a reviewer can do at a glance.
 - **Images are stored in Postgres** for the prototype, so a reviewer can reopen
   any label. Real use would move them to object storage with a retention policy.
 - **Identical images are read once.** The reading is cached by content hash,

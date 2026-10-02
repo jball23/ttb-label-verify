@@ -29,7 +29,6 @@ describe('assessReading verdicts', () => {
     const reading = compliantReading({
       governmentWarning: {
         verbatimText: CANONICAL.replace('GOVERNMENT WARNING', 'Government Warning'),
-        prefixAppearsBold: true,
       },
     });
     expect(assessReading(reading).verdict).toBe('problems_found');
@@ -82,7 +81,7 @@ describe('readLabel: confirming a warning problem before failing', () => {
     'alcohol beverages during',
   );
   const withWarning = (verbatimText: string | null) =>
-    compliantReading({ governmentWarning: { verbatimText, prefixAppearsBold: true } });
+    compliantReading({ governmentWarning: { verbatimText } });
 
   function counting(first: string | null, second: string | null) {
     let warningReads = 0;

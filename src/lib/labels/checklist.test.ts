@@ -30,7 +30,6 @@ describe('buildChecklist', () => {
       compliantReading({
         governmentWarning: {
           verbatimText: CANONICAL.replace('GOVERNMENT', 'Government'),
-          prefixAppearsBold: true,
         },
       }),
     );

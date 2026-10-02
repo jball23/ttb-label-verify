@@ -18,11 +18,8 @@ function withField(
   return reading;
 }
 
-function withWarning(
-  verbatimText: string | null,
-  prefixAppearsBold: boolean | null = true,
-) {
-  return compliantReading({ governmentWarning: { verbatimText, prefixAppearsBold } });
+function withWarning(verbatimText: string | null) {
+  return compliantReading({ governmentWarning: { verbatimText } });
 }
 
 describe('label rules', () => {
@@ -46,13 +43,11 @@ describe('label rules', () => {
       expect(statusOf(withWarning(null), 'governmentWarning').status).toBe('fail');
     });
 
-    it('asks for a look when the lead-in may not be bold', () => {
-      expect(statusOf(withWarning(CANONICAL, false), 'governmentWarning').status).toBe(
-        'review',
-      );
-      expect(statusOf(withWarning(CANONICAL, null), 'governmentWarning').status).toBe(
-        'review',
-      );
+    // Bold type is the reviewer's call: an exact warning passes with a reminder.
+    it('passes exact wording and reminds the reviewer to check bold type', () => {
+      const outcome = statusOf(withWarning(CANONICAL), 'governmentWarning');
+      expect(outcome.status).toBe('pass');
+      expect(outcome.reminder).toContain('bold');
     });
   });
 

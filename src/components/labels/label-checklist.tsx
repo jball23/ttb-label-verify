@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState, type FormEvent } from 'react';
-import { AlertTriangle, Check, Minus, Pencil, X } from 'lucide-react';
+import { AlertTriangle, Check, Eye, Minus, Pencil, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -253,6 +253,12 @@ function ChecklistRow({
 
         {item.reason ? (
           <p className={cn('pl-7 text-base', look.text)}>{item.reason}</p>
+        ) : null}
+        {item.reminder && item.status === 'pass' ? (
+          <p className="flex items-start gap-1.5 pl-7 text-sm text-muted-foreground">
+            <Eye aria-hidden className="mt-0.5 size-4 shrink-0" />
+            {item.reminder}
+          </p>
         ) : null}
         {showDiff && !editing ? (
           <div className="flex flex-col items-start gap-1 pl-7">
