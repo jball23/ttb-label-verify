@@ -13,7 +13,10 @@ describe('verifyLabel', () => {
       calls += 1;
       return compliantReading();
     });
-    const report = await verifyLabel(image, { reader, expected: { brandName: 'Old Tom Distillery' } });
+    const report = await verifyLabel(image, {
+      reader,
+      expected: { brandName: 'Old Tom Distillery' },
+    });
     expect(calls).toBe(1);
     expect(report.verdict).toBe('looks_good');
     expect(report.comparisons.find((c) => c.field === 'brandName')?.status).toBe('match');
@@ -23,27 +26,40 @@ describe('verifyLabel', () => {
 describe('assessReading verdicts', () => {
   it('finds a problem when the warning is wrong', () => {
     const reading = compliantReading({
-      governmentWarning: { verbatimText: CANONICAL.replace('GOVERNMENT WARNING', 'Government Warning'), prefixAppearsBold: true },
+      governmentWarning: {
+        verbatimText: CANONICAL.replace('GOVERNMENT WARNING', 'Government Warning'),
+        prefixAppearsBold: true,
+      },
     });
     expect(assessReading(reading).verdict).toBe('problems_found');
   });
 
   it('asks for a look when an application value differs, rather than rejecting', () => {
-    expect(assessReading(compliantReading(), { expected: { alcoholContent: '40%' } }).verdict).toBe('needs_review');
+    expect(
+      assessReading(compliantReading(), { expected: { alcoholContent: '40%' } }).verdict,
+    ).toBe('needs_review');
   });
 
   it('asks for a look when an application value is not on the label', () => {
-    expect(assessReading(compliantReading(), { expected: { countryOfOrigin: 'Mexico' } }).verdict).toBe('needs_review');
+    expect(
+      assessReading(compliantReading(), { expected: { countryOfOrigin: 'Mexico' } })
+        .verdict,
+    ).toBe('needs_review');
   });
 
   it('never gives a verdict on an unreadable image', () => {
-    const reading = compliantReading({ imageQuality: { legible: false, issues: ['glare over the label'] } });
+    const reading = compliantReading({
+      imageQuality: { legible: false, issues: ['glare over the label'] },
+    });
     expect(assessReading(reading).verdict).toBe('needs_review');
   });
 });
 
 describe('readLabel: confirming a warning problem before failing', () => {
-  const misread = CANONICAL.replace('alcoholic beverages during', 'alcohol beverages during');
+  const misread = CANONICAL.replace(
+    'alcoholic beverages during',
+    'alcohol beverages during',
+  );
   const withWarning = (verbatimText: string | null) =>
     compliantReading({ governmentWarning: { verbatimText, prefixAppearsBold: true } });
 

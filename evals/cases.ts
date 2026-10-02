@@ -24,7 +24,11 @@ export const EVAL_CASES: EvalCase[] = [
   {
     file: 'old-tom-bourbon.jpg',
     verdicts: ['looks_good'],
-    expected: { brandName: 'Old Tom Distillery', alcoholContent: '45%', netContents: '750 mL' },
+    expected: {
+      brandName: 'Old Tom Distillery',
+      alcoholContent: '45%',
+      netContents: '750 mL',
+    },
     comparisons: { brandName: 'match', alcoholContent: 'match', netContents: 'match' },
     why: "The brief's own sample label, fully compliant.",
   },

@@ -2,7 +2,11 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { ZoomIn } from 'lucide-react';
-import { CORRECTABLE_FIELDS, originalValue, type CorrectableField } from '@/lib/labels/corrections';
+import {
+  CORRECTABLE_FIELDS,
+  originalValue,
+  type CorrectableField,
+} from '@/lib/labels/corrections';
 import { locateText, type Box } from '@/lib/labels/locate-text';
 import { type LabelReading } from '@/lib/labels/reading';
 import { cn } from '@/lib/utils';
@@ -24,19 +28,30 @@ interface Props {
  * The label photo. When the reviewer hovers a field or check, the text it
  * refers to is outlined; nothing is drawn otherwise.
  */
-export function LabelPhoto({ imageUrl, alt, reading, highlight, large = false, onZoom }: Props) {
+export function LabelPhoto({
+  imageUrl,
+  alt,
+  reading,
+  highlight,
+  large = false,
+  onZoom,
+}: Props) {
   const ocr = useLabelOcr(imageUrl);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   // A cached image can finish loading before React attaches onLoad, so also
   // read the size as soon as the element exists.
   const measure = useCallback((img: HTMLImageElement | null) => {
-    if (img?.complete && img.naturalWidth) setSize({ width: img.naturalWidth, height: img.naturalHeight });
+    if (img?.complete && img.naturalWidth)
+      setSize({ width: img.naturalWidth, height: img.naturalHeight });
   }, []);
 
   const locations = useMemo(() => {
     if (ocr.status !== 'ready') return null;
     return Object.fromEntries(
-      CORRECTABLE_FIELDS.map((field) => [field, locateText(ocr.words, originalValue(reading, field))]),
+      CORRECTABLE_FIELDS.map((field) => [
+        field,
+        locateText(ocr.words, originalValue(reading, field)),
+      ]),
     ) as Record<CorrectableField, Box[] | null>;
   }, [ocr, reading]);
 
@@ -50,8 +65,16 @@ export function LabelPhoto({ imageUrl, alt, reading, highlight, large = false, o
         ref={measure}
         src={imageUrl}
         alt={alt}
-        onLoad={(event) => setSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
-        className={cn('block h-auto w-auto max-w-full', large ? 'max-h-[80svh]' : 'max-h-[70svh]')}
+        onLoad={(event) =>
+          setSize({
+            width: event.currentTarget.naturalWidth,
+            height: event.currentTarget.naturalHeight,
+          })
+        }
+        className={cn(
+          'block h-auto w-auto max-w-full',
+          large ? 'max-h-[80svh]' : 'max-h-[70svh]',
+        )}
       />
       {boxes && size
         ? boxes.map((box, i) => (
@@ -64,7 +87,10 @@ export function LabelPhoto({ imageUrl, alt, reading, highlight, large = false, o
           ))
         : null}
       {notice ? (
-        <span role="status" className="absolute left-3 top-3 rounded-full bg-background/95 px-3 py-1.5 text-sm font-medium shadow-sm">
+        <span
+          role="status"
+          className="absolute left-3 top-3 rounded-full bg-background/95 px-3 py-1.5 text-sm font-medium shadow-sm"
+        >
           {notice}
         </span>
       ) : null}
@@ -80,7 +106,10 @@ export function LabelPhoto({ imageUrl, alt, reading, highlight, large = false, o
 }
 
 /** Positions a box given in image pixels, with a little breathing room around the text. */
-function toPercentBox(box: Box, size: { width: number; height: number }): React.CSSProperties {
+function toPercentBox(
+  box: Box,
+  size: { width: number; height: number },
+): React.CSSProperties {
   const pad = Math.max(3, size.width * 0.004);
   const x0 = Math.max(0, box.x0 - pad);
   const y0 = Math.max(0, box.y0 - pad);

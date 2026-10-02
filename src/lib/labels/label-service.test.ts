@@ -31,15 +31,23 @@ describe('label service', () => {
   it('reuses the reading of an identical image instead of calling the reader again', async () => {
     const { deps, reads } = setup();
     await checkLabel(deps, { image, filename: 'a.jpg' });
-    await checkLabel(deps, { image: { ...image, bytes: Buffer.from('label-a') }, filename: 'a-again.jpg' });
-    await checkLabel(deps, { image: { ...image, bytes: Buffer.from('label-b') }, filename: 'b.jpg' });
+    await checkLabel(deps, {
+      image: { ...image, bytes: Buffer.from('label-a') },
+      filename: 'a-again.jpg',
+    });
+    await checkLabel(deps, {
+      image: { ...image, bytes: Buffer.from('label-b') },
+      filename: 'b.jpg',
+    });
     expect(reads()).toBe(2);
   });
 
   it('re-compares new application values without reading the image again', async () => {
     const { deps, reads } = setup();
     const { id } = await checkLabel(deps, { image, filename: 'a.jpg' });
-    const updated = await updateReviewerValues(deps, id, { expected: { alcoholContent: '40%' } });
+    const updated = await updateReviewerValues(deps, id, {
+      expected: { alcoholContent: '40%' },
+    });
     expect(reads()).toBe(1);
     expect(updated.report.verdict).toBe('needs_review');
     expect((await getLabel(deps, id)).report.expected).toEqual({ alcoholContent: '40%' });
@@ -47,7 +55,11 @@ describe('label service', () => {
 
   it('saves a tracked correction and keeps the application values', async () => {
     const { deps } = setup();
-    const { id } = await checkLabel(deps, { image, filename: 'a.jpg', expected: { netContents: '1 L' } });
+    const { id } = await checkLabel(deps, {
+      image,
+      filename: 'a.jpg',
+      expected: { netContents: '1 L' },
+    });
     const corrected = await updateReviewerValues(
       deps,
       id,
@@ -60,25 +72,37 @@ describe('label service', () => {
       reviewer: 'JP',
     });
     expect(corrected.report.reading.fields.netContents.value).toBe('750 mL');
-    expect(corrected.report.comparisons.find((c) => c.field === 'netContents')?.status).toBe('match');
+    expect(
+      corrected.report.comparisons.find((c) => c.field === 'netContents')?.status,
+    ).toBe('match');
     expect(corrected.report.expected).toEqual({ netContents: '1 L' });
   });
 
   it('records decisions, and requires a reason to reject', async () => {
     const { deps } = setup();
     const { id } = await checkLabel(deps, { image, filename: 'a.jpg' });
-    await expect(decideLabel(deps, id, { decision: 'rejected', reason: '  ' })).rejects.toBeInstanceOf(
-      InvalidRequestError,
-    );
-    const view = await decideLabel(deps, id, { decision: 'rejected', reason: 'Warning in title case', reviewer: 'JP' });
+    await expect(
+      decideLabel(deps, id, { decision: 'rejected', reason: '  ' }),
+    ).rejects.toBeInstanceOf(InvalidRequestError);
+    const view = await decideLabel(deps, id, {
+      decision: 'rejected',
+      reason: 'Warning in title case',
+      reviewer: 'JP',
+    });
     expect(view.status).toBe('rejected');
-    expect(view.decisions).toMatchObject([{ decision: 'rejected', reason: 'Warning in title case', reviewer: 'JP' }]);
+    expect(view.decisions).toMatchObject([
+      { decision: 'rejected', reason: 'Warning in title case', reviewer: 'JP' },
+    ]);
   });
 
   it('reports a missing label as not found', async () => {
     const { deps } = setup();
     await expect(getLabel(deps, 'nope')).rejects.toBeInstanceOf(LabelNotFoundError);
-    await expect(updateReviewerValues(deps, 'nope', {})).rejects.toBeInstanceOf(LabelNotFoundError);
-    await expect(decideLabel(deps, 'nope', { decision: 'approved' })).rejects.toBeInstanceOf(LabelNotFoundError);
+    await expect(updateReviewerValues(deps, 'nope', {})).rejects.toBeInstanceOf(
+      LabelNotFoundError,
+    );
+    await expect(
+      decideLabel(deps, 'nope', { decision: 'approved' }),
+    ).rejects.toBeInstanceOf(LabelNotFoundError);
   });
 });

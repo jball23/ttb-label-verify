@@ -14,7 +14,11 @@ export function checkLabelImage(image: File, batchId: string): Promise<LabelView
 
 export function saveReviewerValues(
   id: string,
-  values: { expected?: ExpectedValues; corrections?: CorrectionValues; reviewer?: string | null },
+  values: {
+    expected?: ExpectedValues;
+    corrections?: CorrectionValues;
+    reviewer?: string | null;
+  },
 ): Promise<LabelView> {
   return request(`/api/labels/${id}`, json('PATCH', values));
 }
@@ -27,7 +31,11 @@ export function decide(
 }
 
 function json(method: string, body: unknown): RequestInit {
-  return { method, body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } };
+  return {
+    method,
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+  };
 }
 
 async function request(url: string, init: RequestInit): Promise<LabelView> {
@@ -37,7 +45,9 @@ async function request(url: string, init: RequestInit): Promise<LabelView> {
   } catch {
     throw new Error('Could not reach the server. Check your connection and try again.');
   }
-  const body = (await response.json().catch(() => null)) as (LabelView & { error?: string }) | null;
+  const body = (await response.json().catch(() => null)) as
+    | (LabelView & { error?: string })
+    | null;
   if (!response.ok || !body) {
     throw new Error(body?.error ?? 'Something went wrong. Try again.');
   }

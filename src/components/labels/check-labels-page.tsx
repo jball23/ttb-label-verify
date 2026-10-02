@@ -18,17 +18,26 @@ export function CheckLabelsPage({ waiting }: { waiting: LabelView[] }) {
   const { items } = useBatch();
   const [order, setOrder] = useState<Order>('problems');
 
-  const batchIds = useMemo(() => new Set(items.flatMap((item) => (item.label ? [item.label.id] : []))), [items]);
+  const batchIds = useMemo(
+    () => new Set(items.flatMap((item) => (item.label ? [item.label.id] : []))),
+    [items],
+  );
   const earlier = useMemo(
     () => waiting.filter((view) => !batchIds.has(view.id)).sort(byProblemsFirst),
     [waiting, batchIds],
   );
-  const shown = useMemo(() => (order === 'problems' ? sortProblemsFirst(items) : items), [items, order]);
+  const shown = useMemo(
+    () => (order === 'problems' ? sortProblemsFirst(items) : items),
+    [items, order],
+  );
 
   if (items.length === 0 && earlier.length === 0) {
     return (
       <Page>
-        <Heading title="Check labels" subtitle="Each label is read and checked against TTB requirements in a few seconds." />
+        <Heading
+          title="Check labels"
+          subtitle="Each label is read and checked against TTB requirements in a few seconds."
+        />
         <LabelDropzone />
       </Page>
     );
@@ -36,7 +45,10 @@ export function CheckLabelsPage({ waiting }: { waiting: LabelView[] }) {
 
   return (
     <Page>
-      <Heading title="Check labels" subtitle="Open any label to look closely, fix a reading, compare it with the application and decide." />
+      <Heading
+        title="Check labels"
+        subtitle="Open any label to look closely, fix a reading, compare it with the application and decide."
+      />
       <LabelDropzone compact />
 
       {items.length > 0 ? (
@@ -88,7 +100,13 @@ function BatchRow({ item }: { item: BatchItem }) {
         title={labelTitle(label.report, item.filename)}
         detail={summarizeReport(label.report)}
         thumbnailUrl={item.previewUrl}
-        chip={label.status === 'to_review' ? <VerdictChip verdict={label.report.verdict} /> : <DecisionChip status={label.status} />}
+        chip={
+          label.status === 'to_review' ? (
+            <VerdictChip verdict={label.report.verdict} />
+          ) : (
+            <DecisionChip status={label.status} />
+          )
+        }
         href={`/labels/${label.id}`}
       />
     );
@@ -99,7 +117,9 @@ function BatchRow({ item }: { item: BatchItem }) {
         title={item.filename}
         detail={item.error ?? 'This label could not be checked.'}
         thumbnailUrl={item.previewUrl}
-        chip={<span className="text-base font-semibold text-status-problem">Not checked</span>}
+        chip={
+          <span className="text-base font-semibold text-status-problem">Not checked</span>
+        }
         action={
           <Button variant="outline" onClick={() => retry(item.key)}>
             Try again
@@ -111,7 +131,9 @@ function BatchRow({ item }: { item: BatchItem }) {
   return (
     <LabelRow
       title={item.filename}
-      detail={item.status === 'queued' ? 'Waiting for a free slot…' : 'Reading the label…'}
+      detail={
+        item.status === 'queued' ? 'Waiting for a free slot…' : 'Reading the label…'
+      }
       thumbnailUrl={item.previewUrl}
       chip={<CheckingChip queued={item.status === 'queued'} />}
     />
@@ -120,8 +142,11 @@ function BatchRow({ item }: { item: BatchItem }) {
 
 function BatchProgress({ items }: { items: BatchItem[] }) {
   const { concurrency, isRunning } = useBatch();
-  const finished = items.filter((item) => item.status === 'done' || item.status === 'failed').length;
-  const count = (verdict: Verdict) => items.filter((item) => item.label?.report.verdict === verdict).length;
+  const finished = items.filter(
+    (item) => item.status === 'done' || item.status === 'failed',
+  ).length;
+  const count = (verdict: Verdict) =>
+    items.filter((item) => item.label?.report.verdict === verdict).length;
   const failed = items.filter((item) => item.status === 'failed').length;
   const percent = Math.round((finished / items.length) * 100);
 
@@ -143,19 +168,32 @@ function BatchProgress({ items }: { items: BatchItem[] }) {
         aria-valuemax={100}
         className="h-3 overflow-hidden rounded-full bg-muted"
       >
-        <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${percent}%` }} />
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-300"
+          style={{ width: `${percent}%` }}
+        />
       </div>
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-base font-semibold tabular-nums">
-        <span className="text-status-problem">{count('problems_found')} with problems</span>
+        <span className="text-status-problem">
+          {count('problems_found')} with problems
+        </span>
         <span className="text-status-review">{count('needs_review')} need a look</span>
         <span className="text-status-good">{count('looks_good')} look good</span>
-        {failed > 0 ? <span className="text-muted-foreground">{failed} not checked</span> : null}
+        {failed > 0 ? (
+          <span className="text-muted-foreground">{failed} not checked</span>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function OrderToggle({ value, onChange }: { value: Order; onChange(order: Order): void }) {
+function OrderToggle({
+  value,
+  onChange,
+}: {
+  value: Order;
+  onChange(order: Order): void;
+}) {
   const options: Array<[Order, string]> = [
     ['problems', 'Problems first'],
     ['upload', 'Upload order'],
@@ -170,7 +208,9 @@ function OrderToggle({ value, onChange }: { value: Order; onChange(order: Order)
           onClick={() => onChange(key)}
           className={cn(
             'rounded-full border px-4 py-2 text-base font-medium',
-            value === key ? 'border-foreground bg-foreground text-background' : 'border-border bg-background hover:bg-muted',
+            value === key
+              ? 'border-foreground bg-foreground text-background'
+              : 'border-border bg-background hover:bg-muted',
           )}
         >
           {label}
@@ -182,14 +222,20 @@ function OrderToggle({ value, onChange }: { value: Order; onChange(order: Order)
 
 /** Checked labels worst-first; labels still being checked stay at the end. */
 function sortProblemsFirst(items: BatchItem[]): BatchItem[] {
-  const checked = items.filter((item) => item.label).sort((a, b) => byProblemsFirst(a.label!, b.label!));
+  const checked = items
+    .filter((item) => item.label)
+    .sort((a, b) => byProblemsFirst(a.label!, b.label!));
   const failed = items.filter((item) => item.status === 'failed');
   const rest = items.filter((item) => !item.label && item.status !== 'failed');
   return [...failed, ...checked, ...rest];
 }
 
 function Page({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">{children}</div>;
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 sm:px-6 sm:py-10">
+      {children}
+    </div>
+  );
 }
 
 function Heading({ title, subtitle }: { title: string; subtitle: string }) {

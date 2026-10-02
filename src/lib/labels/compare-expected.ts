@@ -44,20 +44,26 @@ const sameAmount =
 const sameWords: Matcher = (expected, found) => looseText(expected) === looseText(found);
 
 function looseText(value: string): string {
-  return normalizedExact(value).replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+  return normalizedExact(value)
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
 }
 
 /** One matcher per field. Adding a field means adding one entry. */
 const MATCHERS: Record<LabelFieldId, Matcher> = {
   brandName: sameWords,
-  classType: (expected, found) => sameWords(expected, found) || classTypeMatches(expected, found),
+  classType: (expected, found) =>
+    sameWords(expected, found) || classTypeMatches(expected, found),
   alcoholContent: sameAmount(parseAlcoholPercent),
   netContents: sameAmount(parseVolumeMl),
   producer: producerMatches,
   countryOfOrigin: countryMatches,
 };
 
-export function compareExpected(expected: ExpectedValues, reading: LabelReading): Comparison[] {
+export function compareExpected(
+  expected: ExpectedValues,
+  reading: LabelReading,
+): Comparison[] {
   return LABEL_FIELD_IDS.map((field) => {
     const want = expected[field]?.trim() || null;
     const found = reading.fields[field].value?.trim() || null;
@@ -71,7 +77,11 @@ export function compareExpected(expected: ExpectedValues, reading: LabelReading)
   });
 }
 
-function compareOne(field: LabelFieldId, want: string | null, found: string | null): ComparisonStatus {
+function compareOne(
+  field: LabelFieldId,
+  want: string | null,
+  found: string | null,
+): ComparisonStatus {
   if (!want) return 'not_entered';
   if (!found) return 'not_found_on_label';
   return MATCHERS[field](want, found) ? 'match' : 'differs';

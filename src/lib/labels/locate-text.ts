@@ -35,24 +35,36 @@ interface Token {
 export function locateText(words: readonly OcrWord[], text: string | null): Box[] | null {
   const target = tokenize(text ?? '');
   if (target.length === 0) return null;
-  const stream: Token[] = words.flatMap((word, index) => tokenize(word.text).map((value) => ({ value, word: index })));
+  const stream: Token[] = words.flatMap((word, index) =>
+    tokenize(word.text).map((value) => ({ value, word: index })),
+  );
 
   // Text can appear more than once (a brand in the headline and again in the
   // "Bottled by" line). Prefer the most complete match, then the largest type.
-  let best: { matched: number; first: number; last: number; height: number } | null = null;
+  let best: { matched: number; first: number; last: number; height: number } | null =
+    null;
   for (let start = 0; start < stream.length; start++) {
     const value = stream[start]!.value;
-    const opens = [target[0]!, target[1] ?? '', target[0]! + (target[1] ?? '')].some((t) => tokensMatch(value, t));
+    const opens = [target[0]!, target[1] ?? '', target[0]! + (target[1] ?? '')].some(
+      (t) => tokensMatch(value, t),
+    );
     if (!opens) continue;
     const found = alignFrom(stream, start, target);
     if (!found) continue;
     const height = meanHeight(words, stream[found.first]!.word, stream[found.last]!.word);
-    if (!best || found.matched > best.matched || (found.matched === best.matched && height > best.height)) {
+    if (
+      !best ||
+      found.matched > best.matched ||
+      (found.matched === best.matched && height > best.height)
+    ) {
       best = { ...found, height };
     }
   }
 
-  const required = target.length <= EXACT_UP_TO_WORDS ? target.length : Math.ceil(target.length * MIN_MATCH_SHARE);
+  const required =
+    target.length <= EXACT_UP_TO_WORDS
+      ? target.length
+      : Math.ceil(target.length * MIN_MATCH_SHARE);
   if (!best || best.matched < required) return null;
   return boxesByLine(words, stream[best.first]!.word, stream[best.last]!.word);
 }
@@ -88,12 +100,23 @@ function alignFrom(stream: Token[], start: number, target: string[]) {
   return matched > 0 ? { matched, first: start, last } : null;
 }
 
-function meanHeight(words: readonly OcrWord[], firstWord: number, lastWord: number): number {
+function meanHeight(
+  words: readonly OcrWord[],
+  firstWord: number,
+  lastWord: number,
+): number {
   const span = words.slice(firstWord, lastWord + 1);
-  return span.reduce((sum, word) => sum + (word.bbox.y1 - word.bbox.y0), 0) / Math.max(1, span.length);
+  return (
+    span.reduce((sum, word) => sum + (word.bbox.y1 - word.bbox.y0), 0) /
+    Math.max(1, span.length)
+  );
 }
 
-function boxesByLine(words: readonly OcrWord[], firstWord: number, lastWord: number): Box[] {
+function boxesByLine(
+  words: readonly OcrWord[],
+  firstWord: number,
+  lastWord: number,
+): Box[] {
   const byLine = new Map<number, Box>();
   for (const word of words.slice(firstWord, lastWord + 1)) {
     const current = byLine.get(word.line);
@@ -103,7 +126,12 @@ function boxesByLine(words: readonly OcrWord[], firstWord: number, lastWord: num
 }
 
 function union(a: Box, b: Box): Box {
-  return { x0: Math.min(a.x0, b.x0), y0: Math.min(a.y0, b.y0), x1: Math.max(a.x1, b.x1), y1: Math.max(a.y1, b.y1) };
+  return {
+    x0: Math.min(a.x0, b.x0),
+    y0: Math.min(a.y0, b.y0),
+    x1: Math.max(a.x1, b.x1),
+    y1: Math.max(a.y1, b.y1),
+  };
 }
 
 export function tokenize(text: string): string[] {
@@ -116,7 +144,14 @@ export function tokenize(text: string): string[] {
 }
 
 /** Characters OCR commonly swaps; folded the same way on both sides before comparing. */
-const OCR_LOOKALIKES: Record<string, string> = { o: '0', l: '1', i: '1', s: '5', b: '8', z: '2' };
+const OCR_LOOKALIKES: Record<string, string> = {
+  o: '0',
+  l: '1',
+  i: '1',
+  s: '5',
+  b: '8',
+  z: '2',
+};
 
 function foldLookalikes(token: string): string {
   return token.replace(/[olisbz]/g, (c) => OCR_LOOKALIKES[c]!);

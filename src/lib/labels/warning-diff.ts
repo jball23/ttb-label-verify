@@ -28,9 +28,7 @@ function tokenize(input: string): Token[] {
 function lcs(a: Token[], b: Token[]): number[][] {
   const m = a.length;
   const n = b.length;
-  const table: number[][] = Array.from({ length: m + 1 }, () =>
-    Array(n + 1).fill(0),
-  );
+  const table: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
   for (let i = 1; i <= m; i += 1) {
     for (let j = 1; j <= n; j += 1) {
       if (a[i - 1]!.text === b[j - 1]!.text) {

@@ -22,6 +22,7 @@ export function decideVerdict(
   const comparisonNeedsLook = comparisons.some(
     (c) => c.status === 'differs' || c.status === 'not_found_on_label',
   );
-  if (comparisonNeedsLook || rules.some((r) => r.status === 'review')) return 'needs_review';
+  if (comparisonNeedsLook || rules.some((r) => r.status === 'review'))
+    return 'needs_review';
   return 'looks_good';
 }

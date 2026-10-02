@@ -53,12 +53,18 @@ export function assessReading(
  * misread of small type does not fail a compliant label, while a label that
  * really is wrong still fails.
  */
-export async function readLabel(reader: LabelReader, image: LabelImage): Promise<LabelReading> {
+export async function readLabel(
+  reader: LabelReader,
+  image: LabelImage,
+): Promise<LabelReading> {
   const reading = await reader.read(image);
   if (!warningNeedsSecondRead(reading.governmentWarning.verbatimText)) return reading;
   const second = await reader.readWarning(image);
   if (!warningIsExact(second)) return reading;
-  return { ...reading, governmentWarning: { ...reading.governmentWarning, verbatimText: second } };
+  return {
+    ...reading,
+    governmentWarning: { ...reading.governmentWarning, verbatimText: second },
+  };
 }
 
 /** Read one label image and assess it. The reader is the only I/O. */

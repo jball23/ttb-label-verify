@@ -13,6 +13,10 @@ const DecisionSchema = z.object({
 
 /** Approve or reject a label. Rejecting requires a reason. */
 export const POST = handle(async (request, { params }) => {
-  const input = parseWith(DecisionSchema, await readJson(request), 'Choose Approve or Reject.');
+  const input = parseWith(
+    DecisionSchema,
+    await readJson(request),
+    'Choose Approve or Reject.',
+  );
   return decideLabel({ repo: getLabelRepository() }, (await params).id, input);
 });

@@ -20,12 +20,20 @@ function upload(file: File | null, fields: Record<string, string> = {}) {
   const form = new FormData();
   if (file) form.set('image', file);
   for (const [key, value] of Object.entries(fields)) form.set(key, value);
-  return POST(new Request('http://test/api/labels', { method: 'POST', body: form }), undefined);
+  return POST(
+    new Request('http://test/api/labels', { method: 'POST', body: form }),
+    undefined,
+  );
 }
 
-const jpeg = (name = 'label.jpg', bytes = 'jpeg-bytes') => new File([bytes], name, { type: 'image/jpeg' });
+const jpeg = (name = 'label.jpg', bytes = 'jpeg-bytes') =>
+  new File([bytes], name, { type: 'image/jpeg' });
 const context = (id: string) => ({ params: Promise.resolve({ id }) });
-const json = (body: unknown, method = 'PATCH') => ({ method, body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
+const json = (body: unknown, method = 'PATCH') => ({
+  method,
+  body: JSON.stringify(body),
+  headers: { 'content-type': 'application/json' },
+});
 
 beforeEach(() => {
   deps = { reader: new FakeLabelReader(), repo: new MemoryLabelRepository() };
@@ -33,19 +41,34 @@ beforeEach(() => {
 
 describe('POST /api/labels', () => {
   it('checks an image and returns the label', async () => {
-    const response = await upload(jpeg(), { expected: JSON.stringify({ brandName: 'Old Tom Distillery' }) });
+    const response = await upload(jpeg(), {
+      expected: JSON.stringify({ brandName: 'Old Tom Distillery' }),
+    });
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(body.report.verdict).toBe('looks_good');
-    expect(body.report.comparisons.find((c: { field: string }) => c.field === 'brandName').status).toBe('match');
+    expect(
+      body.report.comparisons.find((c: { field: string }) => c.field === 'brandName')
+        .status,
+    ).toBe('match');
   });
 
   it.each([
     ['no image', null, {}, /No label image/],
-    ['a PDF', new File(['%PDF'], 'a.pdf', { type: 'application/pdf' }), {}, /not a label photo/],
+    [
+      'a PDF',
+      new File(['%PDF'], 'a.pdf', { type: 'application/pdf' }),
+      {},
+      /not a label photo/,
+    ],
     ['an empty image', jpeg('e.jpg', ''), {}, /empty/],
     ['bad application values', jpeg(), { expected: '{nope' }, /not valid JSON/],
-    ['an unknown application field', jpeg(), { expected: '{"colour":"red"}' }, /expected format/],
+    [
+      'an unknown application field',
+      jpeg(),
+      { expected: '{"colour":"red"}' },
+      /expected format/,
+    ],
     ['a bad batch id', jpeg(), { batchId: 'x' }, /batch id/],
   ])('rejects %s with a plain message', async (_name, file, fields, message) => {
     const response = await upload(file, fields);
@@ -64,7 +87,8 @@ describe('POST /api/labels', () => {
 
   // The old route told reviewers to check the OpenAI key when the database failed.
   it('blames the database, not the AI service, when saving fails', async () => {
-    deps.repo.create = () => Promise.reject(new DatabaseError(new Error('connection refused')));
+    deps.repo.create = () =>
+      Promise.reject(new DatabaseError(new Error('connection refused')));
     const response = await upload(jpeg());
     expect(response.status).toBe(503);
     const { error } = await response.json();
@@ -80,15 +104,24 @@ describe('label follow-up routes', () => {
 
   it('re-compares application values', async () => {
     const id = await createdId();
-    const response = await PATCH(new Request('http://test', json({ expected: { netContents: '1 L' } })), context(id));
+    const response = await PATCH(
+      new Request('http://test', json({ expected: { netContents: '1 L' } })),
+      context(id),
+    );
     expect((await response.json()).report.verdict).toBe('needs_review');
   });
 
   it('accepts a correction and rejects unknown fields', async () => {
     const id = await createdId();
-    const ok = await PATCH(new Request('http://test', json({ corrections: { brandName: 'OLD TOM' } })), context(id));
+    const ok = await PATCH(
+      new Request('http://test', json({ corrections: { brandName: 'OLD TOM' } })),
+      context(id),
+    );
     expect((await ok.json()).report.corrections.brandName.value).toBe('OLD TOM');
-    const bad = await PATCH(new Request('http://test', json({ corrections: { colour: 'red' } })), context(id));
+    const bad = await PATCH(
+      new Request('http://test', json({ corrections: { colour: 'red' } })),
+      context(id),
+    );
     expect(bad.status).toBe(400);
   });
 
@@ -99,7 +132,9 @@ describe('label follow-up routes', () => {
       context(id),
     );
     expect((await response.json()).status).toBe('approved');
-    const listed = await (await GET(new Request('http://test/api/labels?status=decided'), undefined)).json();
+    const listed = await (
+      await GET(new Request('http://test/api/labels?status=decided'), undefined)
+    ).json();
     expect(listed.labels.map((l: { id: string }) => l.id)).toEqual([id]);
   });
 

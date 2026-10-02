@@ -8,7 +8,11 @@ import { cn } from '@/lib/utils';
 
 interface Props {
   busy: boolean;
-  onDecide(decision: { decision: LabelDecision; reason: string | null; reviewer: string | null }): void;
+  onDecide(decision: {
+    decision: LabelDecision;
+    reason: string | null;
+    reviewer: string | null;
+  }): void;
   /** Pre-fills the reason box when rejecting, from the problems found. */
   suggestedReason: string;
 }
@@ -24,7 +28,11 @@ export function DecisionPanel({ busy, onDecide, suggestedReason }: Props) {
   const [reviewer, setReviewer] = useReviewerName();
 
   function decide(decision: LabelDecision) {
-    onDecide({ decision, reason: decision === 'rejected' ? reason.trim() || null : null, reviewer: reviewer.trim() || null });
+    onDecide({
+      decision,
+      reason: decision === 'rejected' ? reason.trim() || null : null,
+      reviewer: reviewer.trim() || null,
+    });
   }
 
   // One field, shown beside whichever buttons are on screen.
@@ -92,10 +100,22 @@ export function DecisionPanel({ busy, onDecide, suggestedReason }: Props) {
           />
           <div className="flex flex-wrap items-center gap-3">
             {initials}
-            <Button size="lg" variant="destructive" className="h-12 px-8 text-lg" disabled={busy || !reason.trim()} onClick={() => decide('rejected')}>
+            <Button
+              size="lg"
+              variant="destructive"
+              className="h-12 px-8 text-lg"
+              disabled={busy || !reason.trim()}
+              onClick={() => decide('rejected')}
+            >
               Reject label
             </Button>
-            <Button size="lg" variant="outline" className="h-12 px-8 text-lg" disabled={busy} onClick={() => setRejecting(false)}>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-12 px-8 text-lg"
+              disabled={busy}
+              onClick={() => setRejecting(false)}
+            >
               Cancel
             </Button>
           </div>

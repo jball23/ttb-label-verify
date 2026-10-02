@@ -44,7 +44,13 @@ export function SampleLabelsButton() {
 
   return (
     <>
-      <Button variant="outline" size="lg" className="text-base" onClick={load} disabled={loading}>
+      <Button
+        variant="outline"
+        size="lg"
+        className="text-base"
+        onClick={load}
+        disabled={loading}
+      >
         {loading ? 'Loading samples…' : `Try ${SAMPLE_LABELS.length} sample labels`}
       </Button>
       {error ? <span className="text-base text-status-problem">{error}</span> : null}

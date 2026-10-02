@@ -12,12 +12,19 @@ const out = path.resolve('public/ocr');
 const assets = [
   [path.join(pkgDir('tesseract.js'), 'dist/worker.min.js'), 'worker.min.js'],
   // LSTM engine builds; the worker picks the one the browser supports.
-  ...['tesseract-core-lstm', 'tesseract-core-simd-lstm', 'tesseract-core-relaxedsimd-lstm'].map((core) => [
+  ...[
+    'tesseract-core-lstm',
+    'tesseract-core-simd-lstm',
+    'tesseract-core-relaxedsimd-lstm',
+  ].map((core) => [
     path.join(pkgDir('tesseract.js-core'), `${core}.wasm.js`),
     `${core}.wasm.js`,
   ]),
   // The compact "best_int" English model (2.8 MB).
-  [path.join(pkgDir('@tesseract.js-data/eng'), '4.0.0_best_int/eng.traineddata.gz'), 'eng.traineddata.gz'],
+  [
+    path.join(pkgDir('@tesseract.js-data/eng'), '4.0.0_best_int/eng.traineddata.gz'),
+    'eng.traineddata.gz',
+  ],
 ];
 
 await mkdir(out, { recursive: true });

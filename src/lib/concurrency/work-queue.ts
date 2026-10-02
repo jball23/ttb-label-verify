@@ -16,7 +16,8 @@ export function createWorkQueue<T>(
   worker: (item: T) => Promise<void>,
   onChange?: () => void,
 ): WorkQueue<T> {
-  if (!Number.isInteger(limit) || limit < 1) throw new RangeError('limit must be a positive integer');
+  if (!Number.isInteger(limit) || limit < 1)
+    throw new RangeError('limit must be a positive integer');
   const pending: T[] = [];
   let active = 0;
 

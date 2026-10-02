@@ -58,7 +58,10 @@ export async function checkLabel(
   return toLabelView(record);
 }
 
-export async function getLabel({ repo }: Pick<LabelServiceDeps, 'repo'>, id: string): Promise<LabelView> {
+export async function getLabel(
+  { repo }: Pick<LabelServiceDeps, 'repo'>,
+  id: string,
+): Promise<LabelView> {
   const [record, decisions] = await Promise.all([repo.get(id), repo.listDecisions(id)]);
   return toLabelView(found(record), decisions);
 }
@@ -90,7 +93,10 @@ export async function updateReviewerValues(
       })
     : record.corrections;
   const { verdict } = assessReading(record.reading, { expected, corrections });
-  return withDecisions(repo, found(await repo.updateReviewerInput(id, { expected, corrections, verdict })));
+  return withDecisions(
+    repo,
+    found(await repo.updateReviewerInput(id, { expected, corrections, verdict })),
+  );
 }
 
 export async function decideLabel(
@@ -110,7 +116,10 @@ export async function decideLabel(
   return withDecisions(repo, found(record));
 }
 
-async function withDecisions(repo: LabelRepository, record: LabelRecord): Promise<LabelView> {
+async function withDecisions(
+  repo: LabelRepository,
+  record: LabelRecord,
+): Promise<LabelView> {
   const decisions: DecisionRecord[] = await repo.listDecisions(record.id);
   return toLabelView(record, decisions);
 }

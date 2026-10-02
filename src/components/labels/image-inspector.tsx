@@ -47,7 +47,9 @@ export function ImageInspector({ open, onOpenChange, imageUrl, alt }: Props) {
     if (!el || !open) return;
     function onWheel(e: WheelEvent): void {
       e.preventDefault();
-      setZoom((z) => Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + (e.deltaY > 0 ? -0.25 : 0.25))));
+      setZoom((z) =>
+        Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + (e.deltaY > 0 ? -0.25 : 0.25))),
+      );
     }
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);

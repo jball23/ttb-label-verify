@@ -17,7 +17,9 @@ const holder = globalThis as typeof globalThis & { __labelRepository?: LabelRepo
 export function getLabelRepository(): LabelRepository {
   if (holder.__labelRepository) return holder.__labelRepository;
   const db = tryGetDb();
-  holder.__labelRepository = db ? new DrizzleLabelRepository(db) : new MemoryLabelRepository();
+  holder.__labelRepository = db
+    ? new DrizzleLabelRepository(db)
+    : new MemoryLabelRepository();
   return holder.__labelRepository;
 }
 

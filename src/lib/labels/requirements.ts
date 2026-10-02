@@ -28,11 +28,13 @@ export const REQUIREMENTS: Record<CorrectableField, Requirement> = {
   },
   netContents: {
     section: '27 CFR §4.37 · §5.38 · §7.27',
-    summary: 'The label must state the net contents, in metric units (mL or L) for wine and spirits.',
+    summary:
+      'The label must state the net contents, in metric units (mL or L) for wine and spirits.',
   },
   producer: {
     section: '27 CFR §4.35 · §5.36 · §7.25',
-    summary: 'The label must name the bottler, producer or importer and give its address (at least city and state).',
+    summary:
+      'The label must name the bottler, producer or importer and give its address (at least city and state).',
   },
   countryOfOrigin: {
     section: null,

@@ -45,7 +45,8 @@ function appendWords(words: OcrWord[], blocks: Block[], scale: number): void {
   for (const block of blocks) {
     for (const paragraph of block.paragraphs) {
       for (const printed of paragraph.lines) {
-        for (const word of printed.words) words.push({ text: word.text, bbox: shrink(word.bbox, scale), line });
+        for (const word of printed.words)
+          words.push({ text: word.text, bbox: shrink(word.bbox, scale), line });
         line += 1;
       }
     }
@@ -53,7 +54,12 @@ function appendWords(words: OcrWord[], blocks: Block[], scale: number): void {
 }
 
 function shrink(box: Box, scale: number): Box {
-  return { x0: box.x0 / scale, y0: box.y0 / scale, x1: box.x1 / scale, y1: box.y1 / scale };
+  return {
+    x0: box.x0 / scale,
+    y0: box.y0 / scale,
+    x1: box.x1 / scale,
+    y1: box.y1 / scale,
+  };
 }
 
 /** One worker per tab, created on first use and reused for every label reviewed after. */
@@ -62,7 +68,12 @@ let workerPromise: Promise<Worker> | null = null;
 function getWorker(): Promise<Worker> {
   workerPromise ??= import('tesseract.js').then(async ({ createWorker, PSM }) => {
     // Served from this site (scripts/copy-ocr-assets.mjs), never a CDN.
-    const worker = await createWorker('eng', 1, { workerPath: '/ocr/worker.min.js', corePath: '/ocr', langPath: '/ocr', gzip: true });
+    const worker = await createWorker('eng', 1, {
+      workerPath: '/ocr/worker.min.js',
+      corePath: '/ocr',
+      langPath: '/ocr',
+      gzip: true,
+    });
     // Labels are scattered text over artwork, not a page of prose. Sparse-text
     // mode finds small lines (e.g. "80 PROOF") the default layout analysis skips.
     await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT });

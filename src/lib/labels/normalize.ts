@@ -219,7 +219,6 @@ export function producerMatches(applicationValue: string, labelValue: string): b
   return jaccard(appTokens, labelTokens) >= PRODUCER_MATCH_THRESHOLD;
 }
 
-
 /**
  * Country match: normalized exact with USA aliases.
  *
@@ -235,7 +234,8 @@ export function countryMatches(applicationValue: string, labelValue: string): bo
     COUNTRY_ALIASES[normalizeCountryValue(applicationValue)] ??
     normalizeCountryValue(applicationValue);
   const labelNorm =
-    COUNTRY_ALIASES[normalizeCountryValue(labelValue)] ?? normalizeCountryValue(labelValue);
+    COUNTRY_ALIASES[normalizeCountryValue(labelValue)] ??
+    normalizeCountryValue(labelValue);
   if (appNorm === 'imported') return labelNorm !== 'usa' && labelNorm.length > 0;
   return appNorm === labelNorm;
 }
@@ -246,9 +246,6 @@ function normalizeCountryValue(value: string): string {
     .replace(/^country\s+of\s+origin\s+/, '')
     .trim();
 }
-
-
-
 
 /**
  * Class/type match: normalized exact OR alias-equivalent OR bidirectional
@@ -285,9 +282,7 @@ export function inferProductFamilyFromText(
     canonicalWineVarietal(value) != null ||
     isWineTypeOnly(value);
   const maltHit =
-    /\b(?:malt|beer|ale|lager|stout|porter|ipa|pilsner|weisse|saison)\b/.test(
-      normalized,
-    );
+    /\b(?:malt|beer|ale|lager|stout|porter|ipa|pilsner|weisse|saison)\b/.test(normalized);
   const spiritsHit =
     /\b(?:spirits?|whiskey|whisky|vodka|rum|gin|tequila|bourbon|brandy|cognac|mezcal|liqueur|cordial|schnapps|absinthe|amaro|aquavit|ouzo|sotol|pisco|grappa|distilled|blanco|reposado|anejo)\b/.test(
       normalized,

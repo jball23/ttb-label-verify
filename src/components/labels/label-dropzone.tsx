@@ -39,12 +39,22 @@ export function LabelDropzone({ compact = false }: { compact?: boolean }) {
         onDrop={onDrop}
         className={cn(
           'flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed border-border bg-card text-center transition-colors',
-          compact ? 'px-6 py-6 sm:flex-row sm:justify-between sm:text-left' : 'px-6 py-14',
+          compact
+            ? 'px-6 py-6 sm:flex-row sm:justify-between sm:text-left'
+            : 'px-6 py-14',
           dragging && 'border-foreground/40 bg-muted',
         )}
       >
-        <div className={cn('flex flex-col items-center gap-2', compact && 'sm:flex-row sm:gap-4')}>
-          <ImageUp aria-hidden className={cn('text-muted-foreground', compact ? 'size-8' : 'size-12')} />
+        <div
+          className={cn(
+            'flex flex-col items-center gap-2',
+            compact && 'sm:flex-row sm:gap-4',
+          )}
+        >
+          <ImageUp
+            aria-hidden
+            className={cn('text-muted-foreground', compact ? 'size-8' : 'size-12')}
+          />
           <div className="flex flex-col gap-1">
             <p className={cn('font-semibold', compact ? 'text-lg' : 'text-2xl')}>
               {compact ? 'Drop more label photos here' : 'Drop label photos here'}
@@ -77,9 +87,14 @@ export function LabelDropzone({ compact = false }: { compact?: boolean }) {
         </div>
       </div>
       {rejected.length > 0 ? (
-        <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-base">
+        <div
+          role="alert"
+          className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-base"
+        >
           <p className="font-semibold text-status-problem">
-            {rejected.length === 1 ? 'One file was not added:' : `${rejected.length} files were not added:`}
+            {rejected.length === 1
+              ? 'One file was not added:'
+              : `${rejected.length} files were not added:`}
           </p>
           <ul className="mt-1 list-disc pl-5">
             {rejected.slice(0, 5).map(({ name, reason }) => (

@@ -20,8 +20,17 @@ export class MemoryLabelRepository implements LabelRepository {
 
   async create({ imageBytes, ...label }: NewLabelRecord): Promise<LabelRecord> {
     const now = new Date();
-    const record: LabelRecord = { ...label, id: randomUUID(), createdAt: now, status: 'to_review', statusAt: now };
-    this.labels.set(record.id, { record, image: { bytes: imageBytes, mimeType: label.mimeType } });
+    const record: LabelRecord = {
+      ...label,
+      id: randomUUID(),
+      createdAt: now,
+      status: 'to_review',
+      statusAt: now,
+    };
+    this.labels.set(record.id, {
+      record,
+      image: { bytes: imageBytes, mimeType: label.mimeType },
+    });
     return record;
   }
 
@@ -33,7 +42,11 @@ export class MemoryLabelRepository implements LabelRepository {
     return this.labels.get(id)?.image ?? null;
   }
 
-  async findCachedReading(contentHash: string, promptVersion: string, readerModel: string): Promise<LabelReading | null> {
+  async findCachedReading(
+    contentHash: string,
+    promptVersion: string,
+    readerModel: string,
+  ): Promise<LabelReading | null> {
     for (const { record } of this.labels.values()) {
       if (
         record.contentHash === contentHash &&
@@ -46,7 +59,10 @@ export class MemoryLabelRepository implements LabelRepository {
     return null;
   }
 
-  async updateReviewerInput(id: string, update: ReviewerUpdate): Promise<LabelRecord | null> {
+  async updateReviewerInput(
+    id: string,
+    update: ReviewerUpdate,
+  ): Promise<LabelRecord | null> {
     return this.patch(id, update);
   }
 
@@ -65,7 +81,13 @@ export class MemoryLabelRepository implements LabelRepository {
     return new Map(ids.map((id) => [id, this.decisions.get(id) ?? []]));
   }
 
-  async list({ statuses, limit }: { statuses: readonly LabelRecord['status'][]; limit: number }): Promise<LabelRecord[]> {
+  async list({
+    statuses,
+    limit,
+  }: {
+    statuses: readonly LabelRecord['status'][];
+    limit: number;
+  }): Promise<LabelRecord[]> {
     return [...this.labels.values()]
       .map(({ record }) => record)
       .filter((record) => statuses.includes(record.status))

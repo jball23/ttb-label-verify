@@ -8,12 +8,19 @@ import { z } from 'zod';
 
 /** An unset variable often arrives as an empty string (e.g. from Vercel); treat it as unset. */
 const blankAsUnset = (value: unknown) => (value === '' ? undefined : value);
-const optional = <T extends z.ZodTypeAny>(schema: T) => z.preprocess(blankAsUnset, schema.optional());
+const optional = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess(blankAsUnset, schema.optional());
 
 const baseSchema = z.object({
   /** Which label reader verifies images. `fake` is for offline demos and tests. */
-  LABEL_READER: z.preprocess(blankAsUnset, z.enum(['openai', 'azure-openai', 'fake']).default('openai')),
-  LABEL_READER_TIMEOUT_MS: z.preprocess(blankAsUnset, integerEnv('15000', { min: 1000, max: 60000 })),
+  LABEL_READER: z.preprocess(
+    blankAsUnset,
+    z.enum(['openai', 'azure-openai', 'fake']).default('openai'),
+  ),
+  LABEL_READER_TIMEOUT_MS: z.preprocess(
+    blankAsUnset,
+    integerEnv('15000', { min: 1000, max: 60000 }),
+  ),
   OPENAI_API_KEY: optional(z.string()),
   OPENAI_VLM_MODEL: optional(z.string()),
   /** Optional stronger model for re-reading a warning that looks wrong. */

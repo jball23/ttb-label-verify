@@ -234,7 +234,10 @@ const US_STATES = [
 ] as const;
 
 const APPELLATION_ENTRIES: Entry[] = [
-  { canonical: 'American', aliases: ['USA', 'U.S.A.', 'United States', 'United States of America'] },
+  {
+    canonical: 'American',
+    aliases: ['USA', 'U.S.A.', 'United States', 'United States of America'],
+  },
   ...US_STATES.map((canonical) => ({ canonical })),
   ...COMMON_US_AVAS.map((canonical) => ({ canonical })),
   { canonical: 'Argentina' },
@@ -284,7 +287,9 @@ export function findWineVarietals(value: string | null | undefined): WineLexicon
   return findMatches(value, VARIETAL_MATCHERS);
 }
 
-export function findWineAppellations(value: string | null | undefined): WineLexiconMatch[] {
+export function findWineAppellations(
+  value: string | null | undefined,
+): WineLexiconMatch[] {
   return findMatches(value, APPELLATION_MATCHERS);
 }
 
@@ -294,7 +299,9 @@ export function canonicalWineVarietal(value: string | null | undefined): string 
   return uniqueCanonicals(matches).join(', ');
 }
 
-export function canonicalWineAppellation(value: string | null | undefined): string | null {
+export function canonicalWineAppellation(
+  value: string | null | undefined,
+): string | null {
   const matches = findWineAppellations(value);
   if (matches.length === 0) return null;
   return matches[0]?.canonical ?? null;
@@ -306,7 +313,9 @@ export function isWineTypeOnly(value: string | null | undefined): boolean {
   return WINE_TYPE_ONLY_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
-function buildMatchers(entries: Entry[]): Array<WineLexiconMatch & { key: string; re: RegExp }> {
+function buildMatchers(
+  entries: Entry[],
+): Array<WineLexiconMatch & { key: string; re: RegExp }> {
   return entries
     .flatMap((entry) => {
       const names = [entry.canonical, ...(entry.aliases ?? [])];

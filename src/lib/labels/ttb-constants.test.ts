@@ -13,9 +13,7 @@ describe('TTB constants', () => {
   });
 
   it('canonical warning starts with the all-caps prefix', () => {
-    expect(GOVERNMENT_WARNING_CANONICAL.startsWith(GOVERNMENT_WARNING_PREFIX)).toBe(
-      true,
-    );
+    expect(GOVERNMENT_WARNING_CANONICAL.startsWith(GOVERNMENT_WARNING_PREFIX)).toBe(true);
   });
 
   it('canonical warning contains sentence (1) about pregnancy verbatim', () => {

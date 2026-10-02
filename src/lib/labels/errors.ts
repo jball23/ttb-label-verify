@@ -16,13 +16,21 @@ export class LabelPipelineError extends Error {
 
 export class ReaderAuthError extends LabelPipelineError {
   constructor(cause?: unknown) {
-    super('The label reader is not set up correctly. Ask an administrator to check the AI service key.', 502, { cause });
+    super(
+      'The label reader is not set up correctly. Ask an administrator to check the AI service key.',
+      502,
+      { cause },
+    );
   }
 }
 
 export class ReaderRateLimitError extends LabelPipelineError {
   constructor(cause?: unknown) {
-    super('Too many labels are being checked at once. Try this label again in a moment.', 503, { cause });
+    super(
+      'Too many labels are being checked at once. Try this label again in a moment.',
+      503,
+      { cause },
+    );
   }
 }
 
@@ -34,13 +42,19 @@ export class ReaderTimeoutError extends LabelPipelineError {
 
 export class ReaderResponseError extends LabelPipelineError {
   constructor(cause?: unknown) {
-    super('The label reader returned something unexpected. Try this label again.', 502, { cause });
+    super('The label reader returned something unexpected. Try this label again.', 502, {
+      cause,
+    });
   }
 }
 
 export class DatabaseError extends LabelPipelineError {
   constructor(cause?: unknown) {
-    super('The result could not be saved. Try again, or contact an administrator if it keeps happening.', 503, { cause });
+    super(
+      'The result could not be saved. Try again, or contact an administrator if it keeps happening.',
+      503,
+      { cause },
+    );
   }
 }
 
@@ -52,7 +66,10 @@ export class InvalidRequestError extends LabelPipelineError {
 
 export class LabelNotFoundError extends LabelPipelineError {
   constructor() {
-    super('This label could not be found. It may have been checked on another server without a database.', 404);
+    super(
+      'This label could not be found. It may have been checked on another server without a database.',
+      404,
+    );
   }
 }
 
@@ -61,5 +78,8 @@ export function describeError(error: unknown): { message: string; status: number
   if (error instanceof LabelPipelineError) {
     return { message: error.userMessage, status: error.httpStatus };
   }
-  return { message: 'Something went wrong checking this label. Try it again.', status: 500 };
+  return {
+    message: 'Something went wrong checking this label. Try it again.',
+    status: 500,
+  };
 }

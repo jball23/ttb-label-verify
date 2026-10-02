@@ -11,7 +11,10 @@ const VERDICT_RANK: Record<Verdict, number> = {
 type Sortable = { createdAt: string; report: { verdict: Verdict } };
 
 export function byProblemsFirst(a: Sortable, b: Sortable): number {
-  return VERDICT_RANK[a.report.verdict] - VERDICT_RANK[b.report.verdict] || a.createdAt.localeCompare(b.createdAt);
+  return (
+    VERDICT_RANK[a.report.verdict] - VERDICT_RANK[b.report.verdict] ||
+    a.createdAt.localeCompare(b.createdAt)
+  );
 }
 
 /** The one sentence a list row shows: the most important thing to know. */

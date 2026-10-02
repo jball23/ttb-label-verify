@@ -35,7 +35,10 @@ export interface OpenAICompatibleReaderOptions {
 }
 
 const LABEL_FORMAT = zodResponseFormat(LabelReadingSchema, 'label_reading');
-const WARNING_FORMAT = zodResponseFormat(z.object({ verbatimText: z.string().nullable() }), 'warning_reading');
+const WARNING_FORMAT = zodResponseFormat(
+  z.object({ verbatimText: z.string().nullable() }),
+  'warning_reading',
+);
 
 /**
  * Structured-output vision calls for OpenAI and Azure OpenAI alike, since
@@ -49,13 +52,25 @@ export class OpenAICompatibleReader implements LabelReader {
   }
 
   async read(image: LabelImage): Promise<LabelReading> {
-    const reading = await this.ask(this.options.model, image, LABEL_READER_PROMPT, 'Read this alcohol beverage label.', LABEL_FORMAT);
+    const reading = await this.ask(
+      this.options.model,
+      image,
+      LABEL_READER_PROMPT,
+      'Read this alcohol beverage label.',
+      LABEL_FORMAT,
+    );
     return normalizeReading(reading);
   }
 
   async readWarning(image: LabelImage): Promise<string | null> {
     const model = this.options.warningModel ?? this.options.model;
-    const { verbatimText } = await this.ask(model, image, WARNING_READER_PROMPT, 'Transcribe the government warning.', WARNING_FORMAT);
+    const { verbatimText } = await this.ask(
+      model,
+      image,
+      WARNING_READER_PROMPT,
+      'Transcribe the government warning.',
+      WARNING_FORMAT,
+    );
     return verbatimText?.trim() ? verbatimText : null;
   }
 
@@ -67,7 +82,12 @@ export class OpenAICompatibleReader implements LabelReader {
     instruction: string,
     format: ReturnType<typeof zodResponseFormat<z.ZodType<T>>>,
   ): Promise<T> {
-    const { client, timeoutMs = 15_000, rateLimitRetries = 2, reasoningEffort } = this.options;
+    const {
+      client,
+      timeoutMs = 15_000,
+      rateLimitRetries = 2,
+      reasoningEffort,
+    } = this.options;
     try {
       const completion = await retryRateLimitedRequest(
         () =>
@@ -80,7 +100,10 @@ export class OpenAICompatibleReader implements LabelReader {
                   role: 'user',
                   content: [
                     { type: 'text', text: instruction },
-                    { type: 'image_url', image_url: { url: toDataUrl(image), detail: 'high' } },
+                    {
+                      type: 'image_url',
+                      image_url: { url: toDataUrl(image), detail: 'high' },
+                    },
                   ],
                 },
               ],

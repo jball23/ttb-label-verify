@@ -16,10 +16,13 @@ export const maxDuration = 30;
 /** Check one label image. Multipart: `image`, optional `expected` (JSON), optional `batchId`. */
 export const POST = handle<unknown>(async (request) => {
   const form = await request.formData().catch(() => {
-    throw new InvalidRequestError('Send the label as a multipart form with an "image" field.');
+    throw new InvalidRequestError(
+      'Send the label as a multipart form with an "image" field.',
+    );
   });
   const image = form.get('image');
-  if (!(image instanceof File)) throw new InvalidRequestError('No label image was attached.');
+  if (!(image instanceof File))
+    throw new InvalidRequestError('No label image was attached.');
   const problem = validateLabelFile(image);
   if (problem) throw new InvalidRequestError(problem);
 
@@ -36,7 +39,10 @@ export const POST = handle<unknown>(async (request) => {
 
   return checkLabel(getLabelServiceDeps(), {
     // validateLabelFile has confirmed the type is a supported image type.
-    image: { bytes: Buffer.from(await image.arrayBuffer()), mimeType: image.type as LabelImageMimeType },
+    image: {
+      bytes: Buffer.from(await image.arrayBuffer()),
+      mimeType: image.type as LabelImageMimeType,
+    },
     filename: image.name,
     batchId,
     expected,

@@ -31,8 +31,9 @@ export class FakeLabelReader implements LabelReader {
   readonly modelId = 'fake';
 
   constructor(
-    private readonly readingFor: (image: LabelImage) => LabelReading | Promise<LabelReading> = () =>
-      compliantReading(),
+    private readonly readingFor: (
+      image: LabelImage,
+    ) => LabelReading | Promise<LabelReading> = () => compliantReading(),
     /** The focused warning read; defaults to what the full read found. */
     private readonly warningFor?: (image: LabelImage) => string | null,
   ) {}
@@ -42,6 +43,8 @@ export class FakeLabelReader implements LabelReader {
   }
 
   async readWarning(image: LabelImage): Promise<string | null> {
-    return this.warningFor ? this.warningFor(image) : (await this.readingFor(image)).governmentWarning.verbatimText;
+    return this.warningFor
+      ? this.warningFor(image)
+      : (await this.readingFor(image)).governmentWarning.verbatimText;
   }
 }

@@ -19,7 +19,9 @@ describe('compareExpected', () => {
   });
 
   it('flags a different brand', () => {
-    expect(statusFor('brandName', 'Stone Throw Reserve', "STONE'S THROW")).toBe('differs');
+    expect(statusFor('brandName', 'Stone Throw Reserve', "STONE'S THROW")).toBe(
+      'differs',
+    );
   });
 
   it('matches alcohol content by amount, not wording', () => {
@@ -35,14 +37,21 @@ describe('compareExpected', () => {
 
   it('matches producers by name and place', () => {
     expect(
-      statusFor('producer', 'Old Tom Distillery, Bardstown, KY', 'Bottled by Old Tom Distillery, Bardstown, Kentucky'),
+      statusFor(
+        'producer',
+        'Old Tom Distillery, Bardstown, KY',
+        'Bottled by Old Tom Distillery, Bardstown, Kentucky',
+      ),
     ).toBe('match');
   });
 
   it('distinguishes not entered from not on the label', () => {
     const reading = compliantReading();
     const byField = Object.fromEntries(
-      compareExpected({ countryOfOrigin: 'Mexico' }, reading).map((c) => [c.field, c.status]),
+      compareExpected({ countryOfOrigin: 'Mexico' }, reading).map((c) => [
+        c.field,
+        c.status,
+      ]),
     );
     expect(byField.countryOfOrigin).toBe('not_found_on_label');
     expect(byField.brandName).toBe('not_entered');

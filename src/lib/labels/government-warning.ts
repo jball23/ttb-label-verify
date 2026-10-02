@@ -49,7 +49,9 @@ export function analyzeGovernmentWarning(text: string | null): WarningFinding[] 
  * second, focused read before failing the label; a missing warning is not.
  */
 export function warningNeedsSecondRead(text: string | null): boolean {
-  return analyzeGovernmentWarning(text).some((f) => f.kind === 'wording_differs' || f.kind === 'prefix_not_exact');
+  return analyzeGovernmentWarning(text).some(
+    (f) => f.kind === 'wording_differs' || f.kind === 'prefix_not_exact',
+  );
 }
 
 export function warningIsExact(text: string | null): boolean {

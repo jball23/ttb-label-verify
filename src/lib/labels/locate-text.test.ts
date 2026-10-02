@@ -4,7 +4,16 @@ import { locateText, tokenize, type OcrWord } from './locate-text';
 /** Lays words out left to right, one printed line per inner array. */
 function page(lines: string[][]): OcrWord[] {
   return lines.flatMap((line, lineIndex) =>
-    line.map((text, i) => ({ text, line: lineIndex, bbox: { x0: i * 100, y0: lineIndex * 50, x1: i * 100 + 90, y1: lineIndex * 50 + 40 } })),
+    line.map((text, i) => ({
+      text,
+      line: lineIndex,
+      bbox: {
+        x0: i * 100,
+        y0: lineIndex * 50,
+        x1: i * 100 + 90,
+        y1: lineIndex * 50 + 40,
+      },
+    })),
   );
 }
 
@@ -18,7 +27,9 @@ const LABEL = page([
 
 describe('locateText', () => {
   it('boxes a one-line value', () => {
-    expect(locateText(LABEL, 'OLD TOM DISTILLERY')).toEqual([{ x0: 0, y0: 0, x1: 290, y1: 40 }]);
+    expect(locateText(LABEL, 'OLD TOM DISTILLERY')).toEqual([
+      { x0: 0, y0: 0, x1: 290, y1: 40 },
+    ]);
   });
 
   it('ignores case and punctuation differences', () => {
@@ -26,7 +37,10 @@ describe('locateText', () => {
   });
 
   it('returns one box per printed line for text that wraps', () => {
-    const boxes = locateText(LABEL, 'GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink');
+    const boxes = locateText(
+      LABEL,
+      'GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink',
+    );
     expect(boxes).toHaveLength(2);
     expect(boxes![0]).toMatchObject({ y0: 150 });
     expect(boxes![1]).toMatchObject({ y0: 200 });
@@ -45,7 +59,10 @@ describe('locateText', () => {
   });
 
   it('tolerates missing words in long text', () => {
-    const words = 'GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink'.split(' ');
+    const words =
+      'GOVERNMENT WARNING: (1) According to the Surgeon General, women should not drink'.split(
+        ' ',
+      );
     const garbled = page([words.map((w, i) => (i % 4 === 3 ? '~~~' : w))]);
     expect(locateText(garbled, words.join(' '))).not.toBeNull();
   });
@@ -81,6 +98,14 @@ describe('locateText', () => {
 
 describe('tokenize', () => {
   it('splits on anything that is not a letter or digit', () => {
-    expect(tokenize("45% Alc./Vol. (90 Proof) STONE'S")).toEqual(['45', 'alc', 'vol', '90', 'proof', 'stone', 's']);
+    expect(tokenize("45% Alc./Vol. (90 Proof) STONE'S")).toEqual([
+      '45',
+      'alc',
+      'vol',
+      '90',
+      'proof',
+      'stone',
+      's',
+    ]);
   });
 });

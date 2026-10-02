@@ -17,13 +17,15 @@ export const LABEL_RULES: readonly LabelRule[] = [
   fieldRule({
     field: 'classType',
     whenMissing: 'fail',
-    missingReason: 'No class/type designation (e.g. "Bourbon Whiskey") was found on the label.',
+    missingReason:
+      'No class/type designation (e.g. "Bourbon Whiskey") was found on the label.',
   }),
   fieldRule({
     field: 'alcoholContent',
     // Some wines and malt beverages are exempt, so a person decides.
     whenMissing: 'review',
-    missingReason: 'No alcohol content was found. That is only allowed for certain wines and beers.',
+    missingReason:
+      'No alcohol content was found. That is only allowed for certain wines and beers.',
     validate: (value) => {
       if (statesAlcoholPercent(value)) return null;
       return parseAlcoholPercent(value) === null
@@ -36,7 +38,9 @@ export const LABEL_RULES: readonly LabelRule[] = [
     whenMissing: 'fail',
     missingReason: 'No net contents (e.g. "750 mL") was found on the label.',
     validate: (value) =>
-      parseVolumeMl(value) === null ? 'The net contents does not show a recognizable unit (mL, L or fl oz).' : null,
+      parseVolumeMl(value) === null
+        ? 'The net contents does not show a recognizable unit (mL, L or fl oz).'
+        : null,
   }),
   fieldRule({
     field: 'producer',

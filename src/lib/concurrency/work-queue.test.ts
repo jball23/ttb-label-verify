@@ -48,9 +48,15 @@ describe('createWorkQueue', () => {
 
   it('reports changes so a UI can re-render', async () => {
     let changes = 0;
-    const queue = createWorkQueue<number>(2, async () => { await tick(); }, () => {
-      changes += 1;
-    });
+    const queue = createWorkQueue<number>(
+      2,
+      async () => {
+        await tick();
+      },
+      () => {
+        changes += 1;
+      },
+    );
     queue.push(1, 2);
     await drained(queue);
     expect(changes).toBe(3); // one push, two completions

@@ -53,7 +53,10 @@ export const labels = pgTable(
     index('labels_created_at_idx').on(t.createdAt.desc()),
     index('labels_status_idx').on(t.status, t.createdAt.desc()),
     index('labels_reading_cache_idx').on(t.contentHash, t.promptVersion, t.readerModel),
-    check('labels_verdict_check', sql`${t.verdict} in ('looks_good','needs_review','problems_found')`),
+    check(
+      'labels_verdict_check',
+      sql`${t.verdict} in ('looks_good','needs_review','problems_found')`,
+    ),
     check('labels_status_check', sql`${t.status} in ('to_review','approved','rejected')`),
   ],
 );
@@ -72,11 +75,13 @@ export const labelDecisions = pgTable(
   },
   (t) => [
     index('label_decisions_label_id_idx').on(t.labelId, t.createdAt.desc()),
-    check('label_decisions_decision_check', sql`${t.decision} in ('approved','rejected')`),
+    check(
+      'label_decisions_decision_check',
+      sql`${t.decision} in ('approved','rejected')`,
+    ),
   ],
 );
 
 export type LabelRow = typeof labels.$inferSelect;
 export type NewLabelRow = typeof labels.$inferInsert;
 export type LabelDecisionRow = typeof labelDecisions.$inferSelect;
-

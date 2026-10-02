@@ -27,10 +27,13 @@ export function createLabelReader(env: Env): LabelReader {
     case 'fake':
       return new FakeLabelReader();
     case 'azure-openai': {
-      const { AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_DEPLOYMENT } = env;
+      const { AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, AZURE_OPENAI_DEPLOYMENT } =
+        env;
       if (!AZURE_OPENAI_ENDPOINT || !AZURE_OPENAI_API_KEY || !AZURE_OPENAI_DEPLOYMENT) {
         throw new ReaderAuthError(
-          new Error('AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY and AZURE_OPENAI_DEPLOYMENT are required'),
+          new Error(
+            'AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY and AZURE_OPENAI_DEPLOYMENT are required',
+          ),
         );
       }
       const client: OpenAI = new AzureOpenAI({

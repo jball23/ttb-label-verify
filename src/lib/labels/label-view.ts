@@ -16,7 +16,10 @@ export interface LabelView {
   decisions: Array<Omit<DecisionRecord, 'createdAt'> & { createdAt: string }>;
 }
 
-export function toLabelView(record: LabelRecord, decisions: DecisionRecord[] = []): LabelView {
+export function toLabelView(
+  record: LabelRecord,
+  decisions: DecisionRecord[] = [],
+): LabelView {
   return {
     id: record.id,
     createdAt: record.createdAt.toISOString(),
@@ -28,7 +31,10 @@ export function toLabelView(record: LabelRecord, decisions: DecisionRecord[] = [
     status: record.status,
     statusAt: record.statusAt.toISOString(),
     // Recomputed from the stored reading so a rule change applies everywhere.
-    report: assessReading(record.reading, { expected: record.expected, corrections: record.corrections }),
+    report: assessReading(record.reading, {
+      expected: record.expected,
+      corrections: record.corrections,
+    }),
     decisions: decisions.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() })),
   };
 }

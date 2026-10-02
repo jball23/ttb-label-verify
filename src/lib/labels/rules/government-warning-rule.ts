@@ -20,7 +20,8 @@ export const governmentWarningRule: LabelRule = {
     if (prefixAppearsBold === false) {
       return {
         status: 'review',
-        reason: 'The wording is exact, but "GOVERNMENT WARNING:" may not be in bold type.',
+        reason:
+          'The wording is exact, but "GOVERNMENT WARNING:" may not be in bold type.',
         value: verbatimText,
       };
     }
@@ -31,6 +32,10 @@ export const governmentWarningRule: LabelRule = {
         value: verbatimText,
       };
     }
-    return { status: 'pass', reason: describeWarningFinding({ kind: 'ok' }), value: verbatimText };
+    return {
+      status: 'pass',
+      reason: describeWarningFinding({ kind: 'ok' }),
+      value: verbatimText,
+    };
   },
 };

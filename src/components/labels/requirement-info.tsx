@@ -5,7 +5,13 @@ import { Info } from 'lucide-react';
 import { type Requirement } from '@/lib/labels/requirements';
 
 /** An ⓘ button that explains what TTB requires for one item. Click or tap; Escape or clicking away closes it. */
-export function RequirementInfo({ label, requirement }: { label: string; requirement: Requirement }) {
+export function RequirementInfo({
+  label,
+  requirement,
+}: {
+  label: string;
+  requirement: Requirement;
+}) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const root = useRef<HTMLSpanElement>(null);
@@ -13,7 +19,11 @@ export function RequirementInfo({ label, requirement }: { label: string; require
   useEffect(() => {
     if (!open) return;
     const close = (event: MouseEvent | KeyboardEvent) => {
-      if (event instanceof KeyboardEvent ? event.key === 'Escape' : !root.current?.contains(event.target as Node)) {
+      if (
+        event instanceof KeyboardEvent
+          ? event.key === 'Escape'
+          : !root.current?.contains(event.target as Node)
+      ) {
         setOpen(false);
       }
     };
@@ -46,7 +56,9 @@ export function RequirementInfo({ label, requirement }: { label: string; require
         >
           <span className="font-semibold">{label}</span>
           <span>{requirement.summary}</span>
-          {requirement.section ? <span className="text-muted-foreground">{requirement.section}</span> : null}
+          {requirement.section ? (
+            <span className="text-muted-foreground">{requirement.section}</span>
+          ) : null}
         </span>
       ) : null}
     </span>

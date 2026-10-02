@@ -30,14 +30,22 @@ describe('parseEnv', () => {
 
   // Vercel pulls an unset variable as an empty string.
   it('treats empty variables as unset', () => {
-    const env = parseEnv({ DATABASE_URL: '', LABEL_READER: '', OPENAI_REASONING_EFFORT: '', LABEL_READER_TIMEOUT_MS: '' });
+    const env = parseEnv({
+      DATABASE_URL: '',
+      LABEL_READER: '',
+      OPENAI_REASONING_EFFORT: '',
+      LABEL_READER_TIMEOUT_MS: '',
+    });
     expect(env.DATABASE_URL).toBeUndefined();
     expect(env.LABEL_READER).toBe('openai');
     expect(env.OPENAI_REASONING_EFFORT).toBeUndefined();
   });
 
   it('accepts Langfuse vars when provided', () => {
-    const env = parseEnv({ LANGFUSE_PUBLIC_KEY: 'pk-lf-test', LANGFUSE_SECRET_KEY: 'sk-lf-test' });
+    const env = parseEnv({
+      LANGFUSE_PUBLIC_KEY: 'pk-lf-test',
+      LANGFUSE_SECRET_KEY: 'sk-lf-test',
+    });
     expect(env.LANGFUSE_PUBLIC_KEY).toBe('pk-lf-test');
   });
 });

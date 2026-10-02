@@ -63,7 +63,10 @@ export function normalizeReading(reading: LabelReading): LabelReading {
   return {
     ...reading,
     fields: Object.fromEntries(
-      LABEL_FIELD_IDS.map((id) => [id, { ...reading.fields[id], value: blankToNull(reading.fields[id].value) }]),
+      LABEL_FIELD_IDS.map((id) => [
+        id,
+        { ...reading.fields[id], value: blankToNull(reading.fields[id].value) },
+      ]),
     ) as LabelReading['fields'],
     governmentWarning: {
       ...reading.governmentWarning,

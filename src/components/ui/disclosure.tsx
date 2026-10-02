@@ -15,7 +15,12 @@ interface DisclosureProps {
  * A lightweight, accessible single-disclosure component for inline expansion.
  * Uses native button + aria-expanded; no extra dependencies.
  */
-export function Disclosure({ title, defaultOpen = false, className, children }: DisclosureProps) {
+export function Disclosure({
+  title,
+  defaultOpen = false,
+  className,
+  children,
+}: DisclosureProps) {
   const [open, setOpen] = React.useState(defaultOpen);
   return (
     <div className={cn('rounded-md border border-border bg-card/50', className)}>

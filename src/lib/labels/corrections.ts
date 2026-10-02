@@ -22,7 +22,10 @@ export type Corrections = Partial<Record<CorrectableField, Correction>>;
 export const CorrectionValuesSchema = z
   .object(
     Object.fromEntries(
-      CORRECTABLE_FIELDS.map((field) => [field, z.string().max(2000).nullable().optional()]),
+      CORRECTABLE_FIELDS.map((field) => [
+        field,
+        z.string().max(2000).nullable().optional(),
+      ]),
     ) as Record<CorrectableField, z.ZodOptional<z.ZodNullable<z.ZodString>>>,
   )
   .strict();
@@ -30,7 +33,10 @@ export const CorrectionValuesSchema = z
 export type CorrectionValues = z.infer<typeof CorrectionValuesSchema>;
 
 /** The reading the rules should judge: the AI reading with corrections applied. */
-export function applyCorrections(reading: LabelReading, corrections: Corrections): LabelReading {
+export function applyCorrections(
+  reading: LabelReading,
+  corrections: Corrections,
+): LabelReading {
   const fields = { ...reading.fields };
   for (const field of LABEL_FIELD_IDS) {
     const correction = corrections[field];
@@ -71,12 +77,21 @@ export function reconcileCorrections(
 }
 
 /** True when the reviewer kept the AI's value, i.e. confirmed rather than changed it. */
-export function isConfirmation(reading: LabelReading, field: CorrectableField, correction: Correction): boolean {
+export function isConfirmation(
+  reading: LabelReading,
+  field: CorrectableField,
+  correction: Correction,
+): boolean {
   return normalize(correction.value) === normalize(originalValue(reading, field));
 }
 
-export function originalValue(reading: LabelReading, field: CorrectableField): string | null {
-  return field === 'governmentWarning' ? reading.governmentWarning.verbatimText : reading.fields[field].value;
+export function originalValue(
+  reading: LabelReading,
+  field: CorrectableField,
+): string | null {
+  return field === 'governmentWarning'
+    ? reading.governmentWarning.verbatimText
+    : reading.fields[field].value;
 }
 
 function normalize(value: string | null | undefined): string | null {

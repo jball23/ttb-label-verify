@@ -9,9 +9,7 @@ import {
 
 describe('wine lexicon', () => {
   it('canonicalizes approved grape names and common synonyms', () => {
-    expect(canonicalWineVarietal('Cabernet Sauvignon')).toBe(
-      'Cabernet Sauvignon',
-    );
+    expect(canonicalWineVarietal('Cabernet Sauvignon')).toBe('Cabernet Sauvignon');
     expect(canonicalWineVarietal('Pinot Grigio')).toBe('Pinot Gris');
     expect(canonicalWineVarietal('Fume Blanc')).toBe('Sauvignon Blanc');
     expect(canonicalWineVarietal('Garnacha Roja')).toBe('Grenache Gris');

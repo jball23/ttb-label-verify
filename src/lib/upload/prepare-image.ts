@@ -8,7 +8,11 @@ export const MAX_EDGE_PX = 1600;
 const JPEG_QUALITY = 0.85;
 
 /** The target size for an image, never enlarging it. */
-export function fitWithin(width: number, height: number, maxEdge = MAX_EDGE_PX): { width: number; height: number } {
+export function fitWithin(
+  width: number,
+  height: number,
+  maxEdge = MAX_EDGE_PX,
+): { width: number; height: number } {
   const scale = Math.min(1, maxEdge / Math.max(width, height));
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
@@ -32,10 +36,15 @@ export async function prepareImage(file: File): Promise<File> {
     const context = canvas.getContext('2d');
     if (!context) return file;
     context.drawImage(bitmap, 0, 0, width, height);
-    const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: JPEG_QUALITY });
+    const blob = await canvas.convertToBlob({
+      type: 'image/jpeg',
+      quality: JPEG_QUALITY,
+    });
     // Keep whichever is smaller; re-encoding a small image can make it bigger.
     if (blob.size >= file.size) return file;
-    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' });
+    return new File([blob], file.name.replace(/\.\w+$/, '') + '.jpg', {
+      type: 'image/jpeg',
+    });
   } finally {
     bitmap.close();
   }

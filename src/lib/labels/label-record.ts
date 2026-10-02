@@ -34,7 +34,10 @@ export interface LabelRecord {
   statusAt: Date;
 }
 
-export type NewLabelRecord = Omit<LabelRecord, 'id' | 'createdAt' | 'status' | 'statusAt'> & {
+export type NewLabelRecord = Omit<
+  LabelRecord,
+  'id' | 'createdAt' | 'status' | 'statusAt'
+> & {
   imageBytes: Buffer;
 };
 
@@ -57,12 +60,19 @@ export interface LabelRepository {
   get(id: string): Promise<LabelRecord | null>;
   getImage(id: string): Promise<LabelImage | null>;
   /** A reading of the same image under the same prompt and model, if one exists. */
-  findCachedReading(contentHash: string, promptVersion: string, readerModel: string): Promise<LabelReading | null>;
+  findCachedReading(
+    contentHash: string,
+    promptVersion: string,
+    readerModel: string,
+  ): Promise<LabelReading | null>;
   updateReviewerInput(id: string, update: ReviewerUpdate): Promise<LabelRecord | null>;
   /** Records the decision and moves the label to that status, atomically. */
   recordDecision(id: string, decision: NewDecision): Promise<LabelRecord | null>;
   listDecisions(id: string): Promise<DecisionRecord[]>;
   /** Decisions for many labels in one round trip, newest first per label. */
   listDecisionsFor(ids: readonly string[]): Promise<Map<string, DecisionRecord[]>>;
-  list(filter: { statuses: readonly LabelStatus[]; limit: number }): Promise<LabelRecord[]>;
+  list(filter: {
+    statuses: readonly LabelStatus[];
+    limit: number;
+  }): Promise<LabelRecord[]>;
 }

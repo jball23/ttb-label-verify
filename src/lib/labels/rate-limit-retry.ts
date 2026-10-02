@@ -52,18 +52,16 @@ function getRetryDelayMs(
     return Math.min(options.maxDelayMs, Math.max(0, retryAfterMs));
   }
 
-  const exponential = Math.min(
-    options.maxDelayMs,
-    options.baseDelayMs * 2 ** attempt,
-  );
+  const exponential = Math.min(options.maxDelayMs, options.baseDelayMs * 2 ** attempt);
   const jitter = Math.floor(Math.random() * 500);
   return exponential + jitter;
 }
 
 function readRetryAfterMs(error: unknown): number | null {
   if (!error || typeof error !== 'object') return null;
-  const headers = (error as { headers?: unknown; response?: { headers?: unknown } })
-    .headers ?? (error as { response?: { headers?: unknown } }).response?.headers;
+  const headers =
+    (error as { headers?: unknown; response?: { headers?: unknown } }).headers ??
+    (error as { response?: { headers?: unknown } }).response?.headers;
 
   const retryAfterMs = readHeader(headers, 'retry-after-ms');
   if (retryAfterMs) {
@@ -85,7 +83,8 @@ function readHeader(headers: unknown, name: string): string | null {
   }
   if (typeof headers === 'object') {
     const record = headers as Record<string, unknown>;
-    const direct = record[name] ?? record[name.toLowerCase()] ?? record[name.toUpperCase()];
+    const direct =
+      record[name] ?? record[name.toLowerCase()] ?? record[name.toUpperCase()];
     return typeof direct === 'string' ? direct : null;
   }
   return null;

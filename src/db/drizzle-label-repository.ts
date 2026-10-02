@@ -31,7 +31,10 @@ export class DrizzleLabelRepository implements LabelRepository {
 
   get(id: string): Promise<LabelRecord | null> {
     return this.run(async () => {
-      const [row] = await this.db.select(RECORD_COLUMNS).from(labels).where(eq(labels.id, id));
+      const [row] = await this.db
+        .select(RECORD_COLUMNS)
+        .from(labels)
+        .where(eq(labels.id, id));
       return row ?? null;
     });
   }
@@ -46,7 +49,11 @@ export class DrizzleLabelRepository implements LabelRepository {
     });
   }
 
-  findCachedReading(contentHash: string, promptVersion: string, readerModel: string): Promise<LabelReading | null> {
+  findCachedReading(
+    contentHash: string,
+    promptVersion: string,
+    readerModel: string,
+  ): Promise<LabelReading | null> {
     return this.run(async () => {
       const [row] = await this.db
         .select({ reading: labels.reading })
@@ -80,7 +87,9 @@ export class DrizzleLabelRepository implements LabelRepository {
       const now = new Date();
       // The Neon HTTP driver runs a batch as a single transaction.
       const [, updated] = await this.db.batch([
-        this.db.insert(labelDecisions).values({ ...decision, labelId: id, createdAt: now }),
+        this.db
+          .insert(labelDecisions)
+          .values({ ...decision, labelId: id, createdAt: now }),
         this.db
           .update(labels)
           .set({ status: decision.decision, statusAt: now })
@@ -109,7 +118,13 @@ export class DrizzleLabelRepository implements LabelRepository {
     });
   }
 
-  list({ statuses, limit }: { statuses: readonly LabelStatus[]; limit: number }): Promise<LabelRecord[]> {
+  list({
+    statuses,
+    limit,
+  }: {
+    statuses: readonly LabelStatus[];
+    limit: number;
+  }): Promise<LabelRecord[]> {
     return this.run(() =>
       this.db
         .select(RECORD_COLUMNS)

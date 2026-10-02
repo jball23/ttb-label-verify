@@ -25,7 +25,9 @@ export function DecidedList({ labels }: { labels: LabelView[] }) {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold tracking-tight">Decided</h1>
-          <p className="text-lg text-muted-foreground">Labels that have been approved or rejected.</p>
+          <p className="text-lg text-muted-foreground">
+            Labels that have been approved or rejected.
+          </p>
         </div>
         {labels.length > 0 ? (
           <Button size="lg" variant="outline" className="text-base" onClick={exportCsv}>

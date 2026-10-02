@@ -16,9 +16,7 @@ describe('normalizedExact', () => {
     expect(normalizedExact('Ridge Creek Distillery, LLC')).toBe(
       'ridge creek distillery,',
     );
-    expect(normalizedExact('Hawthorne Cellars, Inc.')).toBe(
-      'hawthorne cellars,',
-    );
+    expect(normalizedExact('Hawthorne Cellars, Inc.')).toBe('hawthorne cellars,');
   });
 
   it('distinguishes brand names that differ by extra words (scenario 02)', () => {
@@ -142,9 +140,7 @@ describe('countryMatches', () => {
 describe('classTypeMatches', () => {
   it('matches normalized exact', () => {
     expect(classTypeMatches('Vodka', 'VODKA')).toBe(true);
-    expect(classTypeMatches('Aged Caribbean Rum', 'Aged Caribbean Rum')).toBe(
-      true,
-    );
+    expect(classTypeMatches('Aged Caribbean Rum', 'Aged Caribbean Rum')).toBe(true);
   });
 
   it('rejects different varietals (scenario 03 Cabernet vs Merlot)', () => {
@@ -152,12 +148,9 @@ describe('classTypeMatches', () => {
   });
 
   it('matches bourbon-family aliases', () => {
-    expect(
-      classTypeMatches(
-        'Kentucky Straight Bourbon Whiskey',
-        'Bourbon Whiskey',
-      ),
-    ).toBe(true);
+    expect(classTypeMatches('Kentucky Straight Bourbon Whiskey', 'Bourbon Whiskey')).toBe(
+      true,
+    );
   });
 
   it('matches IPA ⇄ India Pale Ale (scenario 04)', () => {

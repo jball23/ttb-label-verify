@@ -35,25 +35,39 @@ async function runCase(reader: LabelReader, testCase: EvalCase): Promise<Outcome
   const reading = await readLabel(reader, { bytes, mimeType: 'image/jpeg' });
   const ms = Math.round(performance.now() - started);
   const report = assessReading(reading, { expected: testCase.expected });
-  return { file: testCase.file, ms, verdict: report.verdict, problems: judge(testCase, report) };
+  return {
+    file: testCase.file,
+    ms,
+    verdict: report.verdict,
+    problems: judge(testCase, report),
+  };
 }
 
 function judge(testCase: EvalCase, report: LabelReport): string[] {
   const problems: string[] = [];
   if (!testCase.verdicts.includes(report.verdict)) {
-    problems.push(`verdict ${report.verdict}, expected ${testCase.verdicts.join(' or ')}`);
+    problems.push(
+      `verdict ${report.verdict}, expected ${testCase.verdicts.join(' or ')}`,
+    );
     for (const rule of report.rules.filter((r) => r.status !== 'pass')) {
-      problems.push(`  because ${rule.id} ${rule.status}: ${rule.reason} (read: ${JSON.stringify(rule.value)?.slice(0, 160)})`);
+      problems.push(
+        `  because ${rule.id} ${rule.status}: ${rule.reason} (read: ${JSON.stringify(rule.value)?.slice(0, 160)})`,
+      );
     }
   }
   for (const [id, status] of Object.entries(testCase.rules ?? {})) {
     const rule = report.rules.find((r) => r.id === id);
-    if (rule?.status !== status) problems.push(`${id} ${rule?.status ?? 'missing'}, expected ${status}: ${rule?.reason ?? ''}`);
+    if (rule?.status !== status)
+      problems.push(
+        `${id} ${rule?.status ?? 'missing'}, expected ${status}: ${rule?.reason ?? ''}`,
+      );
   }
   for (const [field, status] of Object.entries(testCase.comparisons ?? {})) {
     const comparison = report.comparisons.find((c) => c.field === field);
     if (comparison?.status !== status) {
-      problems.push(`${field} comparison ${comparison?.status}, expected ${status} (read "${comparison?.found}")`);
+      problems.push(
+        `${field} comparison ${comparison?.status}, expected ${status} (read "${comparison?.found}")`,
+      );
     }
   }
   return problems;
@@ -61,10 +75,16 @@ function judge(testCase: EvalCase, report: LabelReport): string[] {
 
 function percentile(values: number[], p: number): number {
   const sorted = [...values].sort((a, b) => a - b);
-  return sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)] ?? 0;
+  return (
+    sorted[Math.min(sorted.length - 1, Math.ceil((p / 100) * sorted.length) - 1)] ?? 0
+  );
 }
 
-async function runAll(reader: LabelReader, cases: EvalCase[], limit: number): Promise<{ outcomes: Outcome[]; wallMs: number }> {
+async function runAll(
+  reader: LabelReader,
+  cases: EvalCase[],
+  limit: number,
+): Promise<{ outcomes: Outcome[]; wallMs: number }> {
   const outcomes: Outcome[] = [];
   const started = performance.now();
   await new Promise<void>((resolve) => {
@@ -73,7 +93,12 @@ async function runAll(reader: LabelReader, cases: EvalCase[], limit: number): Pr
       try {
         outcomes.push(await runCase(reader, testCase));
       } catch (error) {
-        outcomes.push({ file: testCase.file, ms: NaN, verdict: 'error', problems: [(error as Error).message] });
+        outcomes.push({
+          file: testCase.file,
+          ms: NaN,
+          verdict: 'error',
+          problems: [(error as Error).message],
+        });
       } finally {
         if (--remaining === 0) resolve();
       }
@@ -83,17 +108,24 @@ async function runAll(reader: LabelReader, cases: EvalCase[], limit: number): Pr
   return { outcomes, wallMs: Math.round(performance.now() - started) };
 }
 
-function report(title: string, { outcomes, wallMs }: { outcomes: Outcome[]; wallMs: number }) {
+function report(
+  title: string,
+  { outcomes, wallMs }: { outcomes: Outcome[]; wallMs: number },
+) {
   console.log(`\n${title}`);
   for (const o of outcomes) {
-    console.log(`  ${o.problems.length ? '✗' : '✓'} ${o.file.padEnd(34)} ${String(o.ms).padStart(5)} ms  ${o.verdict}`);
+    console.log(
+      `  ${o.problems.length ? '✗' : '✓'} ${o.file.padEnd(34)} ${String(o.ms).padStart(5)} ms  ${o.verdict}`,
+    );
     for (const p of o.problems) console.log(`      ${p}`);
   }
   const latencies = outcomes.map((o) => o.ms).filter(Number.isFinite);
   const correct = outcomes.filter((o) => o.problems.length === 0).length;
   const p50 = percentile(latencies, 50);
   const p95 = percentile(latencies, 95);
-  console.log(`  correct ${correct}/${outcomes.length} · p50 ${p50} ms · p95 ${p95} ms · wall ${wallMs} ms`);
+  console.log(
+    `  correct ${correct}/${outcomes.length} · p50 ${p50} ms · p95 ${p95} ms · wall ${wallMs} ms`,
+  );
   return { correct: correct === outcomes.length, p95 };
 }
 
@@ -111,10 +143,21 @@ async function main() {
   await runCase(reader, EVAL_CASES[0]!).catch(() => undefined);
 
   const sequential = report('One at a time', await runAll(reader, cases, 1));
-  const parallel = report(`${CONCURRENCY} at a time (batch)`, await runAll(reader, cases, CONCURRENCY));
+  const parallel = report(
+    `${CONCURRENCY} at a time (batch)`,
+    await runAll(reader, cases, CONCURRENCY),
+  );
 
-  const passed = sequential.correct && parallel.correct && sequential.p95 <= LATENCY_BUDGET_MS && parallel.p95 <= LATENCY_BUDGET_MS;
-  console.log(passed ? '\nPASS' : `\nFAIL (all conclusions must be correct and p95 ≤ ${LATENCY_BUDGET_MS} ms)`);
+  const passed =
+    sequential.correct &&
+    parallel.correct &&
+    sequential.p95 <= LATENCY_BUDGET_MS &&
+    parallel.p95 <= LATENCY_BUDGET_MS;
+  console.log(
+    passed
+      ? '\nPASS'
+      : `\nFAIL (all conclusions must be correct and p95 ≤ ${LATENCY_BUDGET_MS} ms)`,
+  );
   process.exit(passed ? 0 : 1);
 }
 

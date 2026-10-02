@@ -5,8 +5,16 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const LINKS = [
-  { href: '/', label: 'Check labels', isActive: (path: string) => path === '/' || path.startsWith('/labels/') },
-  { href: '/decided', label: 'Decided', isActive: (path: string) => path.startsWith('/decided') },
+  {
+    href: '/',
+    label: 'Check labels',
+    isActive: (path: string) => path === '/' || path.startsWith('/labels/'),
+  },
+  {
+    href: '/decided',
+    label: 'Decided',
+    isActive: (path: string) => path.startsWith('/decided'),
+  },
 ];
 
 export function NavLinks() {
@@ -22,7 +30,9 @@ export function NavLinks() {
             aria-current={active ? 'page' : undefined}
             className={cn(
               'rounded-md px-4 py-2 text-base font-medium',
-              active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+              active
+                ? 'bg-muted text-foreground'
+                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground',
             )}
           >
             {label}

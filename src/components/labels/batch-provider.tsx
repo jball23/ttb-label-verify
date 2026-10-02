@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createWorkQueue, type WorkQueue } from '@/lib/concurrency/work-queue';
 import { checkLabelImage } from '@/lib/labels/client-api';
 import { type LabelView } from '@/lib/labels/label-view';
@@ -8,7 +16,9 @@ import { partitionLabelFiles } from '@/lib/upload/file-validation';
 import { prepareImage } from '@/lib/upload/prepare-image';
 
 /** How many labels are checked at once. Each is its own server request. */
-export const VERIFY_CONCURRENCY = readConcurrency(process.env.NEXT_PUBLIC_VERIFY_CONCURRENCY);
+export const VERIFY_CONCURRENCY = readConcurrency(
+  process.env.NEXT_PUBLIC_VERIFY_CONCURRENCY,
+);
 
 export type BatchItemStatus = 'queued' | 'checking' | 'done' | 'failed';
 
@@ -47,7 +57,9 @@ export function BatchProvider({ children }: { children: React.ReactNode }) {
   const batchIdRef = useRef<string | null>(null);
 
   const patch = useCallback((key: string, changes: Partial<BatchItem>) => {
-    setItems((current) => current.map((item) => (item.key === key ? { ...item, ...changes } : item)));
+    setItems((current) =>
+      current.map((item) => (item.key === key ? { ...item, ...changes } : item)),
+    );
   }, []);
 
   const queue = useRef<WorkQueue<string> | null>(null);
@@ -90,10 +102,16 @@ export function BatchProvider({ children }: { children: React.ReactNode }) {
   );
 
   const replaceLabel = useCallback((view: LabelView) => {
-    setItems((current) => current.map((item) => (item.label?.id === view.id ? { ...item, label: view } : item)));
+    setItems((current) =>
+      current.map((item) =>
+        item.label?.id === view.id ? { ...item, label: view } : item,
+      ),
+    );
   }, []);
 
-  const isRunning = items.some((item) => item.status === 'queued' || item.status === 'checking');
+  const isRunning = items.some(
+    (item) => item.status === 'queued' || item.status === 'checking',
+  );
 
   // Closing the tab stops the batch, so say so before it happens.
   useEffect(() => {
@@ -110,7 +128,15 @@ export function BatchProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ batchId, items, concurrency: VERIFY_CONCURRENCY, isRunning, addFiles, retry, replaceLabel }),
+    () => ({
+      batchId,
+      items,
+      concurrency: VERIFY_CONCURRENCY,
+      isRunning,
+      addFiles,
+      retry,
+      replaceLabel,
+    }),
     [batchId, items, isRunning, addFiles, retry, replaceLabel],
   );
   return <BatchContext.Provider value={value}>{children}</BatchContext.Provider>;

@@ -34,7 +34,8 @@ const VOLUME_UNITS_ML: ReadonlyArray<[RegExp, number]> = [
   [/^(?:fl\.?\s*oz\.?|fluid\s+ounces?|oz\.?)$/i, 29.5735],
 ];
 
-const VOLUME_RE = /(\d+(?:[.,]\d+)?)\s*(ml|milliliters?|millilitres?|cl|centiliters?|centilitres?|liters?|litres?|l|fl\.?\s*oz\.?|fluid\s+ounces?|oz\.?)(?![a-z])/i;
+const VOLUME_RE =
+  /(\d+(?:[.,]\d+)?)\s*(ml|milliliters?|millilitres?|cl|centiliters?|centilitres?|liters?|litres?|l|fl\.?\s*oz\.?|fluid\s+ounces?|oz\.?)(?![a-z])/i;
 
 /** Net contents in millilitres, from "750 mL", "75 cL", "1 L", "12 FL OZ". */
 export function parseVolumeMl(text: string | null | undefined): number | null {
