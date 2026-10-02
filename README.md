@@ -33,7 +33,7 @@ upload time, which is small because it shrinks photos to 1600 px first.
 
 ---
 
-## How it works
+## Approach
 
 ```
 Browser                                       Server (one request per label)
@@ -126,6 +126,20 @@ drawn otherwise.
 
 ---
 
+## Tools used
+
+| Area | Tool |
+|---|---|
+| App | Next.js 15 (App Router) and React 19, in TypeScript |
+| Reading labels | OpenAI `gpt-5.4-mini` vision with structured outputs (`openai` SDK, Zod schema); `gpt-5.4` for the focused warning re-read. Azure OpenAI through the same interface |
+| Rules and comparison | Plain TypeScript, no model involved |
+| Highlighting text on the photo | Tesseract.js, in the reviewer's browser |
+| Storage | Postgres on Neon, through Drizzle ORM and Drizzle Kit migrations; in-memory when no database is set |
+| Interface | Tailwind CSS 4, small in-repo components (`src/components/ui`), Lucide icons, light and dark themes |
+| Tests and eval | Vitest for unit and API tests (the model is faked); a live eval script (`evals/`) for accuracy and latency |
+| Hosting | Vercel |
+| Optional tracing | Langfuse |
+
 ## Decisions and trade-offs
 
 - **One vision call instead of OCR.** The first version of this prototype used
@@ -191,7 +205,7 @@ drawn otherwise.
 
 ---
 
-## Running it
+## Setup and run
 
 Requires Node 20+.
 
@@ -200,6 +214,10 @@ npm install
 cp .env.example .env.local      # add OPENAI_API_KEY
 npm run dev                     # http://localhost:3000
 ```
+
+No API key? Set `LABEL_READER=fake` in `.env.local` to run the whole app
+offline: every label gets a fixed compliant reading, so the screens, rules and
+review flow can be tried without model calls.
 
 Without `DATABASE_URL`, results are kept in server memory, which is fine for a
 local demo. With a Neon/Postgres URL, run `npm run db:migrate` first; it records
