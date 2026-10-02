@@ -1,10 +1,10 @@
-# Label image-gen prompt — Scenario 04: Ironwood IPA (missing government warning)
+# Label image prompt — Ironwood IPA (no government warning)
 
-**Target file:** `public/samples/applications/04-ironwood-ipa/label.jpg`
+**Target file:** `public/samples/labels/ironwood-ipa-no-warning.jpg`
 **Recommended tool:** Google Nano Banana / Gemini image gen, OpenAI gpt-image-1, or ChatGPT image gen
 **Output:** flat unrolled 12 fl. oz. can label, ~1536×1024 landscape (cans unroll wide), photorealistic, neutral light-gray studio background.
 
-**Intentional mismatch:** The Government Warning is **deliberately omitted from this label**. All cross-check fields (brand, fanciful name, producer, type) match the application — but the mandatory 27 CFR §16 Government Warning text is absent entirely. The verify pipeline should flag a label-only rule failure (missing mandatory warning) while reporting all cross-checks as pass.
+**What it tests:** the Government Warning is **deliberately omitted**. Every other field is present, but the mandatory 27 CFR §16 warning is absent, so the label is a **Problem found**.
 
 ---
 
@@ -37,4 +37,4 @@
 - [ ] **No "GOVERNMENT WARNING" text appears anywhere on the label** ← this is the test
 - [ ] Flat label, not a 3D can
 
-If a Government Warning sneaks in, regenerate with a more explicit instruction to omit it. The whole point of this scenario is the missing warning.
+If a Government Warning sneaks in, regenerate with a more explicit instruction to omit it. The missing warning is the point of this label.

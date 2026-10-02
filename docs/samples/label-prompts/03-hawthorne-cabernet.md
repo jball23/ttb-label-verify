@@ -1,10 +1,10 @@
-# Label image-gen prompt — Scenario 03: Hawthorne Cabernet (varietal + appellation mismatch)
+# Label image prompt — Hawthorne Vineyards (compliant; varietal and appellation differ from the application)
 
-**Target file:** `public/samples/applications/03-hawthorne-cabernet/label.jpg`
+**Target file:** `public/samples/labels/hawthorne-cabernet.jpg`
 **Recommended tool:** Google Nano Banana / Gemini image gen, OpenAI gpt-image-1, or ChatGPT image gen
 **Output:** flat unrolled front label, ~1024×1024 (wine labels are often near-square), photorealistic, neutral light-gray studio background.
 
-**Intentional mismatch:** The application's Item 10 grape varietal is **"Cabernet Sauvignon"** and Item 11 appellation is **"Napa Valley"** — but on this label the wine is declared as **"Merlot"** from **"Sonoma County"**. Brand and producer still match the application. The verify pipeline should flag two cross-check failures (varietal AND appellation).
+**What it tests:** the label meets every requirement, so on its own it **Looks good**. It declares **"Merlot"** from **"Sonoma County"**, so entering **"Cabernet Sauvignon"** as the application's class/type shows **Differs from the label** and the label **Needs a look**.
 
 ---
 
@@ -32,12 +32,12 @@
 ## Verification checklist after generation
 
 - [ ] Brand reads exactly **HAWTHORNE VINEYARDS**
-- [ ] **Varietal line reads exactly "MERLOT"** (intentional mismatch — application says Cabernet Sauvignon)
-- [ ] **Appellation reads exactly "Sonoma County"** (intentional mismatch — application says Napa Valley)
+- [ ] **Varietal line reads exactly "MERLOT"** (deliberately not Cabernet Sauvignon)
+- [ ] **Appellation reads exactly "Sonoma County"** (deliberately not Napa Valley)
 - [ ] Producer line includes "Hawthorne Cellars, Inc." and "Healdsburg, California"
 - [ ] ABV reads "13.5% ALC/VOL"
 - [ ] Net contents reads "750 mL"
 - [ ] Government warning complete and verbatim
 - [ ] Flat label, not a 3D bottle
 
-Both varietal and appellation should be wrong on the label — that's the test. Don't auto-correct them in regeneration.
+Keep Merlot and Sonoma County when regenerating; they are deliberate.

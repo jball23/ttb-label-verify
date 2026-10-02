@@ -1,6 +1,6 @@
-# Label image-gen prompt — Scenario 01: Ridge Creek Bourbon (clean compliant)
+# Label image prompt — Ridge Creek Bourbon (compliant)
 
-**Target file:** `public/samples/applications/01-ridge-creek-bourbon/label.jpg`
+**Target file:** `public/samples/labels/ridge-creek-bourbon.jpg`
 **Recommended tool:** Google Nano Banana / Gemini image gen, OpenAI gpt-image-1, or ChatGPT image gen
 **Output:** flat, unrolled front label artwork (NOT a 3D bottle photo). Roughly 1024×1280, portrait, photorealistic print-ready label, on a neutral light gray studio background.
 

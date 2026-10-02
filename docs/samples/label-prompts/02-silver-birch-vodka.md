@@ -1,10 +1,10 @@
-# Label image-gen prompt — Scenario 02: Silver Birch Vodka (brand-name drift)
+# Label image prompt — Silver Birch Vodka (compliant; brand differs from the application)
 
-**Target file:** `public/samples/applications/02-silver-birch-vodka/label.jpg`
+**Target file:** `public/samples/labels/silver-birch-vodka.jpg`
 **Recommended tool:** Google Nano Banana / Gemini image gen, OpenAI gpt-image-1, or ChatGPT image gen
 **Output:** flat unrolled front label, ~1024×1280 portrait, photorealistic, neutral light-gray studio background.
 
-**Intentional mismatch:** The application's Item 6 "Brand Name" is **"Silver Birch"** and Item 7 "Fanciful Name" is **"Premium Vodka"** — but on this label the brand is printed as the combined string **"Silver Birch Premium"**, leaving "Vodka" alone as the class/type line. The verify pipeline should flag a brand-name cross-check failure.
+**What it tests:** the label meets every requirement, so on its own it **Looks good**. Its brand is printed as **"Silver Birch Premium"**, so entering **"Silver Birch"** as the application's brand shows **Differs from the label** and the label **Needs a look**. Its Portland, Oregon address also lets country of origin be inferred as the United States.
 
 ---
 
@@ -28,7 +28,7 @@
 
 ## Verification checklist after generation
 
-- [ ] **Brand line reads exactly "SILVER BIRCH PREMIUM"** (this is the intentional mismatch — application says brand is just "Silver Birch")
+- [ ] **Brand line reads exactly "SILVER BIRCH PREMIUM"** (not just "Silver Birch")
 - [ ] Class/type line below reads just **"VODKA"**
 - [ ] Producer line includes "Northern Spirits Co." and "Portland, Oregon"
 - [ ] ABV reads "40% ALC/VOL" and "80 PROOF"
@@ -36,4 +36,4 @@
 - [ ] Government warning complete and verbatim
 - [ ] Flat label, not a 3D bottle
 
-If anything other than the brand line is wrong, regenerate; the wrong brand IS the test.
+If anything other than the brand line is wrong, regenerate; the combined brand is deliberate.

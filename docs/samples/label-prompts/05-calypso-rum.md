@@ -1,12 +1,12 @@
-# Label image-gen prompt — Scenario 05: Calypso Sands Rum (producer mismatch + ABV format)
+# Label image prompt — Calypso Sands Rum (alcohol shown only as proof)
 
-**Target file:** `public/samples/applications/05-calypso-rum/label.jpg`
+**Target file:** `public/samples/labels/calypso-rum-proof-only.jpg`
 **Recommended tool:** Google Nano Banana / Gemini image gen, OpenAI gpt-image-1, or ChatGPT image gen
 **Output:** flat unrolled front label, ~1024×1280 portrait, photorealistic, neutral light-gray studio background.
 
-**Two intentional mismatches:**
-1. **Producer drift (cross-check fail):** application names *Calypso Sands Distilling, Inc., Miami, FL* as the applicant, but the label's bottler statement reads **"Bottled by Tropical Spirits LLC, San Juan, Puerto Rico"** — a different entity entirely.
-2. **ABV format (label-only rule fail):** the label shows ABV as **"80 PROOF"** with **no `% ALC/VOL` figure**. TTB requires the `% alcohol by volume` figure for distilled spirits.
+**What it tests:**
+1. **Alcohol content:** the label shows **"80 PROOF"** with **no `% ALC/VOL` figure**. Spirits must state alcohol by volume, so the label **Needs a look**.
+2. **Producer and origin:** the bottler is **"Tropical Spirits LLC, San Juan, Puerto Rico"**. Entering *Calypso Sands Distilling, Inc., Miami, FL* as the application's producer shows **Differs from the label**, and Puerto Rico counts as domestic for country of origin.
 
 ---
 
@@ -33,10 +33,10 @@
 
 - [ ] Brand reads exactly **CALYPSO SANDS**
 - [ ] Fanciful name reads **"Aged Caribbean Rum"**
-- [ ] **Bottler line reads exactly "Bottled by Tropical Spirits LLC · San Juan, Puerto Rico"** (intentional mismatch — application says Calypso Sands Distilling, Miami, FL)
+- [ ] **Bottler line reads exactly "Bottled by Tropical Spirits LLC · San Juan, Puerto Rico"** (deliberately not Calypso Sands Distilling)
 - [ ] **ABV reads only "80 PROOF" — there must be NO "% ALC/VOL" anywhere on the label** (intentional format issue)
 - [ ] Net contents reads "750 mL"
 - [ ] Government warning complete and verbatim
 - [ ] Flat label, not a 3D bottle
 
-Both mismatches must be present for this scenario to exercise its full failure path. If the image gen adds "% ALC/VOL" automatically, regenerate with an even more explicit instruction.
+Both details are deliberate. If the image gen adds "% ALC/VOL" automatically, regenerate with an even more explicit instruction.

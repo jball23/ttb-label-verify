@@ -15,8 +15,8 @@ to see a batch run without uploading anything.
 
 | Who | Asked for | What the prototype does | Evidence |
 |---|---|---|---|
-| Sarah Chen | Results in about 5 seconds, or nobody will use it | One structured vision call per label; no OCR pass | Eval, 60 reads: **p50 1.6 s, p95 3.7 s** per label |
-| Sarah Chen | Batch uploads for 200–300 label drops | The browser checks labels **6 at a time** (configurable), and you can add more while a batch runs | 30 reads: **59.7 s one by one, 10.1 s in a batch** |
+| Sarah Chen | Results in about 5 seconds, or nobody will use it | One structured vision call per label | Eval, 78 reads: **p50 2.0 s, p95 3.8 s** per label |
+| Sarah Chen | Batch uploads for 200–300 label drops | The browser checks labels **6 at a time** (configurable), and you can add more while a batch runs | 39 reads: **85.6 s one by one, 13.4 s in a batch** |
 | Sarah Chen | "Something my mother could figure out" | Three screens, large type, one primary action each; every status in words as well as colour; problems sorted first with a one-sentence reason | See [The screens](#the-screens) |
 | Jenny Park | The warning must be exact, "GOVERNMENT WARNING:" in capitals | Wording compared word for word; a title-case or colon-less lead-in **fails**; before failing, a focused second read confirms it | Eval: title case and one added word fail every time; a compliant label's small type no longer causes a false failure |
 | Jenny Park | Handle photos at an angle, with glare | The reader rates its own confidence and the image's legibility; an unreadable photo asks for a better one instead of guessing | Eval case: angled photo with glare |
@@ -27,7 +27,7 @@ to see a batch run without uploading anything.
 Measured by `npm run eval -- --repeat 3`: real API calls, each of the 13 sample
 labels read 3 times one by one and 3 times in a batch, from a laptop. **78/78
 conclusions correct**, p50 2.0 s and p95 3.8 s one by one, p95 4.0 s in a batch
-(13 labels in 13.4 s). Labels are read with `gpt-5.4-mini`, and a warning that looks wrong
+(all 39 reads in 13.4 s). Labels are read with `gpt-5.4-mini`, and a warning that looks wrong
 is re-read with `gpt-5.4`. Times are server-side read time; the browser adds
 upload time, which is small because it shrinks photos to 1600 px first.
 
@@ -85,16 +85,17 @@ Italy, Spain, Germany).
 review screen. The original reading is never overwritten. The correction is
 stored beside it with who made it and when, the rules re-run on the corrected
 text, and the screen shows "Read as X · corrected by JP". Retyping an unsure
-reading unchanged records that a person confirmed it.
+reading unchanged records that a person confirmed it. **Cancel** drops an edit
+in progress; **Reset to original** removes a saved correction.
 
 ### The screens
 
 1. **Check labels.** A drop zone, then the batch: progress, counts, and one row
    per label with a thumbnail, a plain sentence about what matters, and its status.
-2. **Review.** The photo, with hover-to-zoom; what needs attention, with a word-level
-   diff of the warning; every field as read, with an inline **Edit** to fix it, beside an
-   optional application value; large **Reject** and **Approve** buttons. The next
-   label opens after each decision. Everything about an item is on one row:
+2. **Review.** The photo, with a magnifier to look closer; what needs attention,
+   with a word-level diff of the warning; every field as read, with an inline
+   **Edit** to fix it, beside an optional application value; **Reject** and
+   **Approve** beside the heading. The next label opens after each decision. Everything about an item is on one row:
    whether it passes and why not, an ⓘ with the requirement and its citation,
    what the label says (fixable), and the optional application value. Pointing
    at a row outlines that text on the photo (see below). The list of labels on
@@ -121,19 +122,15 @@ drawn otherwise.
   misleading box. When text can't be found (decorative type, steep angles,
   small type on textured paper), the photo says "Couldn't find this on the
   photo" instead of guessing.
-- Earlier, asking the model itself for boxes added 3–4 s per label and placed
-  them poorly, which is why boxes come from OCR here.
 
 ---
 
 ## Decisions and trade-offs
 
-- **One vision call instead of OCR.** The first version of this prototype used
-  Tesseract OCR with an AI fallback. On the same machine it took **4.6–11.3 s**
-  per label and struggled with decorative type. A single structured call to a
-  small vision model takes about 2 s and handles angles and glare better. The
-  cost is a dependency on a model provider, which is why the provider sits behind
-  an interface with an Azure OpenAI implementation.
+- **One vision call per label.** A single structured call to a small vision
+  model reads every field in about 2 s and copes with angles, glare and
+  decorative type. The cost is a dependency on a model provider, which is why
+  the provider sits behind an interface with an Azure OpenAI implementation.
 - **The model reads; code judges.** The main risk with a vision model is that
   it "helpfully" corrects a wrong warning into the right one. The prompt tells
   it to transcribe exactly, and the eval includes labels built to tempt
@@ -150,12 +147,12 @@ drawn otherwise.
   serverless request, so N requests in flight means N workers with no queue
   service to run. The trade-off: closing the tab stops the batch, and the page
   warns before that happens. A server-side queue is the production upgrade.
-- **Bold type is left to the reviewer.** Asked whether the lead-in was bold, the
-  model said "not bold" on every read of two labels where it plainly is
-  (Russkaya, Tenuta), and a focused second look with `gpt-5.4` missed Tenuta
-  too while pushing those labels past 5 s. So the model no longer judges type
-  weight: an exact warning passes, with a reminder to check bold on the photo,
-  which a reviewer can do at a glance.
+- **Bold type is left to the reviewer.** Vision models judge type weight
+  poorly: asked whether the lead-in was bold, the model said "not bold" on every
+  read of two sample labels where it plainly is (Russkaya, Tenuta), and a
+  second look with `gpt-5.4` still missed one while adding seconds. So an exact
+  warning passes with a reminder to check bold on the photo, which a reviewer
+  can do at a glance.
 - **Images are stored in Postgres** for the prototype, so a reviewer can reopen
   any label. Real use would move them to object storage with a retention policy.
 - **Identical images are read once.** The reading is cached by content hash,
@@ -176,8 +173,7 @@ drawn otherwise.
   address never counts as the origin.
 - A stated foreign country, in English or the country's own language, makes the
   product an import, and an import must name its US importer ("Imported by"
-  with name and address). Readings saved before the importer field existed
-  are treated as having none.
+  with name and address).
 
 ## Limitations and next steps
 
@@ -224,7 +220,8 @@ database for a fresh start (for example after testing on the live site), run
 | `LABEL_READER` | `openai` | `openai`, `azure-openai`, or `fake` (offline demo) |
 | `OPENAI_API_KEY`, `OPENAI_VLM_MODEL` | `gpt-5.4-mini` | OpenAI reader |
 | `OPENAI_WARNING_MODEL` | `gpt-5.4` | Re-reads a warning that looks wrong |
-| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT` | — | Azure OpenAI reader |
+| `OPENAI_REASONING_EFFORT` | — | Optional, for reasoning models: `none` … `high` |
+| `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_DEPLOYMENT`, `AZURE_OPENAI_API_VERSION` | — | Azure OpenAI reader |
 | `LABEL_READER_TIMEOUT_MS` | `15000` | Per-attempt ceiling for one label |
 | `NEXT_PUBLIC_VERIFY_CONCURRENCY` | `6` | Labels checked at once in the browser |
 | `DATABASE_URL` | — | Postgres; in-memory when unset |
@@ -234,8 +231,8 @@ database for a fresh start (for example after testing on the live site), run
 
 `public/samples/labels/` holds thirteen labels:
 
-- five AI-generated in the earlier build (bourbon, vodka, wine, a beer missing
-  its warning, a rum stating only proof)
+- five AI-generated (bourbon, vodka, wine, a beer missing its warning, a rum
+  stating only proof)
 - five rendered from [samples/labels/label.html](samples/labels/label.html),
   each with one known property: the brief's OLD TOM DISTILLERY sample, a
   title-case warning, a warning with one word added, the same label photographed
@@ -256,22 +253,27 @@ prompts for the AI-generated ones.
 ```
 src/lib/labels/            the domain: no React, no HTTP
   reading.ts               the schema the model returns; the single contract
+  prompt.ts                the reader's instructions, versioned
   label-reader.ts          LabelReader interface
   openai-compatible-reader.ts  the one implementation, for OpenAI and Azure OpenAI
   reader-factory.ts        picks the provider from the environment
   rules/                   one LabelRule per requirement, registered in rules/index.ts
+  requirements.ts          the plain-language requirement and citation for each check
   government-warning.ts    exact warning analysis
-  compare-expected.ts      one matcher per application field
+  origin.ts                country of origin, stated or inferred from a US address
+  compare-expected.ts      one matcher per application field (normalize.ts)
   corrections.ts           tracked reviewer corrections
   verdict.ts               the verdict policy, in one function
   verify-label.ts          assessReading / verifyLabel: the orchestration
+  checklist.ts             one review-screen row per check
+  locate-text.ts           matches a value to OCR word boxes, for highlighting
   label-service.ts         check, update, decide; used by the routes
-  label-record.ts          LabelRepository interface (+ memory and Drizzle implementations)
+  label-record.ts          LabelRepository interface (memory-label-repository.ts)
+src/db/                    Drizzle schema, client and the Postgres repository
 src/app/api/labels/        thin HTTP routes over label-service
 src/components/labels/     the three screens and their parts
 src/lib/concurrency/       the browser work queue
+drizzle/                   migrations
+scripts/                   OCR asset copy, db:reset
 evals/                     the live eval
 ```
-
-Earlier design notes from the COLA-PDF version are kept in `docs/plans/` and
-`docs/brainstorms/` as history. Treat this README and the code as current.
