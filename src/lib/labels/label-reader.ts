@@ -16,4 +16,9 @@ export interface LabelReader {
   /** Identifies the model/provider in persisted results, e.g. "openai:gpt-5.4-mini". */
   readonly modelId: string;
   read(image: LabelImage): Promise<LabelReading>;
+  /**
+   * A second, focused transcription of only the government warning, used to
+   * confirm before failing a label on its wording. Null when there is none.
+   */
+  readWarning(image: LabelImage): Promise<string | null>;
 }

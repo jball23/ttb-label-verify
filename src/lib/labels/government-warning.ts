@@ -44,6 +44,19 @@ export function analyzeGovernmentWarning(text: string | null): WarningFinding[] 
   return findings.length > 0 ? findings : [{ kind: 'ok' }];
 }
 
+/**
+ * Small type is where readers slip. A wording or lead-in problem is worth a
+ * second, focused read before failing the label; a missing warning is not.
+ */
+export function warningNeedsSecondRead(text: string | null): boolean {
+  return analyzeGovernmentWarning(text).some((f) => f.kind === 'wording_differs' || f.kind === 'prefix_not_exact');
+}
+
+export function warningIsExact(text: string | null): boolean {
+  const findings = analyzeGovernmentWarning(text);
+  return findings.length === 1 && findings[0]!.kind === 'ok';
+}
+
 export function describeWarningFinding(finding: WarningFinding): string {
   switch (finding.kind) {
     case 'ok':

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GOVERNMENT_WARNING_CANONICAL as CANONICAL } from './ttb-constants';
 import { compliantReading, FakeLabelReader } from './fake-label-reader';
 import { type LabelImage } from './label-reader';
-import { assessReading, verifyLabel } from './verify-label';
+import { assessReading, readLabel, verifyLabel } from './verify-label';
 
 const image: LabelImage = { bytes: Buffer.from([0xff, 0xd8]), mimeType: 'image/jpeg' };
 
@@ -39,5 +39,51 @@ describe('assessReading verdicts', () => {
   it('never gives a verdict on an unreadable image', () => {
     const reading = compliantReading({ imageQuality: { legible: false, issues: ['glare over the label'] } });
     expect(assessReading(reading).verdict).toBe('needs_review');
+  });
+});
+
+describe('readLabel: confirming a warning problem before failing', () => {
+  const misread = CANONICAL.replace('alcoholic beverages during', 'alcohol beverages during');
+  const withWarning = (verbatimText: string | null) =>
+    compliantReading({ governmentWarning: { verbatimText, prefixAppearsBold: true } });
+
+  function counting(first: string | null, second: string | null) {
+    let warningReads = 0;
+    const reader = new FakeLabelReader(
+      () => withWarning(first),
+      () => {
+        warningReads += 1;
+        return second;
+      },
+    );
+    return { reader, warningReads: () => warningReads };
+  }
+
+  // Seen live: small type read as "alcohol" for "alcoholic" on a compliant label.
+  it('accepts the label when a focused second read is the exact text', async () => {
+    const { reader, warningReads } = counting(misread, CANONICAL);
+    const reading = await readLabel(reader, image);
+    expect(warningReads()).toBe(1);
+    expect(assessReading(reading).verdict).toBe('looks_good');
+  });
+
+  it('still fails when the second read also differs', async () => {
+    const titleCase = CANONICAL.replace('GOVERNMENT WARNING', 'Government Warning');
+    const { reader } = counting(titleCase, titleCase);
+    expect(assessReading(await readLabel(reader, image)).verdict).toBe('problems_found');
+  });
+
+  it('keeps the first reading when the second read is wrong in a different way', async () => {
+    const { reader } = counting(misread, null);
+    const reading = await readLabel(reader, image);
+    expect(reading.governmentWarning.verbatimText).toBe(misread);
+  });
+
+  it('does not re-read an exact warning or a missing one', async () => {
+    for (const first of [CANONICAL, null]) {
+      const { reader, warningReads } = counting(first, CANONICAL);
+      await readLabel(reader, image);
+      expect(warningReads()).toBe(0);
+    }
   });
 });

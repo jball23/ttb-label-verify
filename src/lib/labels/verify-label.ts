@@ -1,4 +1,5 @@
 import { compareExpected, type Comparison } from './compare-expected';
+import { warningIsExact, warningNeedsSecondRead } from './government-warning';
 import { applyCorrections, type Corrections } from './corrections';
 import { type LabelImage, type LabelReader } from './label-reader';
 import { type ExpectedValues, type LabelReading } from './reading';
@@ -46,11 +47,24 @@ export function assessReading(
   };
 }
 
+/**
+ * Read one label. If the warning looks wrong, read just the warning again
+ * and accept it only when that focused read is the exact legal text — so a
+ * misread of small type does not fail a compliant label, while a label that
+ * really is wrong still fails.
+ */
+export async function readLabel(reader: LabelReader, image: LabelImage): Promise<LabelReading> {
+  const reading = await reader.read(image);
+  if (!warningNeedsSecondRead(reading.governmentWarning.verbatimText)) return reading;
+  const second = await reader.readWarning(image);
+  if (!warningIsExact(second)) return reading;
+  return { ...reading, governmentWarning: { ...reading.governmentWarning, verbatimText: second } };
+}
+
 /** Read one label image and assess it. The reader is the only I/O. */
 export async function verifyLabel(
   image: LabelImage,
   deps: { reader: LabelReader } & ReviewerInput,
 ): Promise<LabelReport> {
-  const reading = await deps.reader.read(image);
-  return assessReading(reading, deps);
+  return assessReading(await readLabel(deps.reader, image), deps);
 }

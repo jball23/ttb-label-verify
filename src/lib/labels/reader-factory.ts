@@ -7,6 +7,8 @@ import { type LabelReader } from './label-reader';
 import { OpenAICompatibleReader } from './openai-compatible-reader';
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
+/** Re-reads a warning that looks wrong; measured to fix small-type misreads without passing real errors. */
+export const DEFAULT_WARNING_MODEL = 'gpt-5.4';
 
 let cached: LabelReader | null = null;
 
@@ -52,6 +54,7 @@ export function createLabelReader(env: Env): LabelReader {
         ...shared,
         client: getObservedOpenAI(env.OPENAI_API_KEY),
         model: env.OPENAI_VLM_MODEL ?? DEFAULT_OPENAI_MODEL,
+        warningModel: env.OPENAI_WARNING_MODEL ?? DEFAULT_WARNING_MODEL,
         provider: 'openai',
       });
     }

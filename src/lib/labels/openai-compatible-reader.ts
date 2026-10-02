@@ -7,6 +7,7 @@ import {
 } from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { type ReasoningEffort } from 'openai/resources/shared';
+import { z } from 'zod';
 import {
   LabelPipelineError,
   ReaderAuthError,
@@ -15,7 +16,7 @@ import {
   ReaderTimeoutError,
 } from './errors';
 import { type LabelImage, type LabelReader } from './label-reader';
-import { LABEL_READER_PROMPT } from './prompt';
+import { LABEL_READER_PROMPT, WARNING_READER_PROMPT } from './prompt';
 import { retryRateLimitedRequest } from './rate-limit-retry';
 import { LabelReadingSchema, normalizeReading, type LabelReading } from './reading';
 
@@ -24,6 +25,8 @@ export interface OpenAICompatibleReaderOptions {
   client: OpenAI;
   /** Model name (OpenAI) or deployment name (Azure OpenAI). */
   model: string;
+  /** Model for the focused warning re-read; defaults to `model`. A stronger one helps with small type. */
+  warningModel?: string;
   provider: 'openai' | 'azure-openai';
   /** Hard ceiling per attempt. The product target is ~5 s end to end. */
   timeoutMs?: number;
@@ -31,11 +34,12 @@ export interface OpenAICompatibleReaderOptions {
   reasoningEffort?: ReasoningEffort;
 }
 
-const RESPONSE_FORMAT = zodResponseFormat(LabelReadingSchema, 'label_reading');
+const LABEL_FORMAT = zodResponseFormat(LabelReadingSchema, 'label_reading');
+const WARNING_FORMAT = zodResponseFormat(z.object({ verbatimText: z.string().nullable() }), 'warning_reading');
 
 /**
- * One structured-output vision call per label. Works for OpenAI and Azure
- * OpenAI alike because both are driven through the same client surface.
+ * Structured-output vision calls for OpenAI and Azure OpenAI alike, since
+ * both are driven through the same client surface.
  */
 export class OpenAICompatibleReader implements LabelReader {
   readonly modelId: string;
@@ -45,8 +49,25 @@ export class OpenAICompatibleReader implements LabelReader {
   }
 
   async read(image: LabelImage): Promise<LabelReading> {
-    const { client, model, timeoutMs = 15_000, rateLimitRetries = 2, reasoningEffort } =
-      this.options;
+    const reading = await this.ask(this.options.model, image, LABEL_READER_PROMPT, 'Read this alcohol beverage label.', LABEL_FORMAT);
+    return normalizeReading(reading);
+  }
+
+  async readWarning(image: LabelImage): Promise<string | null> {
+    const model = this.options.warningModel ?? this.options.model;
+    const { verbatimText } = await this.ask(model, image, WARNING_READER_PROMPT, 'Transcribe the government warning.', WARNING_FORMAT);
+    return verbatimText?.trim() ? verbatimText : null;
+  }
+
+  /** One image, one instruction, one parsed answer; every failure becomes a typed error. */
+  private async ask<T>(
+    model: string,
+    image: LabelImage,
+    system: string,
+    instruction: string,
+    format: ReturnType<typeof zodResponseFormat<z.ZodType<T>>>,
+  ): Promise<T> {
+    const { client, timeoutMs = 15_000, rateLimitRetries = 2, reasoningEffort } = this.options;
     try {
       const completion = await retryRateLimitedRequest(
         () =>
@@ -54,19 +75,16 @@ export class OpenAICompatibleReader implements LabelReader {
             {
               model,
               messages: [
-                { role: 'system', content: LABEL_READER_PROMPT },
+                { role: 'system', content: system },
                 {
                   role: 'user',
                   content: [
-                    { type: 'text', text: 'Read this alcohol beverage label.' },
-                    {
-                      type: 'image_url',
-                      image_url: { url: toDataUrl(image), detail: 'high' },
-                    },
+                    { type: 'text', text: instruction },
+                    { type: 'image_url', image_url: { url: toDataUrl(image), detail: 'high' } },
                   ],
                 },
               ],
-              response_format: RESPONSE_FORMAT,
+              response_format: format,
               ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
             },
             { timeout: timeoutMs, maxRetries: 0 },
@@ -75,7 +93,7 @@ export class OpenAICompatibleReader implements LabelReader {
       );
       const parsed = completion.choices[0]?.message.parsed;
       if (!parsed) throw new ReaderResponseError();
-      return normalizeReading(parsed);
+      return parsed as T;
     } catch (error) {
       throw toPipelineError(error);
     }

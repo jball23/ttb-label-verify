@@ -16,6 +16,8 @@ const baseSchema = z.object({
   LABEL_READER_TIMEOUT_MS: z.preprocess(blankAsUnset, integerEnv('15000', { min: 1000, max: 60000 })),
   OPENAI_API_KEY: optional(z.string()),
   OPENAI_VLM_MODEL: optional(z.string()),
+  /** Optional stronger model for re-reading a warning that looks wrong. */
+  OPENAI_WARNING_MODEL: optional(z.string()),
   OPENAI_REASONING_EFFORT: optional(z.enum(['none', 'minimal', 'low', 'medium', 'high'])),
   AZURE_OPENAI_ENDPOINT: optional(z.string().url()),
   AZURE_OPENAI_API_KEY: optional(z.string()),

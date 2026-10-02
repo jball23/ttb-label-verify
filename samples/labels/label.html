@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Test label</title>
+<!--
+  Test-label generator. Each variant is a known label with one deliberate
+  property, so the eval knows exactly what is printed. Rendered to JPEG by
+  render.sh: label.html?variant=<name>
+-->
+<style>
+  html, body { margin: 0; background: #d9d4cb; }
+  body { width: 1200px; height: 1500px; display: flex; align-items: center; justify-content: center; }
+  .stage { perspective: 1400px; }
+  .label {
+    box-sizing: border-box; width: 900px; padding: 70px 80px 60px;
+    background: #f6efdf; color: #1f2a44; border: 14px double #1f2a44;
+    font-family: Georgia, 'Times New Roman', serif; text-align: center;
+    display: flex; flex-direction: column; gap: 26px; position: relative; overflow: hidden;
+  }
+  .label.gin { background: #eef3f1; color: #13332b; border-color: #13332b; }
+  .brand { font-size: 92px; letter-spacing: 6px; font-weight: 700; line-height: 1; }
+  .class { font-size: 40px; font-style: italic; }
+  .rule { height: 3px; background: currentColor; opacity: .6; margin: 6px 120px; }
+  .row { display: flex; justify-content: space-between; font-size: 34px; font-family: Helvetica, Arial, sans-serif; font-weight: 600; }
+  .producer { font-size: 28px; font-family: Helvetica, Arial, sans-serif; }
+  .warning { text-align: left; font-size: 22px; line-height: 1.35; font-family: Helvetica, Arial, sans-serif; border-top: 2px solid currentColor; padding-top: 18px; }
+  .warning b { font-weight: 800; }
+  .glare { position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 38% 26% at 70% 72%, rgba(255,255,255,.95), rgba(255,255,255,.55) 45%, rgba(255,255,255,0) 75%); }
+  .photo .label { transform: rotateY(-24deg) rotateX(9deg) rotateZ(-4deg); filter: blur(1.1px) brightness(.93); box-shadow: 40px 50px 60px rgba(0,0,0,.35); }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="label" id="label">
+    <div class="brand" id="brand"></div>
+    <div class="class" id="class"></div>
+    <div class="rule"></div>
+    <div class="row"><span id="abv"></span><span id="net"></span></div>
+    <div class="producer" id="producer"></div>
+    <div class="warning" id="warning"></div>
+  </div>
+</div>
+<script>
+  const WARNING_BODY =
+    '(1) According to the Surgeon General, women should not drink alcoholic beverages during pregnancy because of the risk of birth defects. (2) Consumption of alcoholic beverages impairs your ability to drive a car or operate machinery, and may cause health problems.';
+  const OLD_TOM = {
+    brand: 'OLD TOM DISTILLERY',
+    classType: 'Kentucky Straight Bourbon Whiskey',
+    abv: '45% Alc./Vol. (90 Proof)',
+    net: '750 mL',
+    producer: 'Distilled and Bottled by Old Tom Distillery, Bardstown, Kentucky',
+    prefix: 'GOVERNMENT WARNING:',
+    body: WARNING_BODY,
+  };
+  const VARIANTS = {
+    'old-tom-bourbon': {},
+    'old-tom-title-case-warning': { prefix: 'Government Warning:' },
+    'old-tom-reworded-warning': {
+      body: WARNING_BODY.replace('and may cause health problems', 'and may cause serious health problems'),
+    },
+    'old-tom-glare-angle': { photo: true },
+    'stones-throw-gin': {
+      gin: true,
+      brand: "STONE'S THROW",
+      classType: 'London Dry Gin',
+      abv: '41.5% Alc./Vol. (83 Proof)',
+      net: '750 mL',
+      producer: "Bottled by Stone's Throw Spirits Co., Portland, Oregon",
+    },
+  };
+  const variant = new URLSearchParams(location.search).get('variant') ?? 'old-tom-bourbon';
+  const v = { ...OLD_TOM, ...VARIANTS[variant] };
+  const set = (id, text) => (document.getElementById(id).textContent = text);
+  set('brand', v.brand);
+  set('class', v.classType);
+  set('abv', v.abv);
+  set('net', v.net);
+  set('producer', v.producer);
+  const warning = document.getElementById('warning');
+  const lead = document.createElement('b');
+  lead.textContent = v.prefix;
+  warning.append(lead, ' ' + v.body);
+  if (v.gin) document.getElementById('label').classList.add('gin');
+  if (v.photo) {
+    document.getElementById('stage').classList.add('photo');
+    const glare = document.createElement('div');
+    glare.className = 'glare';
+    document.getElementById('label').append(glare);
+  }
+</script>
+</body>
+</html>

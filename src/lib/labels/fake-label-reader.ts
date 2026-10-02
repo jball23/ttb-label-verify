@@ -33,9 +33,15 @@ export class FakeLabelReader implements LabelReader {
   constructor(
     private readonly readingFor: (image: LabelImage) => LabelReading | Promise<LabelReading> = () =>
       compliantReading(),
+    /** The focused warning read; defaults to what the full read found. */
+    private readonly warningFor?: (image: LabelImage) => string | null,
   ) {}
 
   async read(image: LabelImage): Promise<LabelReading> {
     return this.readingFor(image);
+  }
+
+  async readWarning(image: LabelImage): Promise<string | null> {
+    return this.warningFor ? this.warningFor(image) : (await this.readingFor(image)).governmentWarning.verbatimText;
   }
 }

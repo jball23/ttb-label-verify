@@ -11,7 +11,7 @@ import {
 import { toLabelView, type LabelView } from './label-view';
 import { PROMPT_VERSION } from './prompt';
 import { type ExpectedValues } from './reading';
-import { assessReading } from './verify-label';
+import { assessReading, readLabel } from './verify-label';
 
 export interface LabelServiceDeps {
   reader: LabelReader;
@@ -37,7 +37,7 @@ export async function checkLabel(
   const contentHash = createHash('sha256').update(image.bytes).digest('hex');
   const reading =
     (await repo.findCachedReading(contentHash, PROMPT_VERSION, reader.modelId)) ??
-    (await reader.read(image));
+    (await readLabel(reader, image));
   const report = assessReading(reading, { expected });
 
   const record = await repo.create({
