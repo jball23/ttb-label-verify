@@ -202,7 +202,10 @@ npm run dev                     # http://localhost:3000
 ```
 
 Without `DATABASE_URL`, results are kept in server memory, which is fine for a
-local demo. With a Neon/Postgres URL, run `npm run db:migrate` first.
+local demo. With a Neon/Postgres URL, run `npm run db:migrate` first; it records
+what it applies, so running it again applies only new migrations. To clear a
+database for a fresh start (for example after testing on the live site), run
+`npm run db:reset`.
 
 | Command | What it does |
 |---|---|

@@ -50,7 +50,15 @@ async function main(): Promise<void> {
   console.log('Truncating label_decisions, labels…');
   // label_decisions references labels, so both go in one statement.
   await db.execute(sql`TRUNCATE TABLE label_decisions, labels`);
-  console.log('✓ Done. Both tables are empty.');
+  const { rows } = await db.execute<{ labels: number; decisions: number }>(
+    sql`SELECT (SELECT count(*) FROM labels)::int AS labels,
+               (SELECT count(*) FROM label_decisions)::int AS decisions`,
+  );
+  const left = rows[0]!;
+  if (left.labels !== 0 || left.decisions !== 0) {
+    throw new Error(`Rows remain: ${left.labels} labels, ${left.decisions} decisions.`);
+  }
+  console.log('✓ Done. labels: 0, label_decisions: 0.');
 }
 
 main().catch((e) => {
