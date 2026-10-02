@@ -208,7 +208,11 @@ function DecidedNote({ view }: { view: LabelView }) {
 
 function ReviewQueue({ queue, currentId, onHide }: { queue: QueueEntry[]; currentId: string; onHide(): void }) {
   return (
-    <nav aria-label="Labels to review" className="hidden flex-col gap-3 lg:flex">
+    <nav
+      aria-label="Labels to review"
+      // Pinned like the photo; a long queue scrolls inside it rather than with the page.
+      className="hidden flex-col gap-3 lg:sticky lg:top-24 lg:flex lg:max-h-[calc(100svh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-3"
+    >
       <div className="flex items-center justify-between gap-2">
         <Link href="/" className="inline-flex items-center gap-1 text-base font-medium underline underline-offset-4">
           <ChevronLeft aria-hidden className="size-4" /> All labels
