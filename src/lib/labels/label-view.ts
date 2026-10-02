@@ -28,7 +28,7 @@ export function toLabelView(record: LabelRecord, decisions: DecisionRecord[] = [
     status: record.status,
     statusAt: record.statusAt.toISOString(),
     // Recomputed from the stored reading so a rule change applies everywhere.
-    report: assessReading(record.reading, record.expected),
+    report: assessReading(record.reading, { expected: record.expected, corrections: record.corrections }),
     decisions: decisions.map((d) => ({ ...d, createdAt: d.createdAt.toISOString() })),
   };
 }

@@ -8,9 +8,9 @@ import {
   type LabelStatus,
   type NewDecision,
   type NewLabelRecord,
+  type ReviewerUpdate,
 } from '@/lib/labels/label-record';
-import { type ExpectedValues, type LabelReading } from '@/lib/labels/reading';
-import { type Verdict } from '@/lib/labels/verdict';
+import { type LabelReading } from '@/lib/labels/reading';
 import { type Database } from './client';
 import { labelDecisions, labels } from './schema';
 
@@ -63,11 +63,11 @@ export class DrizzleLabelRepository implements LabelRepository {
     });
   }
 
-  updateExpected(id: string, expected: ExpectedValues, verdict: Verdict): Promise<LabelRecord | null> {
+  updateReviewerInput(id: string, update: ReviewerUpdate): Promise<LabelRecord | null> {
     return this.run(async () => {
       const [row] = await this.db
         .update(labels)
-        .set({ expected, verdict })
+        .set(update)
         .where(eq(labels.id, id))
         .returning(RECORD_COLUMNS);
       return row ?? null;

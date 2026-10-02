@@ -1,3 +1,4 @@
+import { type Corrections } from './corrections';
 import { type LabelImage, type LabelImageMimeType } from './label-reader';
 import { type ExpectedValues, type LabelReading } from './reading';
 import { type Verdict } from './verdict';
@@ -27,6 +28,7 @@ export interface LabelRecord {
   latencyMs: number;
   reading: LabelReading;
   expected: ExpectedValues;
+  corrections: Corrections;
   verdict: Verdict;
   status: LabelStatus;
   statusAt: Date;
@@ -35,6 +37,13 @@ export interface LabelRecord {
 export type NewLabelRecord = Omit<LabelRecord, 'id' | 'createdAt' | 'status' | 'statusAt'> & {
   imageBytes: Buffer;
 };
+
+/** The reviewer's values plus the verdict they produce, saved together. */
+export interface ReviewerUpdate {
+  expected: ExpectedValues;
+  corrections: Corrections;
+  verdict: Verdict;
+}
 
 export interface NewDecision {
   decision: LabelDecision;
@@ -49,7 +58,7 @@ export interface LabelRepository {
   getImage(id: string): Promise<LabelImage | null>;
   /** A reading of the same image under the same prompt and model, if one exists. */
   findCachedReading(contentHash: string, promptVersion: string, readerModel: string): Promise<LabelReading | null>;
-  updateExpected(id: string, expected: ExpectedValues, verdict: Verdict): Promise<LabelRecord | null>;
+  updateReviewerInput(id: string, update: ReviewerUpdate): Promise<LabelRecord | null>;
   /** Records the decision and moves the label to that status, atomically. */
   recordDecision(id: string, decision: NewDecision): Promise<LabelRecord | null>;
   listDecisions(id: string): Promise<DecisionRecord[]>;

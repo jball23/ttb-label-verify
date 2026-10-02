@@ -19,6 +19,7 @@ import { sql } from 'drizzle-orm';
 import type { ExtractedDocument } from '@/lib/extraction/types';
 import type { VerificationReport } from '@/lib/validation/types';
 import type { LabelImageMimeType } from '@/lib/labels/label-reader';
+import type { Corrections } from '@/lib/labels/corrections';
 import type { ExpectedValues, LabelReading } from '@/lib/labels/reading';
 import type { LabelDecision, LabelStatus } from '@/lib/labels/label-record';
 import type { Verdict } from '@/lib/labels/verdict';
@@ -159,10 +160,10 @@ export const promptVersions = pgTable('prompt_versions', {
 });
 
 /**
- * One checked label image. The reading is the model's output; everything
- * else in the report (rules, comparisons) is recomputed from it on read, so
- * only the reading, the reviewer's expected values and the derived verdict
- * (for filtering) are stored.
+ * One checked label image. The reading is the model's output, never edited;
+ * the reviewer's corrections and expected values are stored beside it. The
+ * report (rules, comparisons) is recomputed from those on read, so only the
+ * derived verdict is stored, for filtering.
  */
 export const labels = pgTable(
   'labels',
@@ -180,6 +181,7 @@ export const labels = pgTable(
     latencyMs: integer().notNull(),
     reading: jsonb().$type<LabelReading>().notNull(),
     expected: jsonb().$type<ExpectedValues>().notNull().default({}),
+    corrections: jsonb().$type<Corrections>().notNull().default({}),
     verdict: text().$type<Verdict>().notNull(),
     status: text().$type<LabelStatus>().notNull().default('to_review'),
     statusAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

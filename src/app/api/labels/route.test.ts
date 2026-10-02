@@ -12,7 +12,7 @@ vi.mock('@/lib/labels/server-deps', () => ({
 }));
 
 const { POST, GET } = await import('./route');
-const { PUT } = await import('./[id]/expected/route');
+const { PATCH } = await import('./[id]/route');
 const { POST: DECIDE } = await import('./[id]/decision/route');
 const { GET: IMAGE } = await import('./[id]/image/route');
 
@@ -25,7 +25,7 @@ function upload(file: File | null, fields: Record<string, string> = {}) {
 
 const jpeg = (name = 'label.jpg', bytes = 'jpeg-bytes') => new File([bytes], name, { type: 'image/jpeg' });
 const context = (id: string) => ({ params: Promise.resolve({ id }) });
-const json = (body: unknown) => ({ method: 'PUT', body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
+const json = (body: unknown, method = 'PATCH') => ({ method, body: JSON.stringify(body), headers: { 'content-type': 'application/json' } });
 
 beforeEach(() => {
   deps = { reader: new FakeLabelReader(), repo: new MemoryLabelRepository() };
@@ -80,14 +80,22 @@ describe('label follow-up routes', () => {
 
   it('re-compares application values', async () => {
     const id = await createdId();
-    const response = await PUT(new Request('http://test', json({ netContents: '1 L' })), context(id));
+    const response = await PATCH(new Request('http://test', json({ expected: { netContents: '1 L' } })), context(id));
     expect((await response.json()).report.verdict).toBe('needs_review');
+  });
+
+  it('accepts a correction and rejects unknown fields', async () => {
+    const id = await createdId();
+    const ok = await PATCH(new Request('http://test', json({ corrections: { brandName: 'OLD TOM' } })), context(id));
+    expect((await ok.json()).report.corrections.brandName.value).toBe('OLD TOM');
+    const bad = await PATCH(new Request('http://test', json({ corrections: { colour: 'red' } })), context(id));
+    expect(bad.status).toBe(400);
   });
 
   it('records a decision and lists it as decided', async () => {
     const id = await createdId();
     const response = await DECIDE(
-      new Request('http://test', { ...json({ decision: 'approved' }), method: 'POST' }),
+      new Request('http://test', json({ decision: 'approved' }, 'POST')),
       context(id),
     );
     expect((await response.json()).status).toBe('approved');

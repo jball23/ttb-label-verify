@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { reconcileCorrections, type CorrectionValues } from './corrections';
 import { InvalidRequestError, LabelNotFoundError } from './errors';
 import { type LabelImage, type LabelReader } from './label-reader';
 import {
@@ -37,7 +38,7 @@ export async function checkLabel(
   const reading =
     (await repo.findCachedReading(contentHash, PROMPT_VERSION, reader.modelId)) ??
     (await reader.read(image));
-  const report = assessReading(reading, expected);
+  const report = assessReading(reading, { expected });
 
   const record = await repo.create({
     batchId,
@@ -51,6 +52,7 @@ export async function checkLabel(
     latencyMs: Date.now() - started,
     reading,
     expected,
+    corrections: {},
     verdict: report.verdict,
   });
   return toLabelView(record);
@@ -61,15 +63,34 @@ export async function getLabel({ repo }: Pick<LabelServiceDeps, 'repo'>, id: str
   return toLabelView(found(record), decisions);
 }
 
-/** Re-compare against new application values. No model call — instant. */
-export async function updateExpectedValues(
+export interface ReviewerValuesInput {
+  /** Replaces the application values when present. */
+  expected?: ExpectedValues;
+  /** The full set of corrected label values when present; omitted fields are uncorrected. */
+  corrections?: CorrectionValues;
+  reviewer?: string | null;
+}
+
+/**
+ * Save the reviewer's application values and/or corrections and re-assess.
+ * No model call — the stored reading is reused, so this is instant.
+ */
+export async function updateReviewerValues(
   { repo }: Pick<LabelServiceDeps, 'repo'>,
   id: string,
-  expected: ExpectedValues,
+  input: ReviewerValuesInput,
+  now: Date = new Date(),
 ): Promise<LabelView> {
   const record = found(await repo.get(id));
-  const { verdict } = assessReading(record.reading, expected);
-  return withDecisions(repo, found(await repo.updateExpected(id, expected, verdict)));
+  const expected = input.expected ?? record.expected;
+  const corrections = input.corrections
+    ? reconcileCorrections(record.reading, record.corrections, input.corrections, {
+        at: now,
+        reviewer: input.reviewer?.trim() || null,
+      })
+    : record.corrections;
+  const { verdict } = assessReading(record.reading, { expected, corrections });
+  return withDecisions(repo, found(await repo.updateReviewerInput(id, { expected, corrections, verdict })));
 }
 
 export async function decideLabel(

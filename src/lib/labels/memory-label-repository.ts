@@ -6,9 +6,9 @@ import {
   type LabelRepository,
   type NewDecision,
   type NewLabelRecord,
+  type ReviewerUpdate,
 } from './label-record';
-import { type ExpectedValues, type LabelReading } from './reading';
-import { type Verdict } from './verdict';
+import { type LabelReading } from './reading';
 
 /**
  * Process-local storage, used when no DATABASE_URL is configured (local
@@ -46,8 +46,8 @@ export class MemoryLabelRepository implements LabelRepository {
     return null;
   }
 
-  async updateExpected(id: string, expected: ExpectedValues, verdict: Verdict): Promise<LabelRecord | null> {
-    return this.patch(id, { expected, verdict });
+  async updateReviewerInput(id: string, update: ReviewerUpdate): Promise<LabelRecord | null> {
+    return this.patch(id, update);
   }
 
   async recordDecision(id: string, decision: NewDecision): Promise<LabelRecord | null> {

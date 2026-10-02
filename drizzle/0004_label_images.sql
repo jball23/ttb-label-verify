@@ -22,6 +22,7 @@ CREATE TABLE "labels" (
 	"latency_ms" integer NOT NULL,
 	"reading" jsonb NOT NULL,
 	"expected" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"corrections" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"verdict" text NOT NULL,
 	"status" text DEFAULT 'to_review' NOT NULL,
 	"status_at" timestamp with time zone DEFAULT now() NOT NULL,

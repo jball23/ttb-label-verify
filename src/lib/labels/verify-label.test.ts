@@ -29,11 +29,11 @@ describe('assessReading verdicts', () => {
   });
 
   it('asks for a look when an application value differs, rather than rejecting', () => {
-    expect(assessReading(compliantReading(), { alcoholContent: '40%' }).verdict).toBe('needs_review');
+    expect(assessReading(compliantReading(), { expected: { alcoholContent: '40%' } }).verdict).toBe('needs_review');
   });
 
   it('asks for a look when an application value is not on the label', () => {
-    expect(assessReading(compliantReading(), { countryOfOrigin: 'Mexico' }).verdict).toBe('needs_review');
+    expect(assessReading(compliantReading(), { expected: { countryOfOrigin: 'Mexico' } }).verdict).toBe('needs_review');
   });
 
   it('never gives a verdict on an unreadable image', () => {
