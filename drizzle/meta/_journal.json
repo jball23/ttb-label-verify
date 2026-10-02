@@ -29,6 +29,13 @@
       "when": 1781217940416,
       "tag": "0003_open_star_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790905514310,
+      "tag": "0004_label_images",
+      "breakpoints": true
     }
   ]
 }

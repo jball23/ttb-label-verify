@@ -44,6 +44,18 @@ export class DatabaseError extends LabelPipelineError {
   }
 }
 
+export class InvalidRequestError extends LabelPipelineError {
+  constructor(userMessage: string) {
+    super(userMessage, 400);
+  }
+}
+
+export class LabelNotFoundError extends LabelPipelineError {
+  constructor() {
+    super('This label could not be found. It may have been checked on another server without a database.', 404);
+  }
+}
+
 /** Message and status for any error, without leaking internals. */
 export function describeError(error: unknown): { message: string; status: number } {
   if (error instanceof LabelPipelineError) {
