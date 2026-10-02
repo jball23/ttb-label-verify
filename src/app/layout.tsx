@@ -14,9 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'TTB Label Verification',
-  description:
-    'AI-assisted compliance verification for alcohol beverage labels against TTB requirements.',
+  title: 'Label Check',
+  description: 'Checks alcohol beverage label photos against TTB labeling requirements.',
 };
 
 export default function RootLayout({

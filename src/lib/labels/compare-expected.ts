@@ -3,7 +3,7 @@ import {
   countryMatches,
   normalizedExact,
   producerMatches,
-} from '../cross-check/normalize';
+} from './normalize';
 import { amountsAgree, parseAlcoholPercent, parseVolumeMl } from './measures';
 import {
   LABEL_FIELD_IDS,

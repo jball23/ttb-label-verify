@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GOVERNMENT_WARNING_CANONICAL as CANONICAL } from '../validation/ttb-constants';
+import { GOVERNMENT_WARNING_CANONICAL as CANONICAL } from './ttb-constants';
 import { analyzeGovernmentWarning } from './government-warning';
 
 const kinds = (text: string | null) => analyzeGovernmentWarning(text).map((f) => f.kind);

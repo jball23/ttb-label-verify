@@ -5,11 +5,11 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
-    include: ['src/**/*.test.ts', 'evals/**/*.test.ts'],
+    include: ['src/**/*.test.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      include: ['src/lib/**/*.ts', 'evals/evaluators/**/*.ts'],
+      include: ['src/lib/**/*.ts'],
       exclude: ['**/*.test.ts', '**/types.ts'],
     },
   },

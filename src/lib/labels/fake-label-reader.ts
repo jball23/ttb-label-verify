@@ -1,4 +1,4 @@
-import { GOVERNMENT_WARNING_CANONICAL } from '../validation/ttb-constants';
+import { GOVERNMENT_WARNING_CANONICAL } from './ttb-constants';
 import { type LabelImage, type LabelReader } from './label-reader';
 import { type LabelReading } from './reading';
 

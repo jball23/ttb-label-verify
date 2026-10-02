@@ -61,6 +61,10 @@ export class MemoryLabelRepository implements LabelRepository {
     return this.decisions.get(id) ?? [];
   }
 
+  async listDecisionsFor(ids: readonly string[]): Promise<Map<string, DecisionRecord[]>> {
+    return new Map(ids.map((id) => [id, this.decisions.get(id) ?? []]));
+  }
+
   async list({ statuses, limit }: { statuses: readonly LabelRecord['status'][]; limit: number }): Promise<LabelRecord[]> {
     return [...this.labels.values()]
       .map(({ record }) => record)

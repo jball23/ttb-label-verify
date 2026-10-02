@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { GOVERNMENT_WARNING_CANONICAL as CANONICAL } from '../validation/ttb-constants';
-import { applyCorrections, reconcileCorrections, type Corrections } from './corrections';
+import { GOVERNMENT_WARNING_CANONICAL as CANONICAL } from './ttb-constants';
+import { applyCorrections, isConfirmation, reconcileCorrections, type Corrections } from './corrections';
 import { compliantReading } from './fake-label-reader';
 import { assessReading } from './verify-label';
 
@@ -30,16 +30,26 @@ describe('applyCorrections', () => {
 describe('reconcileCorrections', () => {
   const reading = compliantReading();
 
-  it('stamps new corrections and ignores values equal to what was read', () => {
-    const next = reconcileCorrections(
-      reading,
-      {},
+  it('stamps new corrections, keeping a confirmed reading as a confirmation', () => {
+    const next = reconcileCorrections({},
       { brandName: 'OLD TOM DISTILLERY', netContents: ' 1 L ' },
       stamp('2026-10-01T10:00:00Z'),
     );
     expect(next).toEqual({
+      brandName: { value: 'OLD TOM DISTILLERY', correctedAt: '2026-10-01T10:00:00.000Z', reviewer: 'JP' },
       netContents: { value: '1 L', correctedAt: '2026-10-01T10:00:00.000Z', reviewer: 'JP' },
     });
+    expect(isConfirmation(reading, 'brandName', next.brandName!)).toBe(true);
+    expect(isConfirmation(reading, 'netContents', next.netContents!)).toBe(false);
+  });
+
+  // A reviewer confirming an unsure reading clears the "hard to read" flag.
+  it('lets a confirmation settle a low-confidence reading', () => {
+    const unsure = compliantReading();
+    unsure.fields.classType = { value: 'India Pale Ale', confidence: 'low' };
+    expect(assessReading(unsure).verdict).toBe('needs_review');
+    const corrections = reconcileCorrections({}, { classType: 'India Pale Ale' }, stamp('2026-10-01T10:00:00Z'));
+    expect(assessReading(unsure, { corrections }).verdict).toBe('looks_good');
   });
 
   it('keeps the original stamp for an unchanged correction and drops omitted ones', () => {
@@ -47,14 +57,13 @@ describe('reconcileCorrections', () => {
       netContents: { value: '1 L', correctedAt: '2026-10-01T10:00:00.000Z', reviewer: 'JP' },
       classType: { value: 'Gin', correctedAt: '2026-10-01T10:00:00.000Z', reviewer: 'JP' },
     };
-    const next = reconcileCorrections(reading, previous, { netContents: '1 L' }, stamp('2026-10-02T09:00:00Z', 'DM'));
+    const next = reconcileCorrections(previous, { netContents: '1 L' }, stamp('2026-10-02T09:00:00Z', 'DM'));
     expect(next).toEqual({ netContents: previous.netContents });
   });
 
   it('records "not on the label" as a correction to null', () => {
-    const next = reconcileCorrections(reading, {}, { countryOfOrigin: null, producer: '' }, stamp('2026-10-01T10:00:00Z'));
+    const next = reconcileCorrections({}, { producer: '' }, stamp('2026-10-01T10:00:00Z'));
     expect(next.producer).toMatchObject({ value: null });
-    expect(next.countryOfOrigin).toBeUndefined(); // already null in the reading
   });
 });
 

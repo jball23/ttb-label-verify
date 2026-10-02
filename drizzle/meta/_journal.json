@@ -36,6 +36,13 @@
       "when": 1790907907475,
       "tag": "0004_label_images",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790909182013,
+      "tag": "0005_drop_cola_tables",
+      "breakpoints": true
     }
   ]
 }

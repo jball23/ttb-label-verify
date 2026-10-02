@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Archive, FileText, MapPin, SearchCheck, ShieldCheck, X } from 'lucide-react';
+import { Pencil, SearchCheck, ShieldCheck, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -31,44 +31,31 @@ export function AboutDialog() {
           </div>
           <DialogTitle>About this tool</DialogTitle>
           <DialogDescription>
-            A prototype for AI-assisted TTB label compliance checks.
+            A prototype that checks alcohol beverage labels against TTB requirements.
           </DialogDescription>
         </DialogHeader>
         <DialogContent className="space-y-4">
           <p className="text-muted-foreground">
-            Upload one or more filled TTB Form 5100.31 COLA PDFs. The verifier
-            reads only the form fields and label artwork needed to assess the
-            submitted label.
+            Drop in label photos. Each one is read by an AI model in a couple of seconds and
+            checked against the TTB rules every label must meet. A person always makes the
+            final decision.
           </p>
           <div className="rounded-lg border border-border bg-muted/40 p-4">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              How it works
+              What is checked
             </p>
             <ul className="space-y-2 text-sm">
               <li className="flex gap-2">
-                <FileText className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                Parses known COLA form fields from the PDF text layer,
-                including Item 5 product type, when available.
+                <SearchCheck aria-hidden className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                The government warning, word for word, with &ldquo;GOVERNMENT WARNING:&rdquo; in capitals.
               </li>
               <li className="flex gap-2">
-                <SearchCheck className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                Compares Item 5 product type to the label&apos;s class/type
-                designation; Item 7 fanciful name is kept as context.
+                <SearchCheck aria-hidden className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                Brand name, class/type, alcohol content (as a percentage), net contents, and the bottler&apos;s name and address.
               </li>
               <li className="flex gap-2">
-                <SearchCheck className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                Runs OCR on the affixed label artwork and uses OpenAI fallback
-                only for fields OCR cannot read confidently.
-              </li>
-              <li className="flex gap-2">
-                <MapPin className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                Shows source boxes for PDF/OCR reads. AI fallback values are
-                labeled when an exact box is unavailable.
-              </li>
-              <li className="flex gap-2">
-                <Archive className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                Routes results through Queue, Approved or Rejected, Finalized,
-                then Archive after human review.
+                <Pencil aria-hidden className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                Optionally, the values from the application. Reviewers can also fix a misread; the original reading is kept.
               </li>
             </ul>
           </div>
@@ -78,20 +65,12 @@ export function AboutDialog() {
             </p>
             <ul className="space-y-1.5 text-sm">
               <li className="flex gap-2">
-                <X className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                Submit anything to COLAs or TTB systems
+                <X aria-hidden className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                Connect to COLA or submit anything to TTB systems
               </li>
               <li className="flex gap-2">
-                <X className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                <X aria-hidden className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
                 Replace human compliance review
-              </li>
-              <li className="flex gap-2">
-                <X className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                Guarantee that OCR or AI fallback found every visual field
-              </li>
-              <li className="flex gap-2">
-                <X className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-                Lock a finalized decision until the row is archived
               </li>
             </ul>
           </div>

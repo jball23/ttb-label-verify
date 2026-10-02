@@ -16,6 +16,7 @@ import { labelDecisions, labels } from './schema';
 
 // Every column except the image, which is only read by getImage().
 const { imageBytes: _imageBytes, ...RECORD_COLUMNS } = getTableColumns(labels);
+const { labelId: _labelId, ...DECISION_COLUMNS } = getTableColumns(labelDecisions);
 
 export class DrizzleLabelRepository implements LabelRepository {
   constructor(private readonly db: Database) {}
@@ -90,20 +91,22 @@ export class DrizzleLabelRepository implements LabelRepository {
     });
   }
 
-  listDecisions(id: string): Promise<DecisionRecord[]> {
-    return this.run(() =>
-      this.db
-        .select({
-          id: labelDecisions.id,
-          createdAt: labelDecisions.createdAt,
-          reviewer: labelDecisions.reviewer,
-          decision: labelDecisions.decision,
-          reason: labelDecisions.reason,
-        })
+  async listDecisions(id: string): Promise<DecisionRecord[]> {
+    return (await this.listDecisionsFor([id])).get(id) ?? [];
+  }
+
+  listDecisionsFor(ids: readonly string[]): Promise<Map<string, DecisionRecord[]>> {
+    return this.run(async () => {
+      const byLabel = new Map<string, DecisionRecord[]>(ids.map((id) => [id, []]));
+      if (ids.length === 0) return byLabel;
+      const rows = await this.db
+        .select({ labelId: labelDecisions.labelId, ...DECISION_COLUMNS })
         .from(labelDecisions)
-        .where(eq(labelDecisions.labelId, id))
-        .orderBy(desc(labelDecisions.createdAt)),
-    );
+        .where(inArray(labelDecisions.labelId, [...ids]))
+        .orderBy(desc(labelDecisions.createdAt));
+      for (const { labelId, ...decision } of rows) byLabel.get(labelId)?.push(decision);
+      return byLabel;
+    });
   }
 
   list({ statuses, limit }: { statuses: readonly LabelStatus[]; limit: number }): Promise<LabelRecord[]> {

@@ -57,6 +57,21 @@ export const LabelReadingSchema = z.object({
 
 export type LabelReading = z.infer<typeof LabelReadingSchema>;
 
+/** Models sometimes answer "" or "  " for "not on the label"; treat blanks as absent. */
+export function normalizeReading(reading: LabelReading): LabelReading {
+  const blankToNull = (value: string | null) => (value?.trim() ? value : null);
+  return {
+    ...reading,
+    fields: Object.fromEntries(
+      LABEL_FIELD_IDS.map((id) => [id, { ...reading.fields[id], value: blankToNull(reading.fields[id].value) }]),
+    ) as LabelReading['fields'],
+    governmentWarning: {
+      ...reading.governmentWarning,
+      verbatimText: blankToNull(reading.governmentWarning.verbatimText),
+    },
+  };
+}
+
 /** Values from the application, entered by the reviewer. All optional. */
 export const ExpectedValuesSchema = z
   .object(

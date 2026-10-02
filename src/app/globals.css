@@ -28,6 +28,10 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  /* Status text on a tinted status background — 4.5:1 in both themes. */
+  --color-status-problem: var(--status-problem);
+  --color-status-review: var(--status-review);
+  --color-status-good: var(--status-good);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -68,6 +72,10 @@
   --success-foreground: oklch(0.985 0 0);
   --warning: oklch(0.78 0.16 75);
   --warning-foreground: oklch(0.205 0 0);
+
+  --status-problem: oklch(0.47 0.19 27);
+  --status-review: oklch(0.47 0.11 70);
+  --status-good: oklch(0.45 0.12 152);
 }
 
 .dark {
@@ -96,6 +104,10 @@
   --success-foreground: oklch(0.145 0 0);
   --warning: oklch(0.82 0.17 75);
   --warning-foreground: oklch(0.145 0 0);
+
+  --status-problem: oklch(0.78 0.14 25);
+  --status-review: oklch(0.84 0.14 80);
+  --status-good: oklch(0.8 0.15 152);
 }
 
 @layer base {

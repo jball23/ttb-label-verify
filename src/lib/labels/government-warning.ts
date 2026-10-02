@@ -2,7 +2,7 @@ import {
   GOVERNMENT_WARNING_CANONICAL,
   GOVERNMENT_WARNING_PREFIX,
   normalizeWhitespace,
-} from '../validation/ttb-constants';
+} from './ttb-constants';
 
 /**
  * Exact-text analysis of a transcribed Health Warning Statement (27 CFR

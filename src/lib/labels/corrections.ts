@@ -49,11 +49,10 @@ export function applyCorrections(reading: LabelReading, corrections: Corrections
 
 /**
  * Turns requested values into stored corrections. An unchanged value keeps
- * its original timestamp and reviewer; a value equal to the AI reading is
- * not a correction at all.
+ * its original timestamp and reviewer. A value equal to the AI reading is
+ * kept too: it records that a person confirmed an unsure reading.
  */
 export function reconcileCorrections(
-  reading: LabelReading,
   previous: Corrections,
   requested: CorrectionValues,
   stamp: { at: Date; reviewer: string | null },
@@ -62,7 +61,6 @@ export function reconcileCorrections(
   for (const field of CORRECTABLE_FIELDS) {
     if (!(field in requested)) continue;
     const value = normalize(requested[field]);
-    if (value === normalize(originalValue(reading, field))) continue;
     const kept = previous[field];
     next[field] =
       kept && kept.value === value
@@ -70,6 +68,11 @@ export function reconcileCorrections(
         : { value, correctedAt: stamp.at.toISOString(), reviewer: stamp.reviewer };
   }
   return next;
+}
+
+/** True when the reviewer kept the AI's value, i.e. confirmed rather than changed it. */
+export function isConfirmation(reading: LabelReading, field: CorrectableField, correction: Correction): boolean {
+  return normalize(correction.value) === normalize(originalValue(reading, field));
 }
 
 export function originalValue(reading: LabelReading, field: CorrectableField): string | null {

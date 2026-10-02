@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GOVERNMENT_WARNING_CANONICAL as CANONICAL } from '../../validation/ttb-constants';
+import { GOVERNMENT_WARNING_CANONICAL as CANONICAL } from '../ttb-constants';
 import { compliantReading } from '../fake-label-reader';
 import { type LabelReading } from '../reading';
 import { runLabelRules } from '.';

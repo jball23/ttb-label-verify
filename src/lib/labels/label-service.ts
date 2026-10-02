@@ -84,7 +84,7 @@ export async function updateReviewerValues(
   const record = found(await repo.get(id));
   const expected = input.expected ?? record.expected;
   const corrections = input.corrections
-    ? reconcileCorrections(record.reading, record.corrections, input.corrections, {
+    ? reconcileCorrections(record.corrections, input.corrections, {
         at: now,
         reviewer: input.reviewer?.trim() || null,
       })

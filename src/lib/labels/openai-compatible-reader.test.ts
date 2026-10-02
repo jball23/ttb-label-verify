@@ -39,6 +39,16 @@ describe('OpenAICompatibleReader', () => {
     await expect(readerWith(parse).read(image)).rejects.toBeInstanceOf(expected);
   });
 
+  it('turns blank answers into "not on the label"', async () => {
+    const reading = compliantReading();
+    reading.fields.countryOfOrigin = { value: '  ', confidence: 'high' };
+    reading.governmentWarning.verbatimText = '';
+    const parse = vi.fn().mockResolvedValue({ choices: [{ message: { parsed: reading } }] });
+    const result = await readerWith(parse).read(image);
+    expect(result.fields.countryOfOrigin.value).toBeNull();
+    expect(result.governmentWarning.verbatimText).toBeNull();
+  });
+
   it('treats an empty structured response as a reader failure', async () => {
     const parse = vi.fn().mockResolvedValue({ choices: [{ message: { parsed: null } }] });
     await expect(readerWith(parse).read(image)).rejects.toBeInstanceOf(ReaderResponseError);

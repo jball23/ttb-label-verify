@@ -62,5 +62,7 @@ export interface LabelRepository {
   /** Records the decision and moves the label to that status, atomically. */
   recordDecision(id: string, decision: NewDecision): Promise<LabelRecord | null>;
   listDecisions(id: string): Promise<DecisionRecord[]>;
+  /** Decisions for many labels in one round trip, newest first per label. */
+  listDecisionsFor(ids: readonly string[]): Promise<Map<string, DecisionRecord[]>>;
   list(filter: { statuses: readonly LabelStatus[]; limit: number }): Promise<LabelRecord[]>;
 }

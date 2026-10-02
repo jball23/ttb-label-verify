@@ -17,7 +17,7 @@ import {
 import { type LabelImage, type LabelReader } from './label-reader';
 import { LABEL_READER_PROMPT } from './prompt';
 import { retryRateLimitedRequest } from './rate-limit-retry';
-import { LabelReadingSchema, type LabelReading } from './reading';
+import { LabelReadingSchema, normalizeReading, type LabelReading } from './reading';
 
 export interface OpenAICompatibleReaderOptions {
   /** An `OpenAI` or `AzureOpenAI` client — both expose the same chat API. */
@@ -75,7 +75,7 @@ export class OpenAICompatibleReader implements LabelReader {
       );
       const parsed = completion.choices[0]?.message.parsed;
       if (!parsed) throw new ReaderResponseError();
-      return parsed;
+      return normalizeReading(parsed);
     } catch (error) {
       throw toPipelineError(error);
     }
