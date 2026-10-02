@@ -19,7 +19,8 @@ export interface RuleCheck {
 export interface LabelRule {
   id: string;
   label: string;
-  check(reading: LabelReading): RuleCheck;
+  /** Null when the requirement does not apply to this label. */
+  check(reading: LabelReading): RuleCheck | null;
 }
 
 export interface RuleOutcome extends RuleCheck {

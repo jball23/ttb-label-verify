@@ -39,7 +39,7 @@ export const REQUIREMENTS: Record<CorrectableField, Requirement> = {
   countryOfOrigin: {
     section: null,
     summary:
-      'Imported products must state their country of origin. This tool compares it when the application gives a country; it is not required on domestic labels.',
+      "Imported products must state their country of origin; domestic products need not. When the label states no country, the bottler's address is used: a US state or territory means the product is domestic.",
   },
   governmentWarning: {
     section: '27 CFR §16.21–16.22',

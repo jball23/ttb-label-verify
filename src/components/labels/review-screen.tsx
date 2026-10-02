@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ChevronLeft, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { buildChecklist } from '@/lib/labels/checklist';
 import { decide, saveReviewerValues } from '@/lib/labels/client-api';
@@ -47,7 +47,15 @@ export function ReviewScreen({
   const title = labelTitle(report, view.filename);
   const next = queue.find((entry) => entry.id !== view.id);
   const { legible, issues } = report.effectiveReading.imageQuality;
-  const checklist = buildChecklist(report);
+  const checklist = useMemo(() => buildChecklist(report), [report]);
+  const photoTargets = useMemo(
+    () =>
+      Object.fromEntries(checklist.map((item) => [item.field, item.locate])) as Record<
+        CorrectableField,
+        string | null
+      >,
+    [checklist],
+  );
 
   async function run(kind: 'saving' | 'deciding', work: () => Promise<LabelView>) {
     setBusy(kind);
@@ -116,7 +124,7 @@ export function ReviewScreen({
             <LabelPhoto
               imageUrl={view.imageUrl}
               alt={`Label photo: ${title}`}
-              reading={report.effectiveReading}
+              targets={photoTargets}
               highlight={highlight}
               large={queueHidden}
               onZoom={() => setZoomOpen(true)}

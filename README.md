@@ -65,6 +65,7 @@ model.
 | Alcohol content | — | Missing (some wines and beers are exempt); shown only as proof; hard to read | §4.36 / §5.65 / §7.65 |
 | Net contents | Not on the label | No recognizable unit; hard to read | §4.37 / §5.38 / §7.27 |
 | Bottler / producer | Not on the label | Hard to read | §4.35 / §5.36 / §7.25 |
+| Country of origin | — | The label names an importer but states no country | Imports only; inferred from the bottler's address when not stated |
 
 **Verdicts.** Any failure gives **Problem found**. Anything that needs a look,
 an application value that differs, or an unreadable photo gives **Needs a
@@ -161,8 +162,11 @@ drawn otherwise.
   Grouping front and back images into one item is the natural next step.
 - The application values come from the agent's COLA screen, typed in when
   needed. In production they would come from COLA directly.
-- Country of origin is only required for imports, so it's compared when the
-  application gives one rather than required on every label.
+- Country of origin is only required on imports. When a label states no
+  country, the bottler's address is used: a US state or territory (Portland,
+  Oregon; Bardstown, KY; San Juan, Puerto Rico) means the product is domestic
+  and passes. "Imported by…" with no country needs a look. An importer's US
+  address never counts as the origin.
 
 ## Limitations and next steps
 

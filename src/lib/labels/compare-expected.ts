@@ -5,6 +5,7 @@ import {
   producerMatches,
 } from './normalize';
 import { amountsAgree, parseAlcoholPercent, parseVolumeMl } from './measures';
+import { inferOrigin } from './origin';
 import {
   LABEL_FIELD_IDS,
   LABEL_FIELD_LABELS,
@@ -66,7 +67,12 @@ export function compareExpected(
 ): Comparison[] {
   return LABEL_FIELD_IDS.map((field) => {
     const want = expected[field]?.trim() || null;
-    const found = reading.fields[field].value?.trim() || null;
+    // Country compares against what the label shows, stated or inferred from the address.
+    const found =
+      (field === 'countryOfOrigin'
+        ? inferOrigin(reading).country
+        : reading.fields[field].value
+      )?.trim() || null;
     return {
       field,
       label: LABEL_FIELD_LABELS[field],

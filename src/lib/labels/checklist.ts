@@ -7,6 +7,7 @@ import {
   type Correction,
 } from './corrections';
 import { LABEL_FIELD_LABELS } from './reading';
+import { inferOrigin } from './origin';
 import { REQUIREMENTS, type Requirement } from './requirements';
 import { type RuleStatus } from './rules/types';
 import { type LabelReport } from './verify-label';
@@ -21,8 +22,12 @@ export interface ChecklistItem {
   status: ChecklistStatus;
   /** Why it needs attention; null when it passes. */
   reason: string | null;
-  /** What the checks used: the reading, or the reviewer's correction. */
+  /** What the checks used: the reading, the reviewer's correction, or what was inferred. */
   value: string | null;
+  /** How a value not printed as such was worked out, e.g. from the bottler's address. */
+  valueNote: string | null;
+  /** The text to outline on the photo for this item. */
+  locate: string | null;
   /** What the model read, before any correction. */
   readValue: string | null;
   lowConfidence: boolean;
@@ -63,7 +68,7 @@ export function buildChecklist(report: LabelReport): ChecklistItem[] {
         field === 'governmentWarning' ? 'Government warning' : LABEL_FIELD_LABELS[field],
       status,
       reason: [ruleProblem, comparisonProblem].filter(Boolean).join(' ') || null,
-      value: originalValue(report.effectiveReading, field),
+      ...shownValue(report, field),
       readValue: originalValue(report.reading, field),
       lowConfidence:
         field !== 'governmentWarning' &&
@@ -81,6 +86,25 @@ export function buildChecklist(report: LabelReport): ChecklistItem[] {
         STATUS_RANK[a.item.status] - STATUS_RANK[b.item.status] || a.order - b.order,
     )
     .map(({ item }) => item);
+}
+
+/** The value to show and outline; country of origin may be inferred from the address. */
+function shownValue(
+  report: LabelReport,
+  field: CorrectableField,
+): Pick<ChecklistItem, 'value' | 'valueNote' | 'locate'> {
+  const printed = originalValue(report.effectiveReading, field);
+  if (field === 'countryOfOrigin' && !printed) {
+    const origin = inferOrigin(report.effectiveReading);
+    if (origin.how === 'address') {
+      return {
+        value: origin.country,
+        valueNote: `From the bottler's address: ${origin.place}`,
+        locate: origin.place,
+      };
+    }
+  }
+  return { value: printed, valueNote: null, locate: printed };
 }
 
 function correctionKind(

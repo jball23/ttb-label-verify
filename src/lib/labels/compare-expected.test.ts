@@ -47,6 +47,8 @@ describe('compareExpected', () => {
 
   it('distinguishes not entered from not on the label', () => {
     const reading = compliantReading();
+    // No stated country and no address to infer one from.
+    reading.fields.producer = { value: 'Old Tom Distillery', confidence: 'high' };
     const byField = Object.fromEntries(
       compareExpected({ countryOfOrigin: 'Mexico' }, reading).map((c) => [
         c.field,
@@ -55,5 +57,14 @@ describe('compareExpected', () => {
     );
     expect(byField.countryOfOrigin).toBe('not_found_on_label');
     expect(byField.brandName).toBe('not_entered');
+  });
+
+  it('compares country of origin with the country inferred from the address', () => {
+    const status = (country: string) =>
+      compareExpected({ countryOfOrigin: country }, compliantReading()).find(
+        (c) => c.field === 'countryOfOrigin',
+      )!.status;
+    expect(status('United States')).toBe('match');
+    expect(status('Mexico')).toBe('differs');
   });
 });

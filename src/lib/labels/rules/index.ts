@@ -1,6 +1,7 @@
 import { parseAlcoholPercent, parseVolumeMl, statesAlcoholPercent } from '../measures';
 import { type LabelReading } from '../reading';
 import { fieldRule } from './field-rule';
+import { countryOfOriginRule } from './country-of-origin-rule';
 import { governmentWarningRule } from './government-warning-rule';
 import { type LabelRule, type RuleOutcome } from './types';
 
@@ -47,13 +48,13 @@ export const LABEL_RULES: readonly LabelRule[] = [
     whenMissing: 'fail',
     missingReason: 'No bottler or producer name and address was found on the label.',
   }),
+  countryOfOriginRule,
   governmentWarningRule,
 ];
 
 export function runLabelRules(reading: LabelReading): RuleOutcome[] {
-  return LABEL_RULES.map((rule) => ({
-    id: rule.id,
-    label: rule.label,
-    ...rule.check(reading),
-  }));
+  return LABEL_RULES.flatMap((rule) => {
+    const check = rule.check(reading);
+    return check ? [{ id: rule.id, label: rule.label, ...check }] : [];
+  });
 }

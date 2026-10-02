@@ -2,21 +2,16 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { ZoomIn } from 'lucide-react';
-import {
-  CORRECTABLE_FIELDS,
-  originalValue,
-  type CorrectableField,
-} from '@/lib/labels/corrections';
+import { CORRECTABLE_FIELDS, type CorrectableField } from '@/lib/labels/corrections';
 import { locateText, type Box } from '@/lib/labels/locate-text';
-import { type LabelReading } from '@/lib/labels/reading';
 import { cn } from '@/lib/utils';
 import { useLabelOcr } from './use-label-ocr';
 
 interface Props {
   imageUrl: string;
   alt: string;
-  /** The reading the checks used; its text is what gets located. */
-  reading: LabelReading;
+  /** For each item, the text to outline on the photo; null when it is not on the label. */
+  targets: Record<CorrectableField, string | null>;
   /** The field or check the reviewer is pointing at, if any. */
   highlight: CorrectableField | null;
   /** Taller when the review list is collapsed and the photo has more room. */
@@ -31,7 +26,7 @@ interface Props {
 export function LabelPhoto({
   imageUrl,
   alt,
-  reading,
+  targets,
   highlight,
   large = false,
   onZoom,
@@ -48,15 +43,12 @@ export function LabelPhoto({
   const locations = useMemo(() => {
     if (ocr.status !== 'ready') return null;
     return Object.fromEntries(
-      CORRECTABLE_FIELDS.map((field) => [
-        field,
-        locateText(ocr.words, originalValue(reading, field)),
-      ]),
+      CORRECTABLE_FIELDS.map((field) => [field, locateText(ocr.words, targets[field])]),
     ) as Record<CorrectableField, Box[] | null>;
-  }, [ocr, reading]);
+  }, [ocr, targets]);
 
   const boxes = highlight && locations ? locations[highlight] : null;
-  const notice = highlight ? noticeFor(highlight, reading, ocr.status, boxes) : null;
+  const notice = highlight ? noticeFor(targets[highlight], ocr.status, boxes) : null;
 
   return (
     <div className="relative mx-auto w-fit max-w-full overflow-hidden rounded-xl border border-border bg-muted">
@@ -124,12 +116,11 @@ function toPercentBox(
 }
 
 function noticeFor(
-  field: CorrectableField,
-  reading: LabelReading,
+  target: string | null,
   status: 'loading' | 'ready' | 'failed',
   boxes: Box[] | null,
 ): string | null {
-  if (!originalValue(reading, field)) return 'Not on the label';
+  if (!target) return 'Not on the label';
   if (status === 'loading') return 'Finding text on the photo…';
   if (status === 'failed') return 'Highlighting is unavailable';
   return boxes ? null : "Couldn't find this on the photo";

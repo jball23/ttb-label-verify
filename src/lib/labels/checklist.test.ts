@@ -48,19 +48,38 @@ describe('buildChecklist', () => {
     expect(item.reason).toBe('Differs from the application ("40%").');
   });
 
-  it('checks country of origin only against the application', () => {
+  // Silver Birch Premium was shown as "Not found on the label" despite "Portland, Oregon".
+  it('infers a domestic country of origin from the bottler address', () => {
+    // compliantReading's producer is "Bottled by Old Tom Distillery, Bardstown, Kentucky".
+    const item = byField(
+      buildChecklist(assessReading(compliantReading())),
+    ).countryOfOrigin!;
+    expect(item).toMatchObject({
+      status: 'pass',
+      value: 'United States',
+      valueNote: "From the bottler's address: Bardstown, Kentucky",
+      locate: 'Bardstown, Kentucky',
+    });
+  });
+
+  it('compares the inferred country with the application', () => {
+    const report = (country: string) =>
+      assessReading(compliantReading(), { expected: { countryOfOrigin: country } });
     expect(
-      byField(buildChecklist(assessReading(compliantReading()))).countryOfOrigin!.status,
-    ).toBe('not_checked');
-    const missing = byField(
-      buildChecklist(
-        assessReading(compliantReading(), { expected: { countryOfOrigin: 'Mexico' } }),
-      ),
-    );
-    expect(missing.countryOfOrigin).toMatchObject({
+      byField(buildChecklist(report('USA'))).countryOfOrigin!.comparison?.status,
+    ).toBe('match');
+    expect(byField(buildChecklist(report('Mexico'))).countryOfOrigin).toMatchObject({
       status: 'review',
       reason: expect.stringMatching(/Mexico/),
     });
+  });
+
+  it('is not checked when the label gives nothing to go on', () => {
+    const reading = compliantReading();
+    reading.fields.producer = { value: 'Old Tom Distillery', confidence: 'high' };
+    expect(byField(buildChecklist(assessReading(reading))).countryOfOrigin!.status).toBe(
+      'not_checked',
+    );
   });
 
   it('shows the corrected value and keeps what was read', () => {

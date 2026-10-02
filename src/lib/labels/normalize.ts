@@ -13,7 +13,8 @@ import { canonicalWineVarietal, isWineTypeOnly } from './wine-lexicon';
 
 type ProductFamily = 'WINE' | 'DISTILLED SPIRITS' | 'MALT BEVERAGES';
 
-const STATE_NAME_TO_CODE: Record<string, string> = {
+/** Lower-case US state names to their postal codes. */
+export const STATE_NAME_TO_CODE: Record<string, string> = {
   alabama: 'al',
   alaska: 'ak',
   arizona: 'az',

@@ -170,7 +170,9 @@ function ChecklistRow({
   const look = STATUS_LOOK[item.status];
   const isWarning = item.field === 'governmentWarning';
   const corrected = draft !== undefined;
-  const shown = corrected ? draft : item.readValue;
+  // Not printed as such but worked out (country of origin from the address) shows too.
+  const shown = corrected ? draft : (item.readValue ?? item.value);
+  const inferred = !corrected && !item.readValue && item.valueNote;
   const comparison = item.comparison
     ? COMPARISON_TEXT[item.comparison.status]
     : undefined;
@@ -235,6 +237,9 @@ function ChecklistRow({
               <span className="rounded bg-warning/25 px-1.5 py-0.5 text-xs font-semibold text-status-review">
                 Hard to read
               </span>
+            ) : null}
+            {inferred ? (
+              <span className="text-sm text-muted-foreground">{item.valueNote}</span>
             ) : null}
           </div>
         )}
