@@ -202,7 +202,10 @@ npm run dev                     # http://localhost:3000
 ```
 
 Without `DATABASE_URL`, results are kept in server memory, which is fine for a
-local demo. With a Neon/Postgres URL, run `npm run db:migrate` first.
+local demo. With a Neon/Postgres URL, run `npm run db:migrate` first; it records
+what it applies, so running it again applies only new migrations. To clear a
+database for a fresh start (for example after testing on the live site), run
+`npm run db:reset`.
 
 | Command | What it does |
 |---|---|
@@ -211,6 +214,7 @@ local demo. With a Neon/Postgres URL, run `npm run db:migrate` first.
 | `npm run typecheck` · `npm run lint` | TypeScript and ESLint |
 | `npm run eval` | Live eval on the sample labels: correctness and p50/p95 latency; fails if p95 > 5 s. `-- --repeat 3`, `-- --only calypso` |
 | `npm run db:migrate` | Apply the Drizzle migrations to `DATABASE_URL` |
+| `npm run db:reset` | Empty `labels` and `label_decisions` on `DATABASE_URL` (asks first; `-- --yes` skips the prompt) |
 | `samples/labels/render.sh` | Regenerate the rendered test labels |
 
 ### Settings
