@@ -5,6 +5,7 @@ import { ZoomIn } from 'lucide-react';
 import { CORRECTABLE_FIELDS, originalValue, type CorrectableField } from '@/lib/labels/corrections';
 import { locateText, type Box } from '@/lib/labels/locate-text';
 import { type LabelReading } from '@/lib/labels/reading';
+import { cn } from '@/lib/utils';
 import { useLabelOcr } from './use-label-ocr';
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
   reading: LabelReading;
   /** The field or check the reviewer is pointing at, if any. */
   highlight: CorrectableField | null;
+  /** Taller when the review list is collapsed and the photo has more room. */
+  large?: boolean;
   onZoom(): void;
 }
 
@@ -21,7 +24,7 @@ interface Props {
  * The label photo. When the reviewer hovers a field or check, the text it
  * refers to is outlined; nothing is drawn otherwise.
  */
-export function LabelPhoto({ imageUrl, alt, reading, highlight, onZoom }: Props) {
+export function LabelPhoto({ imageUrl, alt, reading, highlight, large = false, onZoom }: Props) {
   const ocr = useLabelOcr(imageUrl);
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   // A cached image can finish loading before React attaches onLoad, so also
@@ -48,7 +51,7 @@ export function LabelPhoto({ imageUrl, alt, reading, highlight, onZoom }: Props)
         src={imageUrl}
         alt={alt}
         onLoad={(event) => setSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
-        className="block h-auto max-h-[70svh] w-auto max-w-full"
+        className={cn('block h-auto w-auto max-w-full', large ? 'max-h-[80svh]' : 'max-h-[70svh]')}
       />
       {boxes && size
         ? boxes.map((box, i) => (

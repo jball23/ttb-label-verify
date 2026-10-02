@@ -37,14 +37,19 @@ export function locateText(words: readonly OcrWord[], text: string | null): Box[
   if (target.length === 0) return null;
   const stream: Token[] = words.flatMap((word, index) => tokenize(word.text).map((value) => ({ value, word: index })));
 
-  let best: { matched: number; first: number; last: number } | null = null;
+  // Text can appear more than once (a brand in the headline and again in the
+  // "Bottled by" line). Prefer the most complete match, then the largest type.
+  let best: { matched: number; first: number; last: number; height: number } | null = null;
   for (let start = 0; start < stream.length; start++) {
     const value = stream[start]!.value;
     const opens = [target[0]!, target[1] ?? '', target[0]! + (target[1] ?? '')].some((t) => tokensMatch(value, t));
     if (!opens) continue;
     const found = alignFrom(stream, start, target);
-    if (found && (!best || found.matched > best.matched)) best = found;
-    if (best?.matched === target.length) break;
+    if (!found) continue;
+    const height = meanHeight(words, stream[found.first]!.word, stream[found.last]!.word);
+    if (!best || found.matched > best.matched || (found.matched === best.matched && height > best.height)) {
+      best = { ...found, height };
+    }
   }
 
   const required = target.length <= EXACT_UP_TO_WORDS ? target.length : Math.ceil(target.length * MIN_MATCH_SHARE);
@@ -81,6 +86,11 @@ function alignFrom(stream: Token[], start: number, target: string[]) {
     }
   }
   return matched > 0 ? { matched, first: start, last } : null;
+}
+
+function meanHeight(words: readonly OcrWord[], firstWord: number, lastWord: number): number {
+  const span = words.slice(firstWord, lastWord + 1);
+  return span.reduce((sum, word) => sum + (word.bbox.y1 - word.bbox.y0), 0) / Math.max(1, span.length);
 }
 
 function boxesByLine(words: readonly OcrWord[], firstWord: number, lastWord: number): Box[] {

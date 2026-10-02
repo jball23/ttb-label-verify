@@ -1,9 +1,8 @@
 import { LABEL_FIELD_LABELS, type LabelFieldId } from '../reading';
-import { type CfrCitation, type LabelRule, type RuleStatus } from './types';
+import { type LabelRule, type RuleStatus } from './types';
 
 interface FieldRuleSpec {
   field: LabelFieldId;
-  cfr: CfrCitation;
   /** Status when the field is absent. Some statements have exemptions. */
   whenMissing: Exclude<RuleStatus, 'pass'>;
   missingReason: string;
@@ -21,7 +20,6 @@ export function fieldRule(spec: FieldRuleSpec): LabelRule {
   return {
     id: spec.field,
     label,
-    cfr: spec.cfr,
     check(reading) {
       const { value, confidence } = reading.fields[spec.field];
       if (!value?.trim()) {

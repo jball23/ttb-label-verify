@@ -56,6 +56,18 @@ describe('locateText', () => {
     expect(locateText(page([['750', 'mI']]), '750 mL')).not.toBeNull();
   });
 
+  it('prefers the larger of two identical matches, e.g. the headline over the bottler line', () => {
+    const words: OcrWord[] = [
+      { text: 'OLD', line: 0, bbox: { x0: 0, y0: 0, x1: 200, y1: 120 } },
+      { text: 'TOM', line: 0, bbox: { x0: 220, y0: 0, x1: 420, y1: 120 } },
+      { text: 'Bottled', line: 1, bbox: { x0: 0, y0: 200, x1: 60, y1: 220 } },
+      { text: 'by', line: 1, bbox: { x0: 70, y0: 200, x1: 90, y1: 220 } },
+      { text: 'Old', line: 1, bbox: { x0: 100, y0: 200, x1: 130, y1: 220 } },
+      { text: 'Tom', line: 1, bbox: { x0: 140, y0: 200, x1: 170, y1: 220 } },
+    ];
+    expect(locateText(words, 'OLD TOM')).toEqual([{ x0: 0, y0: 0, x1: 420, y1: 120 }]);
+  });
+
   it('returns null when the text is not on the image', () => {
     expect(locateText(LABEL, 'Product of Mexico')).toBeNull();
     expect(locateText(LABEL, null)).toBeNull();

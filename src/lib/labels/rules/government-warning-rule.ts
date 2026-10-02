@@ -4,11 +4,6 @@ import { type LabelRule } from './types';
 export const governmentWarningRule: LabelRule = {
   id: 'governmentWarning',
   label: 'Government warning',
-  cfr: {
-    section: '27 CFR §16.21–16.22',
-    summary:
-      'Every container must carry the health warning word for word, with "GOVERNMENT WARNING" in capital letters and bold type.',
-  },
   check(reading) {
     const { verbatimText, prefixAppearsBold } = reading.governmentWarning;
     const findings = analyzeGovernmentWarning(verbatimText);

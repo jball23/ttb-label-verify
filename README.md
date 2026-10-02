@@ -89,19 +89,26 @@ reading unchanged records that a person confirmed it.
 2. **Review.** The photo, with hover-to-zoom; what needs attention, with a word-level
    diff of the warning; every field as read, with **Fix this reading**, beside an
    optional application value; large **Reject** and **Approve** buttons. The next
-   label opens after each decision. Pointing at a check or a field outlines where
-   that text is on the photo (see below).
+   label opens after each decision. Everything about an item is on one row:
+   whether it passes and why not, an ⓘ with the requirement and its citation,
+   what the label says (fixable), and the optional application value. Pointing
+   at a row outlines that text on the photo (see below). The list of labels on
+   the left can be hidden to give the photo more room.
 3. **Decided.** Everything approved or rejected, with **Export to spreadsheet**.
 
 ### Where is it on the label?
 
-On the review screen, pointing at a check or a row in **Label details**, or
-focusing it with the keyboard, outlines that text on the photo. Nothing is
+On the review screen, pointing at a row in **Label details**, or focusing it
+with the keyboard, outlines that text on the photo. Nothing is
 drawn otherwise.
 
 - The boxes come from **Tesseract OCR running in the reviewer's browser**,
   loaded only on the review page after it renders, and served from this site
   (`public/ocr`, copied from `node_modules` before `dev` and `build`), not a CDN.
+- It reads the image twice, as uploaded (large display type) and enlarged
+  (small type such as the warning), in Tesseract's sparse-text mode, which
+  suits text scattered over artwork. When the same words appear twice (a
+  brand in the headline and again in "Bottled by…"), the larger one is boxed.
 - OCR is used only to *locate* the text the vision model already read
   ([locate-text.ts](src/lib/labels/locate-text.ts)). It never changes a verdict,
   and the 5-second check never waits for it.

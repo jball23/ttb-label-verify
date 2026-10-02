@@ -7,11 +7,6 @@ import { type LabelReading } from '../reading';
  */
 export type RuleStatus = 'pass' | 'review' | 'fail';
 
-export interface CfrCitation {
-  section: string;
-  summary: string;
-}
-
 export interface RuleCheck {
   status: RuleStatus;
   /** One plain-language sentence a reviewer can act on. */
@@ -20,15 +15,14 @@ export interface RuleCheck {
   value: string | null;
 }
 
+/** Requirement text and citations live in ../requirements.ts, keyed by the same id. */
 export interface LabelRule {
   id: string;
   label: string;
-  cfr: CfrCitation;
   check(reading: LabelReading): RuleCheck;
 }
 
 export interface RuleOutcome extends RuleCheck {
   id: string;
   label: string;
-  cfr: CfrCitation;
 }
