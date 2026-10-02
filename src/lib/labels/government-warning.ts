@@ -7,8 +7,10 @@ import {
 /**
  * Exact-text analysis of a transcribed Health Warning Statement (27 CFR
  * §16.21–16.22). The statement must appear word for word, and the words
- * "GOVERNMENT WARNING" must be in capital letters. Only whitespace is
- * normalized — capitalization, wording and punctuation are compared exactly.
+ * "GOVERNMENT WARNING" must be in capital letters. The lead-in is compared
+ * exactly. The rest is compared word for word, punctuation included, but
+ * not by case: the regulation sets the case of the lead-in only, and many
+ * labels print the whole statement in capitals.
  */
 export type WarningFinding =
   | { kind: 'ok' }
@@ -40,7 +42,9 @@ export function analyzeGovernmentWarning(text: string | null): WarningFinding[] 
     findings.push({ kind: 'prefix_not_exact', prefixAsPrinted });
   }
   const body = normalizeWhitespace(normalized.slice(prefix.index + prefix[0].length));
-  if (body !== CANONICAL_BODY) findings.push({ kind: 'wording_differs' });
+  if (body.toLowerCase() !== CANONICAL_BODY.toLowerCase()) {
+    findings.push({ kind: 'wording_differs' });
+  }
   return findings.length > 0 ? findings : [{ kind: 'ok' }];
 }
 

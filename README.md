@@ -59,7 +59,7 @@ model.
 
 | Check | Fails when | Needs a look when | Rule |
 |---|---|---|---|
-| Government warning | Missing; lead-in not exactly "GOVERNMENT WARNING:"; wording differs by even one word | Wording is exact but the lead-in may not be bold | 27 CFR §16.21–16.22 |
+| Government warning | Missing; lead-in not exactly "GOVERNMENT WARNING:"; wording differs by even one word (the rest of the statement may be in any case, e.g. all capitals) | Wording is exact but the lead-in may not be bold | 27 CFR §16.21–16.22 |
 | Brand name | Not on the label | Hard to read | §4.33 / §5.63 / §7.51 |
 | Class / type | Not on the label | Hard to read | §4.34 / §5.35 / §7.24 |
 | Alcohol content | — | Missing (some wines and beers are exempt); shown only as proof; hard to read | §4.36 / §5.65 / §7.65 |

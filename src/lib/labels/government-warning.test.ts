@@ -44,17 +44,23 @@ describe('analyzeGovernmentWarning', () => {
     ).toEqual(['wording_differs']);
   });
 
-  it('rejects changed capitalization in the body', () => {
-    expect(kinds(CANONICAL.replace('Surgeon General', 'surgeon general'))).toEqual([
-      'wording_differs',
-    ]);
+  // Tenuta San Vincenzo prints the whole statement in capitals; the
+  // regulation sets the case of the lead-in only.
+  it('accepts a statement printed entirely in capitals', () => {
+    expect(kinds(CANONICAL.toUpperCase())).toEqual(['ok']);
+    expect(kinds(CANONICAL.replace('Surgeon General', 'surgeon general'))).toEqual(['ok']);
+  });
+
+  it('still checks the lead-in when the rest is in lower case', () => {
+    expect(kinds(CANONICAL.toLowerCase())).toEqual(['prefix_not_exact']);
   });
 
   it('reports every problem at once', () => {
-    expect(kinds(CANONICAL.toLowerCase())).toEqual([
-      'prefix_not_exact',
-      'wording_differs',
-    ]);
+    const both = CANONICAL.replace('GOVERNMENT WARNING:', 'Government Warning:').replace(
+      'birth defects',
+      'birth problems',
+    );
+    expect(kinds(both)).toEqual(['prefix_not_exact', 'wording_differs']);
   });
 
   it('reports a missing statement', () => {
