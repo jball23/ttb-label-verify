@@ -41,6 +41,7 @@ export function ReviewScreen({ initial, queue }: { initial: LabelView; queue: Qu
   const title = labelTitle(report, view.filename);
   const next = queue.find((entry) => entry.id !== view.id);
   const { legible, issues } = report.effectiveReading.imageQuality;
+  const checklist = buildChecklist(report);
 
   async function run(kind: 'saving' | 'deciding', work: () => Promise<LabelView>) {
     setBusy(kind);
@@ -126,10 +127,33 @@ export function ReviewScreen({ initial, queue }: { initial: LabelView; queue: Qu
               </div>
             ) : null}
 
-            <section aria-labelledby="details-heading" className="flex flex-col gap-3">
-              <h2 id="details-heading" className="text-xl font-semibold">
-                Label details
-              </h2>
+            <section aria-labelledby="details-heading" className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="flex flex-col gap-1">
+                  <h2 id="details-heading" className="text-xl font-semibold">
+                    Label details
+                  </h2>
+                  <p className="text-lg font-semibold">{attentionSummary(checklist)}</p>
+                </div>
+                {view.status === 'to_review' ? (
+                  <DecisionPanel
+                    busy={busy !== null}
+                    suggestedReason={checklist.flatMap((item) => (item.reason ? [item.reason] : [])).join(' ')}
+                    onDecide={async (decision) => {
+                      const updated = await run('deciding', () => decide(view.id, decision));
+                      if (updated) router.push(next ? `/labels/${next.id}` : '/');
+                    }}
+                  />
+                ) : null}
+              </div>
+
+              {error ? (
+                <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-base text-status-problem">
+                  {error}
+                </p>
+              ) : null}
+              {view.status === 'to_review' ? null : <DecidedNote view={view} />}
+
               <LabelChecklist
                 key={version}
                 report={report}
@@ -137,28 +161,10 @@ export function ReviewScreen({ initial, queue }: { initial: LabelView; queue: Qu
                 onHighlight={setHighlight}
                 onSave={(values) => void run('saving', () => saveReviewerValues(view.id, values))}
               />
+              {view.status === 'to_review' ? (
+                <p className="text-sm text-muted-foreground">After you approve or reject, the next label opens.</p>
+              ) : null}
             </section>
-
-            {error ? (
-              <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-base text-status-problem">
-                {error}
-              </p>
-            ) : null}
-
-            {view.status === 'to_review' ? (
-              <DecisionPanel
-                busy={busy !== null}
-                suggestedReason={buildChecklist(report)
-                  .flatMap((item) => (item.reason ? [item.reason] : []))
-                  .join(' ')}
-                onDecide={async (decision) => {
-                  const updated = await run('deciding', () => decide(view.id, decision));
-                  if (updated) router.push(next ? `/labels/${next.id}` : '/');
-                }}
-              />
-            ) : (
-              <DecidedNote view={view} />
-            )}
           </div>
         </div>
       </div>
@@ -166,6 +172,12 @@ export function ReviewScreen({ initial, queue }: { initial: LabelView; queue: Qu
       <ImageInspector open={zoomOpen} onOpenChange={setZoomOpen} imageUrl={view.imageUrl} alt={`Label photo: ${title}`} />
     </div>
   );
+}
+
+function attentionSummary(checklist: ReturnType<typeof buildChecklist>): string {
+  const count = checklist.filter((item) => item.status === 'fail' || item.status === 'review').length;
+  if (count === 0) return 'Everything required is on the label.';
+  return `${count} ${count === 1 ? 'item needs' : 'items need'} attention.`;
 }
 
 const QUEUE_HIDDEN_KEY = 'label-check:queue-hidden';

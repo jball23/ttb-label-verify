@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { type LabelDecision } from '@/lib/labels/label-record';
+import { cn } from '@/lib/utils';
 
 interface Props {
   busy: boolean;
@@ -26,42 +27,37 @@ export function DecisionPanel({ busy, onDecide, suggestedReason }: Props) {
     onDecide({ decision, reason: decision === 'rejected' ? reason.trim() || null : null, reviewer: reviewer.trim() || null });
   }
 
-  return (
-    <section aria-label="Decision" className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4">
-      <div className="flex flex-col gap-1">
-        <label htmlFor={reviewerId} className="text-sm font-medium text-muted-foreground">
-          Your initials (optional)
-        </label>
-        <Input id={reviewerId} value={reviewer} onChange={(event) => setReviewer(event.target.value)} className="h-11 max-w-40 text-base" maxLength={20} />
-      </div>
+  // One field, shown beside whichever buttons are on screen.
+  const initials = (
+    <>
+      <label htmlFor={reviewerId} className="sr-only">
+        Your initials (optional)
+      </label>
+      <Input
+        id={reviewerId}
+        value={reviewer}
+        onChange={(event) => setReviewer(event.target.value)}
+        placeholder="Initials"
+        title="Your initials (optional)"
+        maxLength={20}
+        className="h-12 w-28 text-base"
+      />
+    </>
+  );
 
-      {rejecting ? (
-        <div className="flex flex-col gap-2">
-          <label htmlFor={reasonId} className="text-base font-semibold">
-            Why is this label being rejected?
-          </label>
-          <textarea
-            id={reasonId}
-            rows={3}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <Button size="lg" variant="destructive" className="h-14 text-lg" disabled={busy || !reason.trim()} onClick={() => decide('rejected')}>
-              Reject label
-            </Button>
-            <Button size="lg" variant="outline" className="h-14 text-lg" disabled={busy} onClick={() => setRejecting(false)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3">
+  return (
+    <section
+      aria-label="Decision"
+      // While rejecting, the panel takes the full row so the reason box has room.
+      className={cn('flex flex-col gap-3', rejecting ? 'basis-full' : 'w-full sm:w-auto')}
+    >
+      {rejecting ? null : (
+        <div className="flex flex-wrap items-center gap-3">
+          {initials}
           <Button
             size="lg"
             variant="destructive"
-            className="h-14 text-lg"
+            className="h-12 flex-1 px-8 text-lg sm:flex-none"
             disabled={busy}
             onClick={() => {
               setReason(suggestedReason);
@@ -73,7 +69,7 @@ export function DecisionPanel({ busy, onDecide, suggestedReason }: Props) {
           <Button
             size="lg"
             variant="outline"
-            className="h-14 border-2 border-status-good text-lg text-status-good hover:bg-success/10"
+            className="h-12 flex-1 border-2 border-status-good px-8 text-lg text-status-good hover:bg-success/10 sm:flex-none"
             disabled={busy}
             onClick={() => decide('approved')}
           >
@@ -81,7 +77,30 @@ export function DecisionPanel({ busy, onDecide, suggestedReason }: Props) {
           </Button>
         </div>
       )}
-      <p className="text-sm text-muted-foreground">After you decide, the next label opens.</p>
+
+      {rejecting ? (
+        <div className="flex flex-col gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-4">
+          <label htmlFor={reasonId} className="text-base font-semibold">
+            Why is this label being rejected?
+          </label>
+          <textarea
+            id={reasonId}
+            rows={3}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            {initials}
+            <Button size="lg" variant="destructive" className="h-12 px-8 text-lg" disabled={busy || !reason.trim()} onClick={() => decide('rejected')}>
+              Reject label
+            </Button>
+            <Button size="lg" variant="outline" className="h-12 px-8 text-lg" disabled={busy} onClick={() => setRejecting(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

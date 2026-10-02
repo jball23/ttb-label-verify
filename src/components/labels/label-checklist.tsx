@@ -56,7 +56,6 @@ export function LabelChecklist({ report, saving, onHighlight, onSave }: Props) {
   const dirty =
     JSON.stringify(cleanExpected(expected)) !== JSON.stringify(cleanExpected(report.expected)) ||
     JSON.stringify(corrections) !== JSON.stringify(initialCorrections);
-  const attention = items.filter((item) => item.status === 'fail' || item.status === 'review').length;
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -80,9 +79,6 @@ export function LabelChecklist({ report, saving, onHighlight, onSave }: Props) {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <p className="text-lg font-semibold">
-        {attention === 0 ? 'Everything required is on the label.' : `${attention} ${attention === 1 ? 'item needs' : 'items need'} attention.`}
-      </p>
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {items.map((item) => (
           <ChecklistRow
