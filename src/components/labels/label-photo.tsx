@@ -86,12 +86,16 @@ export function LabelPhoto({
           {notice}
         </span>
       ) : null}
+      {/* Tucked into the corner: the container's rounding and overflow clip the
+          outer corner, so it covers as little of the label as possible. */}
       <button
         type="button"
         onClick={onZoom}
-        className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1.5 text-sm font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label="Look closer"
+        title="Look closer"
+        className="absolute bottom-0 right-0 inline-flex size-10 items-center justify-center rounded-tl-xl border-l border-t border-border bg-background/90 text-foreground hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
-        <ZoomIn aria-hidden className="size-4" /> Look closer
+        <ZoomIn aria-hidden className="size-5" />
       </button>
     </div>
   );
