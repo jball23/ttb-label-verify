@@ -88,7 +88,7 @@ reading unchanged records that a person confirmed it.
 1. **Check labels.** A drop zone, then the batch: progress, counts, and one row
    per label with a thumbnail, a plain sentence about what matters, and its status.
 2. **Review.** The photo, with hover-to-zoom; what needs attention, with a word-level
-   diff of the warning; every field as read, with **Fix this reading**, beside an
+   diff of the warning; every field as read, with an inline **Edit** to fix it, beside an
    optional application value; large **Reject** and **Approve** buttons. The next
    label opens after each decision. Everything about an item is on one row:
    whether it passes and why not, an ⓘ with the requirement and its citation,
@@ -176,7 +176,7 @@ drawn otherwise.
 - Reviewer accounts. Today the reviewer's initials are optional and remembered per browser.
 - Model output varies a little between runs. For example, on one beer label it
   has picked the brewery as the brand on one run and the beer name on another.
-  Hence the eval's `--repeat` option, and the "Fix this reading" control.
+  Hence the eval's `--repeat` option, and the inline Edit control on every value.
 
 ---
 

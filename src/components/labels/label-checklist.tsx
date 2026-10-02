@@ -220,26 +220,33 @@ function ChecklistRow({
               />
             )}
           </div>
-        ) : showDiff ? null : (
-          <div className="flex flex-wrap items-center gap-2 pl-7">
-            <span
-              className={cn(
-                isWarning && 'font-mono text-sm leading-relaxed',
-                !shown && 'text-muted-foreground',
-              )}
-            >
-              {shown ??
-                (isWarning
-                  ? 'No warning was found on the label.'
-                  : 'Not found on the label')}
-            </span>
-            {!corrected && item.readValue && item.lowConfidence ? (
-              <span className="rounded bg-warning/25 px-1.5 py-0.5 text-xs font-semibold text-status-review">
-                Hard to read
-              </span>
-            ) : null}
+        ) : showDiff ? null : isWarning ? (
+          // Long text: Edit follows the last word instead of sitting on its own line.
+          <p
+            className={cn(
+              'pl-7 font-mono text-sm leading-relaxed',
+              !shown && 'text-muted-foreground',
+            )}
+          >
+            {shown ?? 'No warning was found on the label.'}{' '}
+            <EditButton label={item.label} onEdit={onEdit} />
+          </p>
+        ) : (
+          // Running text, so Edit follows the last word even when the value wraps.
+          <div className="flex flex-col gap-1 pl-7">
+            <p>
+              <span className={cn(!shown && 'text-muted-foreground')}>
+                {shown ?? 'Not found on the label'}
+              </span>{' '}
+              <EditButton label={item.label} onEdit={onEdit} />
+              {!corrected && item.readValue && item.lowConfidence ? (
+                <span className="ml-1 rounded bg-warning/25 px-1.5 py-0.5 align-baseline text-xs font-semibold text-status-review">
+                  Hard to read
+                </span>
+              ) : null}
+            </p>
             {inferred ? (
-              <span className="text-sm text-muted-foreground">{item.valueNote}</span>
+              <p className="text-sm text-muted-foreground">{item.valueNote}</p>
             ) : null}
           </div>
         )}
@@ -248,8 +255,9 @@ function ChecklistRow({
           <p className={cn('pl-7 text-base', look.text)}>{item.reason}</p>
         ) : null}
         {showDiff && !editing ? (
-          <div className="pl-7">
+          <div className="flex flex-col items-start gap-1 pl-7">
             <WarningDiff extracted={item.value!} />
+            <EditButton label={item.label} onEdit={onEdit} />
           </div>
         ) : null}
         {corrected && !editing ? (
@@ -258,18 +266,13 @@ function ChecklistRow({
           </p>
         ) : null}
 
-        <div className="flex flex-wrap gap-3 pl-7">
-          {!editing ? (
-            <button type="button" onClick={onEdit} className={LINK_BUTTON}>
-              <Pencil aria-hidden className="size-3.5" /> Fix this reading
-            </button>
-          ) : null}
-          {corrected ? (
+        {corrected ? (
+          <div className="pl-7">
             <button type="button" onClick={onUndo} className={LINK_BUTTON}>
               <RotateCcw aria-hidden className="size-3.5" /> Use the original reading
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </div>
 
       {expected !== null ? (
@@ -291,6 +294,20 @@ function ChecklistRow({
         </div>
       ) : null}
     </li>
+  );
+}
+
+/** A small inline "Edit" that opens the correction field for one item. */
+function EditButton({ label, onEdit }: { label: string; onEdit(): void }) {
+  return (
+    <button
+      type="button"
+      onClick={onEdit}
+      aria-label={`Edit ${label}`}
+      className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 align-baseline font-sans text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Pencil aria-hidden className="size-3.5" /> Edit
+    </button>
   );
 }
 
