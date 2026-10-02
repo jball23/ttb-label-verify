@@ -48,7 +48,7 @@ export function DecisionPanel({ busy, onDecide, suggestedReason }: Props) {
         placeholder="Initials"
         title="Your initials (optional)"
         maxLength={20}
-        className="h-12 w-28 text-base"
+        className="h-9 w-24 text-sm"
       />
     </>
   );
@@ -63,9 +63,8 @@ export function DecisionPanel({ busy, onDecide, suggestedReason }: Props) {
         <div className="flex flex-wrap items-center gap-3">
           {initials}
           <Button
-            size="lg"
             variant="destructive"
-            className="h-12 flex-1 px-8 text-lg sm:flex-none"
+            className="h-9 flex-1 px-4 sm:flex-none"
             disabled={busy}
             onClick={() => {
               setReason(suggestedReason);
@@ -75,9 +74,8 @@ export function DecisionPanel({ busy, onDecide, suggestedReason }: Props) {
             Reject
           </Button>
           <Button
-            size="lg"
             variant="outline"
-            className="h-12 flex-1 border-2 border-status-good px-8 text-lg text-status-good hover:bg-success/10 sm:flex-none"
+            className="h-9 flex-1 border-2 border-status-good px-4 text-status-good hover:bg-success/10 sm:flex-none"
             disabled={busy}
             onClick={() => decide('approved')}
           >
@@ -101,18 +99,16 @@ export function DecisionPanel({ busy, onDecide, suggestedReason }: Props) {
           <div className="flex flex-wrap items-center gap-3">
             {initials}
             <Button
-              size="lg"
               variant="destructive"
-              className="h-12 px-8 text-lg"
+              className="h-9 px-4"
               disabled={busy || !reason.trim()}
               onClick={() => decide('rejected')}
             >
               Reject label
             </Button>
             <Button
-              size="lg"
               variant="outline"
-              className="h-12 px-8 text-lg"
+              className="h-9 px-4"
               disabled={busy}
               onClick={() => setRejecting(false)}
             >

@@ -70,7 +70,7 @@ export function ReviewScreen({
     <div
       className={cn(
         'mx-auto grid w-full max-w-[1600px] gap-6 px-4 py-6 sm:px-6',
-        !queueHidden && 'lg:grid-cols-[16rem_minmax(0,1fr)]',
+        !queueHidden && 'lg:grid-cols-[17.5rem_minmax(0,1fr)]',
       )}
     >
       {queueHidden ? null : (
@@ -279,7 +279,7 @@ function ReviewQueue({
     <nav
       aria-label="Labels to review"
       // Pinned like the photo; a long queue scrolls inside it rather than with the page.
-      className="hidden flex-col gap-3 lg:sticky lg:top-24 lg:flex lg:max-h-[calc(100svh-7rem)] lg:self-start lg:overflow-y-auto lg:pr-3"
+      className="hidden flex-col gap-3 rounded-xl border border-border bg-card p-3 lg:sticky lg:top-24 lg:flex lg:max-h-[calc(100svh-7rem)] lg:self-start lg:overflow-y-auto"
     >
       <div className="flex items-center justify-between gap-2">
         <Link
