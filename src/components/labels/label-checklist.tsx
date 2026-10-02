@@ -1,7 +1,7 @@
 'use client';
 
 import { useId, useMemo, useState, type FormEvent } from 'react';
-import { AlertTriangle, Check, Eye, Minus, Pencil, X } from 'lucide-react';
+import { AlertTriangle, Check, Eye, Minus, Pencil, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -90,12 +90,27 @@ export function LabelChecklist({ report, saving, onHighlight, onSave }: Props) {
     );
   }
 
-  function undoCorrection(field: CorrectableField) {
+  function stopEditing(field: CorrectableField) {
     setEditing((current) => {
       const next = new Set(current);
       next.delete(field);
       return next;
     });
+  }
+
+  /** Drops the edit in progress; the field goes back to how it was before Edit. */
+  function cancelEdit(field: CorrectableField) {
+    stopEditing(field);
+    setCorrections(({ [field]: _removed, ...rest }) =>
+      field in initialCorrections
+        ? { ...rest, [field]: initialCorrections[field] }
+        : rest,
+    );
+  }
+
+  /** Removes a saved correction, so the model's reading is used again once saved. */
+  function resetToOriginal(field: CorrectableField) {
+    stopEditing(field);
     setCorrections(({ [field]: _removed, ...rest }) => rest);
   }
 
@@ -113,7 +128,8 @@ export function LabelChecklist({ report, saving, onHighlight, onSave }: Props) {
               setCorrections((current) => ({ ...current, [item.field]: value }))
             }
             onEdit={() => startEditing(item)}
-            onUndo={() => undoCorrection(item.field)}
+            onCancel={() => cancelEdit(item.field)}
+            onReset={() => resetToOriginal(item.field)}
             expected={
               item.field === 'governmentWarning' ? null : (expected[item.field] ?? '')
             }
@@ -148,7 +164,8 @@ interface RowProps {
   draft: string | null | undefined;
   onDraft(value: string | null): void;
   onEdit(): void;
-  onUndo(): void;
+  onCancel(): void;
+  onReset(): void;
   /** Null for the warning, which has no application value. */
   expected: string | null;
   onExpected(value: string): void;
@@ -161,7 +178,8 @@ function ChecklistRow({
   draft,
   onDraft,
   onEdit,
-  onUndo,
+  onCancel,
+  onReset,
   expected,
   onExpected,
 }: RowProps) {
@@ -271,17 +289,37 @@ function ChecklistRow({
             <CorrectionNote item={item} />
           </p>
         ) : null}
+        {item.correction && !corrected ? (
+          <p className="pl-7 text-sm text-muted-foreground">
+            Back to the original reading once you save.
+          </p>
+        ) : null}
 
-        {corrected ? (
-          // Drops the correction and goes back to what was read.
+        {editing ? (
+          // Drops this edit; a saved correction stays as it was.
           <div className="flex justify-end">
             <button
               type="button"
-              onClick={onUndo}
-              aria-label={`Cancel the change to ${item.label}`}
-              className="rounded px-2 py-1 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={onCancel}
+              aria-label={`Cancel editing ${item.label}`}
+              className={ROW_ACTION}
             >
               Cancel
+            </button>
+          </div>
+        ) : item.correction && corrected ? (
+          // Under the value, lined up with its text.
+          <div className="flex pl-7">
+            <button
+              type="button"
+              onClick={onReset}
+              aria-label={`Reset ${item.label} to the original reading`}
+              className={cn(ROW_ACTION, '-ml-2 inline-flex items-center gap-1')}
+            >
+              <RotateCcw aria-hidden className="size-3.5" />
+              {item.correctionKind === 'confirmed'
+                ? 'Undo confirmation'
+                : 'Reset to original'}
             </button>
           </div>
         ) : null}
@@ -308,6 +346,9 @@ function ChecklistRow({
     </li>
   );
 }
+
+const ROW_ACTION =
+  'rounded px-2 py-1 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** A small inline "Edit" that opens the correction field for one item. */
 function EditButton({ label, onEdit }: { label: string; onEdit(): void }) {

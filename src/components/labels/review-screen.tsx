@@ -110,11 +110,8 @@ export function ReviewScreen({
                 large={queueHidden}
                 onZoom={() => setZoomOpen(true)}
               />
-              <figcaption className="flex flex-col gap-1 text-sm text-muted-foreground">
-                <span className="font-mono">
-                  {view.filename} · read in {(view.latencyMs / 1000).toFixed(1)} s
-                </span>
-                <span>Point at an item to see where it is on the label.</span>
+              <figcaption className="font-mono text-sm text-muted-foreground">
+                {view.filename} · read in {(view.latencyMs / 1000).toFixed(1)} s
               </figcaption>
             </figure>
 
