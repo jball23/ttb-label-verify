@@ -131,6 +131,14 @@ describe('countryMatches', () => {
     expect(countryMatches('Domestic', 'Product of USA')).toBe(false);
   });
 
+  it('matches a country written in its own language', () => {
+    expect(countryMatches('Italy', 'ITALIA')).toBe(true);
+    expect(countryMatches('Italy', 'Prodotto in Italia')).toBe(true);
+    expect(countryMatches('Spain', 'Producto de España')).toBe(true);
+    expect(countryMatches('Germany', 'Deutschland')).toBe(true);
+    expect(countryMatches('Scotland', 'United Kingdom')).toBe(true);
+  });
+
   it('rejects different countries', () => {
     expect(countryMatches('USA', 'Mexico')).toBe(false);
     expect(countryMatches('Scotland', 'USA')).toBe(false);

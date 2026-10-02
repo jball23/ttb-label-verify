@@ -12,6 +12,7 @@ export const LABEL_FIELD_IDS = [
   'alcoholContent',
   'netContents',
   'producer',
+  'importer',
   'countryOfOrigin',
 ] as const;
 
@@ -23,6 +24,7 @@ export const LABEL_FIELD_LABELS: Record<LabelFieldId, string> = {
   alcoholContent: 'Alcohol content',
   netContents: 'Net contents',
   producer: 'Bottler / producer name and address',
+  importer: 'Importer name and address',
   countryOfOrigin: 'Country of origin',
 };
 
@@ -57,16 +59,22 @@ export const LabelReadingSchema = z.object({
 
 export type LabelReading = z.infer<typeof LabelReadingSchema>;
 
-/** Models sometimes answer "" or "  " for "not on the label"; treat blanks as absent. */
+/**
+ * Models sometimes answer "" or "  " for "not on the label"; treat blanks as
+ * absent. Readings saved before a field existed get it as "not found", so
+ * older results keep loading.
+ */
 export function normalizeReading(reading: LabelReading): LabelReading {
-  const blankToNull = (value: string | null) => (value?.trim() ? value : null);
+  // Stray punctuation (the model once read an absent importer as ",") is blank.
+  const blankToNull = (value: string | null | undefined) =>
+    value && /[\p{L}\p{N}]/u.test(value) ? value : null;
   return {
     ...reading,
     fields: Object.fromEntries(
-      LABEL_FIELD_IDS.map((id) => [
-        id,
-        { ...reading.fields[id], value: blankToNull(reading.fields[id].value) },
-      ]),
+      LABEL_FIELD_IDS.map((id) => {
+        const field = reading.fields[id] ?? { value: null, confidence: 'high' };
+        return [id, { ...field, value: blankToNull(field.value) }];
+      }),
     ) as LabelReading['fields'],
     governmentWarning: {
       ...reading.governmentWarning,

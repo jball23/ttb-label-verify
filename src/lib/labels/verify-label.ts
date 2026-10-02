@@ -2,7 +2,7 @@ import { compareExpected, type Comparison } from './compare-expected';
 import { warningIsExact, warningNeedsSecondRead } from './government-warning';
 import { applyCorrections, type Corrections } from './corrections';
 import { type LabelImage, type LabelReader } from './label-reader';
-import { type ExpectedValues, type LabelReading } from './reading';
+import { normalizeReading, type ExpectedValues, type LabelReading } from './reading';
 import { runLabelRules } from './rules';
 import { type RuleOutcome } from './rules/types';
 import { decideVerdict, type Verdict } from './verdict';
@@ -30,9 +30,11 @@ export interface LabelReport {
  * reused as-is when a reviewer edits values.
  */
 export function assessReading(
-  reading: LabelReading,
+  storedReading: LabelReading,
   { expected = {}, corrections = {} }: ReviewerInput = {},
 ): LabelReport {
+  // Readings saved before a field existed (e.g. importer) gain it here, empty.
+  const reading = normalizeReading(storedReading);
   const effectiveReading = applyCorrections(reading, corrections);
   const rules = runLabelRules(effectiveReading);
   const comparisons = compareExpected(expected, effectiveReading);

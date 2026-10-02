@@ -90,4 +90,31 @@ describe('label rules', () => {
       expect(outcome.reason).toContain('only as proof');
     });
   });
+
+  describe('importer', () => {
+    function imported(country: string, importer: string | null) {
+      const reading = withField('countryOfOrigin', country);
+      reading.fields.importer = { value: importer, confidence: 'high' };
+      return reading;
+    }
+
+    // Tenuta San Vincenzo: "ITALIA", and no US importer named anywhere.
+    it('fails an imported product with no "Imported by" statement', () => {
+      const outcome = statusOf(imported('ITALIA', null), 'importer');
+      expect(outcome.status).toBe('fail');
+      expect(outcome.reason).toContain('Imported by');
+    });
+
+    it('passes when the importer is named', () => {
+      expect(
+        statusOf(imported('Italy', 'Imported by Vino Co., New York, NY'), 'importer')
+          .status,
+      ).toBe('pass');
+    });
+
+    it('does not apply to a domestic label', () => {
+      expect(statusOf(compliantReading(), 'importer')).toBeUndefined();
+      expect(statusOf(imported('Product of USA', null), 'importer')).toBeUndefined();
+    });
+  });
 });

@@ -48,7 +48,9 @@ describe('analyzeGovernmentWarning', () => {
   // regulation sets the case of the lead-in only.
   it('accepts a statement printed entirely in capitals', () => {
     expect(kinds(CANONICAL.toUpperCase())).toEqual(['ok']);
-    expect(kinds(CANONICAL.replace('Surgeon General', 'surgeon general'))).toEqual(['ok']);
+    expect(kinds(CANONICAL.replace('Surgeon General', 'surgeon general'))).toEqual([
+      'ok',
+    ]);
   });
 
   it('still checks the lead-in when the rest is in lower case', () => {

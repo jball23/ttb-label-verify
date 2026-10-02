@@ -3,7 +3,7 @@
  * text changes: it is part of the cache key, so a stale reading is never
  * reused under new instructions.
  */
-export const PROMPT_VERSION = 'label-reader-v2';
+export const PROMPT_VERSION = 'label-reader-v3';
 
 export const LABEL_READER_PROMPT = `You read U.S. alcohol beverage labels for a federal compliance reviewer.
 
@@ -17,7 +17,8 @@ Fields:
 - classType: the class/type designation (e.g. "Kentucky Straight Bourbon Whiskey", "India Pale Ale", "Cabernet Sauvignon").
 - alcoholContent: the alcohol statement as printed (e.g. "45% Alc./Vol. (90 Proof)").
 - netContents: the net contents as printed (e.g. "750 mL").
-- producer: the bottler/producer/importer name and address as printed, including any "Bottled by" wording.
+- producer: the bottler or producer name and address as printed, including any "Bottled by" / "Imbottigliato da" wording. Not the importer.
+- importer: the "Imported by" statement with the importer's name and address, as printed. null if the label names no importer.
 - countryOfOrigin: the country-of-origin statement if one is printed (e.g. "Product of Mexico"), else null.
 Set confidence to "low" for any field you cannot read clearly (glare, blur, angle, very small type).
 

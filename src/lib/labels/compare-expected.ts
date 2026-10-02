@@ -58,6 +58,7 @@ const MATCHERS: Record<LabelFieldId, Matcher> = {
   alcoholContent: sameAmount(parseAlcoholPercent),
   netContents: sameAmount(parseVolumeMl),
   producer: producerMatches,
+  importer: producerMatches,
   countryOfOrigin: countryMatches,
 };
 

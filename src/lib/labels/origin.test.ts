@@ -18,6 +18,7 @@ describe('inferOrigin', () => {
         how: 'address',
         place: 'Portland, Oregon',
         imported: false,
+        foreign: false,
       },
     );
   });
@@ -52,7 +53,27 @@ describe('inferOrigin', () => {
       how: 'unknown',
       place: null,
       imported: true,
+      foreign: false,
     });
+  });
+
+  // Tenuta San Vincenzo: "ITALIA" with no "Imported by" statement.
+  it('recognizes a foreign country written in its own language', () => {
+    expect(inferOrigin(reading('Tenuta San Vincenzo, Toscana', 'ITALIA'))).toMatchObject({
+      how: 'stated',
+      imported: false,
+      foreign: true,
+    });
+    expect(inferOrigin(reading('X', 'Product of U.S.A.')).foreign).toBe(false);
+  });
+
+  it('counts a named importer as imported', () => {
+    const r = reading('Tenuta San Vincenzo', 'Italy');
+    r.fields.importer = {
+      value: 'Imported by Vino Co., New York, NY',
+      confidence: 'high',
+    };
+    expect(inferOrigin(r).imported).toBe(true);
   });
 
   it('says unknown when there is nothing to go on', () => {

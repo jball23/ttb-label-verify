@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { buildChecklist } from './checklist';
 import { GOVERNMENT_WARNING_CANONICAL as CANONICAL } from './ttb-constants';
 import { compliantReading, FakeLabelReader } from './fake-label-reader';
 import { type LabelImage } from './label-reader';
@@ -52,6 +53,26 @@ describe('assessReading verdicts', () => {
       imageQuality: { legible: false, issues: ['glare over the label'] },
     });
     expect(assessReading(reading).verdict).toBe('needs_review');
+  });
+});
+
+describe('assessReading on a stored reading', () => {
+  // Labels saved before the importer field existed have no `importer` key.
+  it('assesses a reading saved before a field existed', () => {
+    const stored = compliantReading();
+    delete (stored.fields as Partial<typeof stored.fields>).importer;
+    const report = assessReading(stored);
+    expect(report.reading.fields.importer).toEqual({ value: null, confidence: 'high' });
+    expect(buildChecklist(report).length).toBeGreaterThan(0);
+  });
+
+  // Old Tom, live eval: the model read the absent importer as "," (low confidence).
+  it('treats a punctuation-only reading as not on the label', () => {
+    const stored = compliantReading();
+    stored.fields.importer = { value: ',', confidence: 'low' };
+    const report = assessReading(stored);
+    expect(report.reading.fields.importer.value).toBeNull();
+    expect(report.verdict).toBe('looks_good');
   });
 });
 

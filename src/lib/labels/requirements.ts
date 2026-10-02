@@ -36,6 +36,11 @@ export const REQUIREMENTS: Record<CorrectableField, Requirement> = {
     summary:
       'The label must name the bottler, producer or importer and give its address (at least city and state).',
   },
+  importer: {
+    section: '27 CFR §4.35 · §5.36 · §7.25',
+    summary:
+      'Imported products must name the importer: "Imported by" followed by the importer\'s name and address. Not required on domestic labels.',
+  },
   countryOfOrigin: {
     section: null,
     summary:

@@ -17,6 +17,7 @@ describe('buildChecklist', () => {
         'classType',
         'countryOfOrigin',
         'governmentWarning',
+        'importer',
         'netContents',
         'producer',
       ].sort(),
@@ -99,5 +100,12 @@ describe('buildChecklist', () => {
       correction: { reviewer: 'JP' },
       correctionKind: 'changed',
     });
+  });
+  it('notes that a domestic label needs no importer', () => {
+    const item = buildChecklist(assessReading(compliantReading())).find(
+      (i) => i.field === 'importer',
+    )!;
+    expect(item).toMatchObject({ status: 'not_checked', value: null });
+    expect(item.valueNote).toBe('Only required on imported products.');
   });
 });

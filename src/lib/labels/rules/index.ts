@@ -3,6 +3,7 @@ import { type LabelReading } from '../reading';
 import { fieldRule } from './field-rule';
 import { countryOfOriginRule } from './country-of-origin-rule';
 import { governmentWarningRule } from './government-warning-rule';
+import { importerRule } from './importer-rule';
 import { type LabelRule, type RuleOutcome } from './types';
 
 /**
@@ -48,6 +49,7 @@ export const LABEL_RULES: readonly LabelRule[] = [
     whenMissing: 'fail',
     missingReason: 'No bottler or producer name and address was found on the label.',
   }),
+  importerRule,
   countryOfOriginRule,
   governmentWarningRule,
 ];

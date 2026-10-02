@@ -67,14 +67,50 @@ export const STATE_NAME_TO_CODE: Record<string, string> = {
   wyoming: 'wy',
 };
 
+/**
+ * Country names as labels print them, including the producing country's own
+ * language ("Italia", "España"), mapped to one English name. Lower case,
+ * accents already stripped.
+ */
 const COUNTRY_ALIASES: Record<string, string> = {
   usa: 'usa',
   us: 'usa',
-  'u.s.': 'usa',
-  'u.s.a.': 'usa',
   'united states': 'usa',
   'united states of america': 'usa',
   america: 'usa',
+  italia: 'italy',
+  espana: 'spain',
+  deutschland: 'germany',
+  'republique francaise': 'france',
+  osterreich: 'austria',
+  nederland: 'netherlands',
+  'the netherlands': 'netherlands',
+  holland: 'netherlands',
+  belgique: 'belgium',
+  belgie: 'belgium',
+  schweiz: 'switzerland',
+  suisse: 'switzerland',
+  svizzera: 'switzerland',
+  hellas: 'greece',
+  ellada: 'greece',
+  polska: 'poland',
+  magyarorszag: 'hungary',
+  hrvatska: 'croatia',
+  slovenija: 'slovenia',
+  sverige: 'sweden',
+  norge: 'norway',
+  danmark: 'denmark',
+  suomi: 'finland',
+  eire: 'ireland',
+  nippon: 'japan',
+  nihon: 'japan',
+  'united kingdom': 'united kingdom',
+  uk: 'united kingdom',
+  'great britain': 'united kingdom',
+  england: 'united kingdom',
+  scotland: 'united kingdom',
+  wales: 'united kingdom',
+  'northern ireland': 'united kingdom',
 };
 
 // Compact aliases for the Fanciful name. Maps free-form label
@@ -231,21 +267,31 @@ export function producerMatches(applicationValue: string, labelValue: string): b
  * applications all the time; they aren't a compliance failure.
  */
 export function countryMatches(applicationValue: string, labelValue: string): boolean {
-  const appNorm =
-    COUNTRY_ALIASES[normalizeCountryValue(applicationValue)] ??
-    normalizeCountryValue(applicationValue);
-  const labelNorm =
-    COUNTRY_ALIASES[normalizeCountryValue(labelValue)] ??
-    normalizeCountryValue(labelValue);
+  const appNorm = canonicalCountry(applicationValue);
+  const labelNorm = canonicalCountry(labelValue);
   if (appNorm === 'imported') return labelNorm !== 'usa' && labelNorm.length > 0;
   return appNorm === labelNorm;
 }
 
-function normalizeCountryValue(value: string): string {
-  return normalizedExact(value)
-    .replace(/^(?:product|produce|made)\s+of\s+/, '')
-    .replace(/^country\s+of\s+origin\s+/, '')
+/**
+ * One English, lower-case name for a country statement: "Prodotto in
+ * Italia" → "italy", "Product of the USA" → "usa".
+ */
+export function canonicalCountry(value: string): string {
+  const name = normalizedExact(value)
+    .replace(/^(?:product|produce|produced|made|bottled|grown)\s+(?:of|in)\s+/, '')
+    // The same phrase in the languages labels most often use.
+    .replace(/^(?:prodotto|imbottigliato|prodotto e imbottigliato)\s+in\s+/, '')
+    .replace(/^(?:producto|hecho|elaborado|embotellado)\s+(?:de|en)\s+/, '')
+    .replace(/^(?:produit|mis en bouteille)\s+(?:de|en|au)\s+/, '')
+    .replace(/^(?:hergestellt|erzeugt|abgefullt)\s+in\s+/, '')
+    .replace(/^country\s+of\s+origin:?\s+/, '')
+    .replace(/^the\s+/, '')
+    // "U.S.A." and "USA" are the same name.
+    .replace(/\./g, '')
+    .replace(/:+$/, '')
     .trim();
+  return COUNTRY_ALIASES[name] ?? name;
 }
 
 /**

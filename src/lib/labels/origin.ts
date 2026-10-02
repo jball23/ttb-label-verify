@@ -1,4 +1,4 @@
-import { STATE_NAME_TO_CODE } from './normalize';
+import { canonicalCountry, STATE_NAME_TO_CODE } from './normalize';
 import { type LabelReading } from './reading';
 
 /**
@@ -12,8 +12,10 @@ export interface Origin {
   how: 'stated' | 'address' | 'unknown';
   /** The place on the label the country was inferred from, e.g. "Portland, Oregon". */
   place: string | null;
-  /** The label names an importer ("Imported by …"), so a country must be stated. */
+  /** The label names an importer ("Imported by …"). */
   imported: boolean;
+  /** The product comes from outside the United States, by its stated country. */
+  foreign: boolean;
 }
 
 export const UNITED_STATES = 'United States';
@@ -43,12 +45,18 @@ const IMPORTED_BY_RE = /\bimported\s+by\b/i;
 export function inferOrigin(reading: LabelReading): Origin {
   const stated = reading.fields.countryOfOrigin.value?.trim() || null;
   const producer = reading.fields.producer.value ?? '';
-  const imported = IMPORTED_BY_RE.test(producer);
-  if (stated) return { country: stated, how: 'stated', place: null, imported };
+  const imported =
+    !!reading.fields.importer?.value?.trim() || IMPORTED_BY_RE.test(producer);
+  if (stated) {
+    const foreign = canonicalCountry(stated) !== 'usa';
+    return { country: stated, how: 'stated', place: null, imported, foreign };
+  }
   // An importer's US address says nothing about where the product was made.
   const place = imported ? null : findUsPlace(producer);
-  if (place) return { country: UNITED_STATES, how: 'address', place, imported };
-  return { country: null, how: 'unknown', place: null, imported };
+  if (place) {
+    return { country: UNITED_STATES, how: 'address', place, imported, foreign: false };
+  }
+  return { country: null, how: 'unknown', place: null, imported, foreign: false };
 }
 
 /**

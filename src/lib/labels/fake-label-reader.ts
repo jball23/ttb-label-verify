@@ -12,6 +12,7 @@ export function compliantReading(overrides: Partial<LabelReading> = {}): LabelRe
       alcoholContent: high('45% Alc./Vol. (90 Proof)'),
       netContents: high('750 mL'),
       producer: high('Bottled by Old Tom Distillery, Bardstown, Kentucky'),
+      importer: { value: null, confidence: 'high' },
       countryOfOrigin: { value: null, confidence: 'high' },
     },
     governmentWarning: {

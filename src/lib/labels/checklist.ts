@@ -104,6 +104,13 @@ function shownValue(
       };
     }
   }
+  if (field === 'importer' && !printed && !inferOrigin(report.effectiveReading).foreign) {
+    return {
+      value: null,
+      valueNote: 'Only required on imported products.',
+      locate: null,
+    };
+  }
   return { value: printed, valueNote: null, locate: printed };
 }
 

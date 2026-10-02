@@ -65,6 +65,7 @@ model.
 | Alcohol content | — | Missing (some wines and beers are exempt); shown only as proof; hard to read | §4.36 / §5.65 / §7.65 |
 | Net contents | Not on the label | No recognizable unit; hard to read | §4.37 / §5.38 / §7.27 |
 | Bottler / producer | Not on the label | Hard to read | §4.35 / §5.36 / §7.25 |
+| Importer | An imported product (a foreign country is stated) has no "Imported by" statement | Hard to read | §4.35 / §5.36 / §7.25; imports only |
 | Country of origin | — | The label names an importer but states no country | Imports only; inferred from the bottler's address when not stated |
 
 **Verdicts.** Any failure gives **Problem found**. Anything that needs a look,
@@ -75,7 +76,9 @@ reviewer approves or rejects.
 **Comparing with the application** (optional, per label): brand ignores case
 and punctuation, alcohol content compares the number (`45%` = `45% Alc./Vol.
 (90 Proof)`), net contents compares the volume across units (`750 mL` =
-`75 cL`), and producer and country use token and alias matching.
+`75 cL`), producer and importer use token matching, and country uses alias matching that
+knows native names (`ITALIA`, `Prodotto in Italia`, `España`, `Deutschland` are
+Italy, Spain, Germany).
 
 **Corrections.** If the model misread something, the reviewer fixes it on the
 review screen. The original reading is never overwritten. The correction is
@@ -167,6 +170,10 @@ drawn otherwise.
   Oregon; Bardstown, KY; San Juan, Puerto Rico) means the product is domestic
   and passes. "Imported by…" with no country needs a look. An importer's US
   address never counts as the origin.
+- A stated foreign country, in English or the country's own language, makes the
+  product an import, and an import must name its US importer ("Imported by"
+  with name and address). Readings saved before the importer field existed
+  are treated as having none.
 
 ## Limitations and next steps
 
