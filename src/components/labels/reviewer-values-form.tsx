@@ -9,10 +9,12 @@ import { isConfirmation, originalValue, type CorrectableField, type CorrectionVa
 import { LABEL_FIELD_IDS, LABEL_FIELD_LABELS, type ExpectedValues, type LabelFieldId } from '@/lib/labels/reading';
 import { type LabelReport } from '@/lib/labels/verify-label';
 import { cn } from '@/lib/utils';
+import { highlightHandlers, type OnHighlight } from './highlight';
 
 interface Props {
   report: LabelReport;
   saving: boolean;
+  onHighlight: OnHighlight;
   onSave(values: { expected: ExpectedValues; corrections: CorrectionValues }): void;
 }
 
@@ -28,7 +30,7 @@ const COMPARISON_TEXT: Record<ComparisonStatus, { text: string; className: strin
  * tracked correction of the AI reading) and entering what the application
  * says (to compare against).
  */
-export function ReviewerValuesForm({ report, saving, onSave }: Props) {
+export function ReviewerValuesForm({ report, saving, onHighlight, onSave }: Props) {
   const initialCorrections = useMemo(() => correctionDrafts(report), [report]);
   const [corrections, setCorrections] = useState<CorrectionValues>(initialCorrections);
   const [expected, setExpected] = useState<ExpectedValues>(report.expected);
@@ -61,7 +63,7 @@ export function ReviewerValuesForm({ report, saving, onSave }: Props) {
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
       <div className="overflow-x-auto rounded-xl border border-border">
-        <table className="w-full min-w-[40rem] border-collapse text-left text-base">
+        <table className="w-full min-w-[34rem] border-collapse text-left text-base">
           <thead className="bg-muted/60 text-sm text-muted-foreground">
             <tr>
               <th scope="col" className="w-40 px-4 py-3 font-semibold">Field</th>
@@ -75,6 +77,7 @@ export function ReviewerValuesForm({ report, saving, onSave }: Props) {
                 key={field}
                 field={field}
                 report={report}
+                onHighlight={onHighlight}
                 editing={editing.has(field)}
                 correction={corrections[field]}
                 onCorrect={(value) => setCorrections((current) => ({ ...current, [field]: value }))}
@@ -90,6 +93,7 @@ export function ReviewerValuesForm({ report, saving, onSave }: Props) {
 
       <WarningCorrection
         report={report}
+        onHighlight={onHighlight}
         editing={editing.has('governmentWarning')}
         value={corrections.governmentWarning}
         onChange={(value) => setCorrections((current) => ({ ...current, governmentWarning: value }))}
@@ -112,6 +116,7 @@ export function ReviewerValuesForm({ report, saving, onSave }: Props) {
 interface FieldRowProps {
   field: LabelFieldId;
   report: LabelReport;
+  onHighlight: OnHighlight;
   editing: boolean;
   correction: string | null | undefined;
   onCorrect(value: string | null): void;
@@ -121,7 +126,7 @@ interface FieldRowProps {
   onExpected(value: string): void;
 }
 
-function FieldRow({ field, report, editing, correction, onCorrect, onEdit, onUndo, expected, onExpected }: FieldRowProps) {
+function FieldRow({ field, report, onHighlight, editing, correction, onCorrect, onEdit, onUndo, expected, onExpected }: FieldRowProps) {
   const correctionId = useId();
   const expectedId = useId();
   const label = LABEL_FIELD_LABELS[field];
@@ -132,7 +137,7 @@ function FieldRow({ field, report, editing, correction, onCorrect, onEdit, onUnd
   const corrected = correction !== undefined;
 
   return (
-    <tr className="align-top">
+    <tr {...highlightHandlers(field, onHighlight)} className="align-top hover:bg-sky-500/5 focus-within:bg-sky-500/5">
       <th scope="row" className="px-4 py-3 font-semibold">{label}</th>
       <td className="px-4 py-3">
         {editing ? (
@@ -153,7 +158,7 @@ function FieldRow({ field, report, editing, correction, onCorrect, onEdit, onUnd
               <span className={cn(!(corrected ? correction : read.value) && 'text-muted-foreground')}>
                 {(corrected ? correction : read.value) ?? 'Not found on the label'}
               </span>
-              {!corrected && read.confidence === 'low' ? (
+              {!corrected && read.value && read.confidence === 'low' ? (
                 <span className="rounded bg-warning/25 px-1.5 py-0.5 text-xs font-semibold text-status-review">Hard to read</span>
               ) : null}
             </div>
@@ -175,6 +180,7 @@ function FieldRow({ field, report, editing, correction, onCorrect, onEdit, onUnd
 
 interface WarningCorrectionProps {
   report: LabelReport;
+  onHighlight: OnHighlight;
   editing: boolean;
   value: string | null | undefined;
   onChange(value: string | null): void;
@@ -182,13 +188,16 @@ interface WarningCorrectionProps {
   onUndo(): void;
 }
 
-function WarningCorrection({ report, editing, value, onChange, onEdit, onUndo }: WarningCorrectionProps) {
+function WarningCorrection({ report, onHighlight, editing, value, onChange, onEdit, onUndo }: WarningCorrectionProps) {
   const id = useId();
   const corrected = value !== undefined;
   const saved = report.corrections.governmentWarning;
   const shown = corrected ? value : report.reading.governmentWarning.verbatimText;
   return (
-    <section className="flex flex-col gap-2 rounded-xl border border-border p-4">
+    <section
+      {...highlightHandlers('governmentWarning', onHighlight)}
+      className="flex flex-col gap-2 rounded-xl border border-border p-4 hover:bg-sky-500/5 focus-within:bg-sky-500/5"
+    >
       <h3 className="text-base font-semibold">Government warning, as printed</h3>
       {editing ? (
         <>

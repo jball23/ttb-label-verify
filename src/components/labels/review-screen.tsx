@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { AlertTriangle, Check, ChevronLeft, X, ZoomIn } from 'lucide-react';
+import { AlertTriangle, Check, ChevronLeft, X } from 'lucide-react';
 import { ImageInspector } from './image-inspector';
 import WarningDiff from './warning-diff';
 import { decide, saveReviewerValues } from '@/lib/labels/client-api';
+import { type CorrectableField } from '@/lib/labels/corrections';
 import { type LabelView } from '@/lib/labels/label-view';
 import { labelTitle } from '@/lib/labels/presentation';
 import { type RuleOutcome } from '@/lib/labels/rules/types';
@@ -14,6 +15,8 @@ import { type Verdict } from '@/lib/labels/verdict';
 import { cn } from '@/lib/utils';
 import { useBatch } from './batch-provider';
 import { DecisionPanel } from './decision-panel';
+import { highlightHandlers, type OnHighlight } from './highlight';
+import { LabelPhoto } from './label-photo';
 import { ReviewerValuesForm } from './reviewer-values-form';
 import { DecisionChip, VerdictChip, VerdictText } from './status-chip';
 
@@ -33,6 +36,7 @@ export function ReviewScreen({ initial, queue }: { initial: LabelView; queue: Qu
   const [busy, setBusy] = useState<'saving' | 'deciding' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [zoomOpen, setZoomOpen] = useState(false);
+  const [highlight, setHighlight] = useState<CorrectableField | null>(null);
 
   const { report } = view;
   const title = labelTitle(report, view.filename);
@@ -68,20 +72,19 @@ export function ReviewScreen({ initial, queue }: { initial: LabelView; queue: Qu
         </Link>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
-          <figure className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => setZoomOpen(true)}
-              className="group relative overflow-hidden rounded-xl border border-border bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element -- served by the API */}
-              <img src={view.imageUrl} alt={`Label photo: ${title}`} className="max-h-[70svh] w-full object-contain" />
-              <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-background/90 px-3 py-1.5 text-sm font-medium shadow-sm">
-                <ZoomIn aria-hidden className="size-4" /> Look closer
+          <figure className="flex flex-col gap-2 xl:sticky xl:top-24 xl:self-start">
+            <LabelPhoto
+              imageUrl={view.imageUrl}
+              alt={`Label photo: ${title}`}
+              reading={report.effectiveReading}
+              highlight={highlight}
+              onZoom={() => setZoomOpen(true)}
+            />
+            <figcaption className="flex flex-col gap-1 text-sm text-muted-foreground">
+              <span className="font-mono">
+                {view.filename} · read in {(view.latencyMs / 1000).toFixed(1)} s
               </span>
-            </button>
-            <figcaption className="font-mono text-sm text-muted-foreground">
-              {view.filename} · read in {(view.latencyMs / 1000).toFixed(1)} s
+              <span>Point at a check or a field to see where it is on the label.</span>
             </figcaption>
           </figure>
 
@@ -109,7 +112,7 @@ export function ReviewScreen({ initial, queue }: { initial: LabelView; queue: Qu
               </h2>
               <ul className="flex flex-col gap-2">
                 {problems.map((rule) => (
-                  <RuleItem key={rule.id} rule={rule} />
+                  <RuleItem key={rule.id} rule={rule} onHighlight={setHighlight} />
                 ))}
               </ul>
               {warningRule?.status === 'fail' && report.effectiveReading.governmentWarning.verbatimText ? (
@@ -122,7 +125,7 @@ export function ReviewScreen({ initial, queue }: { initial: LabelView; queue: Qu
                   </summary>
                   <ul className="mt-3 flex flex-col gap-2">
                     {passed.map((rule) => (
-                      <RuleItem key={rule.id} rule={rule} />
+                      <RuleItem key={rule.id} rule={rule} onHighlight={setHighlight} />
                     ))}
                   </ul>
                 </details>
@@ -147,20 +150,22 @@ export function ReviewScreen({ initial, queue }: { initial: LabelView; queue: Qu
             ) : (
               <DecidedNote view={view} />
             )}
+            <section aria-labelledby="fields-heading" className="flex flex-col gap-3">
+              <h2 id="fields-heading" className="text-xl font-semibold">
+                Label details
+              </h2>
+              <ReviewerValuesForm
+                key={version}
+                report={report}
+                saving={busy === 'saving'}
+                onHighlight={setHighlight}
+                onSave={(values) => void run('saving', () => saveReviewerValues(view.id, values))}
+              />
+            </section>
           </div>
         </div>
 
-        <section aria-labelledby="fields-heading" className="flex flex-col gap-3">
-          <h2 id="fields-heading" className="text-xl font-semibold">
-            Label details
-          </h2>
-          <ReviewerValuesForm
-            key={version}
-            report={report}
-            saving={busy === 'saving'}
-            onSave={(values) => void run('saving', () => saveReviewerValues(view.id, values))}
-          />
-        </section>
+
       </div>
 
       <ImageInspector open={zoomOpen} onOpenChange={setZoomOpen} imageUrl={view.imageUrl} alt={`Label photo: ${title}`} />
@@ -175,10 +180,18 @@ const RULE_TONE = {
   fail: 'bg-destructive/10 text-status-problem',
 } as const;
 
-function RuleItem({ rule }: { rule: RuleOutcome }) {
+function RuleItem({ rule, onHighlight }: { rule: RuleOutcome; onHighlight: OnHighlight }) {
   const Icon = RULE_ICON[rule.status];
   return (
-    <li className={cn('flex gap-3 rounded-lg px-4 py-3', rule.status !== 'pass' && RULE_TONE[rule.status])}>
+    <li
+      // Each rule id is the label field it checks.
+      {...highlightHandlers(rule.id as CorrectableField, onHighlight)}
+      tabIndex={0}
+      className={cn(
+        'flex gap-3 rounded-lg px-4 py-3 outline-none hover:ring-2 hover:ring-sky-500/60 focus-visible:ring-2 focus-visible:ring-sky-500',
+        rule.status !== 'pass' && RULE_TONE[rule.status],
+      )}
+    >
       <Icon aria-hidden className={cn('mt-0.5 size-5 shrink-0', RULE_TONE[rule.status])} />
       <div className="flex flex-col gap-0.5 text-foreground">
         <span className="text-base font-semibold">{rule.label}</span>
